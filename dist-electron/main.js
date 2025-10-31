@@ -25914,36 +25914,74 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
+async function grupoExiste(codigoGrupo) {
+  if (!codigoGrupo) return false;
+  const [rows] = await pool.query("SELECT CodigoGrupo FROM produto_grupo WHERE CodigoGrupo = ?", [codigoGrupo]);
+  return Array.isArray(rows) && rows.length > 0;
+}
+async function subgrupoExiste(codigoSubGrupo) {
+  if (!codigoSubGrupo) return false;
+  const [rows] = await pool.query("SELECT CodigoSubGrupo FROM produto_sub_grupo WHERE CodigoSubGrupo = ?", [codigoSubGrupo]);
+  return Array.isArray(rows) && rows.length > 0;
+}
+async function fabricanteExiste(codigoFabricante) {
+  if (!codigoFabricante) return false;
+  const [rows] = await pool.query("SELECT CodigoFabricante FROM produto_fabricante WHERE CodigoFabricante = ?", [codigoFabricante]);
+  return Array.isArray(rows) && rows.length > 0;
+}
 async function listarProdutos() {
   const [rows] = await pool.query("SELECT * FROM produto");
   return rows;
 }
 async function criarProduto(produto) {
-  const sql = `INSERT INTO produto 
-  (CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante, DataCadastro,
-   UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI, ReducaoIPI, PisCofinsCST, PisCofinsNatureza, 
-   PisCofinsCSTEntrada, CEST, CodigoBeneficio, EstoqueAtual)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-  await pool.execute(sql, [
-    produto.CodigoBarra ?? null,
-    produto.NomeProduto ?? null,
-    produto.CodigoGrupo ?? null,
-    produto.CodigoSubGrupo ?? null,
-    produto.CodigoFabricante ?? null,
-    produto.DataCadastro ?? null,
-    produto.UnidadeEmbalagem ?? null,
-    produto.FracaoVenda ?? null,
-    produto.NCM ?? null,
-    produto.Eliminado ?? null,
-    produto.IPI ?? null,
-    produto.ReducaoIPI ?? null,
-    produto.PisCofinsCST ?? null,
-    produto.PisCofinsNatureza ?? null,
-    produto.PisCofinsCSTEntrada ?? null,
-    produto.CEST ?? null,
-    produto.CodigoBeneficio ?? null,
-    produto.EstoqueAtual ?? 0
-  ]);
+  try {
+    console.log("🧾 Dados recebidos:", produto);
+    let codigoGrupoValido = null;
+    let codigoSubGrupoValido = null;
+    let codigoFabricanteValido = null;
+    if (await grupoExiste(produto.CodigoGrupo)) {
+      codigoGrupoValido = produto.CodigoGrupo;
+    }
+    if (await subgrupoExiste(produto.CodigoSubGrupo)) {
+      codigoSubGrupoValido = produto.CodigoSubGrupo;
+    }
+    if (await fabricanteExiste(produto.CodigoFabricante)) {
+      codigoFabricanteValido = produto.CodigoFabricante;
+    }
+    console.log("✅ Grupo:", codigoGrupoValido, "| ✅ SubGrupo:", codigoSubGrupoValido, "| ✅ Fabricante:", codigoFabricanteValido);
+    const sql = `
+      INSERT INTO produto (
+        CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante, DataCadastro,
+        UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI, ReducaoIPI,
+        PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada, CEST, CodigoBeneficio, EstoqueAtual
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    await pool.execute(sql, [
+      produto.CodigoBarra ?? null,
+      produto.NomeProduto ?? null,
+      codigoGrupoValido,
+      codigoSubGrupoValido,
+      codigoFabricanteValido,
+      produto.DataCadastro ?? /* @__PURE__ */ new Date(),
+      produto.UnidadeEmbalagem ?? null,
+      produto.FracaoVenda ?? 1,
+      produto.NCM ?? null,
+      produto.Eliminado ?? 0,
+      produto.IPI ?? 0,
+      produto.ReducaoIPI ?? 0,
+      produto.PisCofinsCST ?? null,
+      produto.PisCofinsNatureza ?? null,
+      produto.PisCofinsCSTEntrada ?? null,
+      produto.CEST ?? null,
+      produto.CodigoBeneficio ?? null,
+      produto.EstoqueAtual ?? 0
+    ]);
+    console.log("✅ Produto cadastrado com sucesso!");
+  } catch (error) {
+    console.error("❌ Erro ao criar produto:", error);
+    throw new Error(error.sqlMessage || "Erro ao cadastrar produto");
+  }
 }
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));

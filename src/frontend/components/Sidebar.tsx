@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 interface SidebarProps {
-  setPage: (page: 'dashboard' | 'clientes' | 'produtos' | 'financeiro' | 'ajustes') => void;
+  setPage: (page: 'dashboard' | 'clientes' | 'produtos' | 'financeiro' | 'ajustes' | 'cadastros') => void;
 }
 
 export default function Sidebar({ setPage }: SidebarProps) {
@@ -20,6 +20,7 @@ export default function Sidebar({ setPage }: SidebarProps) {
     { key: 'produtos', label: 'Produtos', icon: <Package size={18} /> },
     { key: 'financeiro', label: 'Financeiro', icon: <DollarSign size={18} /> },
     { key: 'ajustes', label: 'Ajustes', icon: <Settings size={18} /> },
+    { key: 'cadastros', label: 'Cadastros', icon: <Users size={18} /> },
   ];
 
   const handleClick = (page: string) => {
