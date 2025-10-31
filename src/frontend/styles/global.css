@@ -1,0 +1,25 @@
+:root {
+  --primary-blue: #4da6ff;  /* azul claro */
+  --secondary-gray: #f0f0f0; /* cinza claro */
+  --white: #ffffff;
+  --text-color: #333;
+}
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: #f5f7fa;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: var(--secondary-gray);
+  color: var(--text-color);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
