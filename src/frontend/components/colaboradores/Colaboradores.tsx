@@ -6,20 +6,39 @@ interface Cliente {
   email: string;
 }
 
-export default function Clientes() {
-  const [clientes, setClientes] = useState<Cliente[]>([]);
+interface ColaboradoresProps {
+  setPage: (page: string) => void;
+}
+
+export default function Colaboradores({ setPage }: ColaboradoresProps) {
+  const [colaboradores, setColaboradores] = useState<Cliente[]>([]);
 
   useEffect(() => {
     if (window.ipcRenderer) {
-      window.ipcRenderer.invoke('get-clientes').then((data: Cliente[]) => setClientes(data));
+      window.ipcRenderer.invoke('get-clientes').then((data: Cliente[]) => setColaboradores(data));
     } else {
-      setClientes([{ id: 1, nome: 'Cliente Exemplo', email: 'cliente@exemplo.com' }]);
+      setColaboradores([{ id: 1, nome: 'Cliente Exemplo', email: 'cliente@exemplo.com' }]);
     }
   }, []);
 
   return (
-    <div>
-      <h1>Clientes</h1>
+    <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
+      <button
+        onClick={() => setPage('cadastros')}
+        style={{
+          backgroundColor: '#e5e7eb',
+          color: '#1e3a8a',
+          border: 'none',
+          borderRadius: '6px',
+          padding: '8px 16px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          marginBottom: '20px',
+        }}
+      >
+        ← Voltar
+      </button>
+      <h1>Colaboradores</h1>
       <table
         style={{
           width: '100%',
@@ -37,7 +56,7 @@ export default function Clientes() {
           </tr>
         </thead>
         <tbody>
-          {clientes.map((c) => (
+          {colaboradores.map((c) => (
             <tr key={c.id}>
               <td style={tdStyle}>{c.id}</td>
               <td style={tdStyle}>{c.nome}</td>

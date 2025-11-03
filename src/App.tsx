@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Sidebar from './frontend/components/Sidebar';
 import Dashboard from './frontend/components/Dashboard';
-import Clientes from './frontend/components/Clientes';
+import Clientes from './frontend/components/clientes/Clientes';
 import Produtos from './frontend/components/Produtos';
 import Financeiro from './frontend/components/Financeiro';
 import Ajustes from './frontend/components/Ajustes';

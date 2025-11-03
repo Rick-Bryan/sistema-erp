@@ -68,8 +68,8 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
             <div style={formContainer}>
                 {Object.keys({
                     CodigoBarra: '',
-                    NomeProduto: '',
-                    EstoqueAtual: '', // ✅ Campo adicionado
+                    Nome: '',
+                    Estoque: '', // ✅ Campo adicionado
                     CodigoGrupo: '',
                     CodigoSubGrupo: '',
                     CodigoFabricante: '',

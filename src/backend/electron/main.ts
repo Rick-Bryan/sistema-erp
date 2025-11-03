@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 
 import { listarProdutos, criarProduto } from '../db/produtos';
+import { listarFabricantes,criarFabricante} from '../db/fabricantes'
 
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -47,6 +48,7 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow()
 })
+//Cadastro de produtos
 ipcMain.handle('get-produtos', async () => {
   try {
     console.log("📡 Requisição recebida: get-produtos"); // debug
@@ -66,7 +68,17 @@ ipcMain.handle('add-produto', async (_, produto) => {
   const produtos = await listarProdutos();
   return produtos;
 });
+//Cadastro de fabricantes
+// Listar fabricantes
+ipcMain.handle('get-fabricantes', async () => {
+  return await listarFabricantes();
+});
 
+// Handler para salvar um fabricante
+ipcMain.handle('salvar-fabricante', async (_event, fabricante: Fabricante) => {
+  await criarFabricante(fabricante);
+  return true;
+});
 app.whenReady().then(createWindow)
 
 // Exemplo de comunicação entre processos

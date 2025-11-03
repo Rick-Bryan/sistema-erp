@@ -22,5 +22,7 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
 });
 electron.contextBridge.exposeInMainWorld("electronAPI", {
   getProdutos: () => electron.ipcRenderer.invoke("get-produtos"),
-  addProduto: (produto) => electron.ipcRenderer.invoke("add-produto", produto)
+  addProduto: (produto) => electron.ipcRenderer.invoke("add-produto", produto),
+  getFabricantes: () => electron.ipcRenderer.invoke("get-fabricantes"),
+  salvarFabricante: (fabricante) => electron.ipcRenderer.invoke("salvar-fabricante", fabricante)
 });

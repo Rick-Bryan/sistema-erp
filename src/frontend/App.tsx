@@ -1,26 +1,31 @@
 import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
-import Clientes from './components/Clientes';
+import Clientes from './components/clientes/Clientes';
 import Produtos from './components/Produtos';
 import ProdutoDetalhes from './components/ProdutoDetalhes';
 import Financeiro from './components/Financeiro';
 import Ajustes from './components/Ajustes';
 import CadastrosPage from './pages/cadastros/CadastrosPage';
-
+import Fabricantes from './components/fabricantes/Fabricantes';
+import Colaboradores from './components/colaboradores/Colaboradores';
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
   const renderPage = () => {
     switch (page) {
       case 'dashboard': return <Dashboard />;
-      case 'clientes': return <Clientes />;
+      case 'clientes': return <Clientes setPage={setPage}/>;
       case 'produtos':
         return <Produtos setPage={setPage} setProdutoSelecionado={setProdutoSelecionado} />;
       case 'produto-detalhes':
         return <ProdutoDetalhes produtoSelecionado={produtoSelecionado} voltar={() => setPage('produtos')} />;
       case 'financeiro': return <Financeiro />;
       case 'ajustes': return <Ajustes />;
+      case 'colaboradores': return <Colaboradores setPage={setPage}/>
+      case 'fabricantes':
+        return <Fabricantes setPage={setPage} />;
+
       case 'cadastros':
         return <CadastrosPage setPage={setPage} />;
 

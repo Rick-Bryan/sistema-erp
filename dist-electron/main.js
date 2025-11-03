@@ -25983,6 +25983,22 @@ async function criarProduto(produto) {
     throw new Error(error.sqlMessage || "Erro ao cadastrar produto");
   }
 }
+async function listarFabricantes() {
+  const [rows] = await pool.query("SELECT * FROM produto_fabricante ORDER BY CodigoFabricante");
+  return rows;
+}
+async function criarFabricante(fabricante) {
+  const sql = `
+        INSERT INTO produto_fabricante (NomeFabricante, Ativo)
+        VALUES (?,?)
+    `;
+  await pool.execute(sql, [
+    fabricante.NomeFabricante ?? null,
+    // substitui undefined por null
+    fabricante.Ativo != null ? fabricante.Ativo : 0
+    // ou null, se quiser
+  ]);
+}
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.join(__dirname, "..", "..", "..");
@@ -26030,6 +26046,13 @@ ipcMain.handle("add-produto", async (_, produto) => {
   await criarProduto(produto);
   const produtos = await listarProdutos();
   return produtos;
+});
+ipcMain.handle("get-fabricantes", async () => {
+  return await listarFabricantes();
+});
+ipcMain.handle("salvar-fabricante", async (_event, fabricante) => {
+  await criarFabricante(fabricante);
+  return true;
 });
 app.whenReady().then(createWindow);
 ipcMain.handle("get-clientes", async () => {

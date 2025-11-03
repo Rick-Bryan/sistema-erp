@@ -1,51 +1,52 @@
+// src/components/fabricantes/Fabricantes.tsx
 import React, { useState, useEffect } from 'react';
-import ProdutoDetalhes from './ProdutoDetalhes';
-import ProdutoCadastro from './ProdutoCadastro';
+import FabricanteCadastro from './FabricanteCadastro';
+import FabricanteDetalhes from './FabricanteDetalhes';
 
 declare global {
   interface Window {
     electronAPI: {
-      getProdutos: () => Promise<any[]>;
+      getFabricantes: () => Promise<any[]>;
     };
   }
 }
 
-interface ProdutosProps {
+interface FabricantesProps {
   setPage: (page: string) => void;
 }
 
-export default function Produtos({ setPage }: ProdutosProps) {
-  const [produtos, setProdutos] = useState<any[]>([]);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<any | null>(null);
+export default function Fabricantes({ setPage }: FabricantesProps) {
+  const [fabricantes, setFabricantes] = useState<any[]>([]);
+  const [fabricanteSelecionado, setFabricanteSelecionado] = useState<any | null>(null);
   const [modoCadastro, setModoCadastro] = useState(false);
 
-  const carregarProdutos = async () => {
-    const lista = await window.electronAPI.getProdutos();
-    setProdutos(lista);
+  const carregarFabricantes = async () => {
+    const lista = await window.electronAPI.getFabricantes();
+    setFabricantes(lista);
   };
 
   useEffect(() => {
-    carregarProdutos();
+    carregarFabricantes();
   }, []);
 
   if (modoCadastro) {
     return (
-      <ProdutoCadastro
+      <FabricanteCadastro
         voltar={() => {
           setModoCadastro(false);
-          carregarProdutos();
+          carregarFabricantes();
         }}
       />
     );
   }
 
-  if (produtoSelecionado) {
+  if (fabricanteSelecionado) {
     return (
-      <ProdutoDetalhes
-        produtoSelecionado={produtoSelecionado}
+      <FabricanteDetalhes
+        fabricanteSelecionado={fabricanteSelecionado}
         voltar={() => {
-          setProdutoSelecionado(null);
-          carregarProdutos();
+          setFabricanteSelecionado(null);
+          carregarFabricantes();
         }}
       />
     );
@@ -79,7 +80,7 @@ export default function Produtos({ setPage }: ProdutosProps) {
           marginBottom: '20px',
         }}
       >
-        <h2 style={{ color: '#1e3a8a' }}>Produtos</h2>
+        <h2 style={{ color: '#1e3a8a' }}>Fabricantes</h2>
         <button
           onClick={() => setModoCadastro(true)}
           style={{
@@ -92,7 +93,7 @@ export default function Produtos({ setPage }: ProdutosProps) {
             cursor: 'pointer',
           }}
         >
-          ＋ Novo Produto
+          ＋ Novo Fabricante
         </button>
       </div>
 
@@ -110,21 +111,19 @@ export default function Produtos({ setPage }: ProdutosProps) {
             <tr style={{ backgroundColor: '#e5e7eb', color: '#1e3a8a', textAlign: 'left' }}>
               <th style={thStyle}>Código</th>
               <th style={thStyle}>Nome</th>
-              <th style={thStyle}>Código de Barra</th>
-              <th style={thStyle}>Grupo</th>
+              <th style={thStyle}>Ativo</th>
               <th style={thStyle}>Ações</th>
             </tr>
           </thead>
           <tbody>
-            {produtos.map((p) => (
-              <tr key={p.CodigoProduto} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                <td style={tdStyle}>{p.CodigoProduto}</td>
-                <td style={tdStyle}>{p.NomeProduto}</td>
-                <td style={tdStyle}>{p.CodigoBarra}</td>
-                <td style={tdStyle}>{p.CodigoGrupo}</td>
+            {fabricantes.map((f) => (
+              <tr key={f.CodigoFabricante} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <td style={tdStyle}>{f.CodigoFabricante}</td>
+                <td style={tdStyle}>{f.NomeFabricante}</td>
+                <td style={tdStyle}>{f.Ativo ? 'Sim' : 'Não'}</td>
                 <td style={tdStyle}>
                   <button
-                    onClick={() => setProdutoSelecionado(p)}
+                    onClick={() => setFabricanteSelecionado(f)}
                     style={{
                       backgroundColor: '#1e3a8a',
                       color: '#fff',
@@ -146,11 +145,5 @@ export default function Produtos({ setPage }: ProdutosProps) {
   );
 }
 
-const thStyle: React.CSSProperties = {
-  padding: '10px',
-  fontWeight: 600,
-};
-
-const tdStyle: React.CSSProperties = {
-  padding: '10px',
-};
+const thStyle: React.CSSProperties = { padding: '10px', fontWeight: 600 };
+const tdStyle: React.CSSProperties = { padding: '10px' };
