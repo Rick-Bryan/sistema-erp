@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-
+import toast from 'react-hot-toast';
 declare global {
     interface Window {
         electronAPI: {
@@ -53,11 +53,11 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
     const handleSalvar = async () => {
         try {
             await window.electronAPI.addProduto(produto);
-            alert('✅ Produto cadastrado com sucesso!');
+            toast.success('✅ Produto cadastrado com sucesso!');
             voltar();
         } catch (err) {
             console.error(err);
-            alert('❌ Erro ao cadastrar produto.');
+            toast.error('❌ Erro ao cadastrar produto.');
         }
     };
 
@@ -68,8 +68,8 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
             <div style={formContainer}>
                 {Object.keys({
                     CodigoBarra: '',
-                    Nome: '',
-                    Estoque: '', // ✅ Campo adicionado
+                    NomeProduto: '',
+                    EstoqueAtual: '', // ✅ Campo adicionado
                     CodigoGrupo: '',
                     CodigoSubGrupo: '',
                     CodigoFabricante: '',

@@ -23,6 +23,8 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
 electron.contextBridge.exposeInMainWorld("electronAPI", {
   getProdutos: () => electron.ipcRenderer.invoke("get-produtos"),
   addProduto: (produto) => electron.ipcRenderer.invoke("add-produto", produto),
+  salvarProduto: (produto) => electron.ipcRenderer.invoke("salvar-produto", produto),
   getFabricantes: () => electron.ipcRenderer.invoke("get-fabricantes"),
-  salvarFabricante: (fabricante) => electron.ipcRenderer.invoke("salvar-fabricante", fabricante)
+  salvarFabricante: (fabricante) => electron.ipcRenderer.invoke("salvar-fabricante", fabricante),
+  buscar: (canal, termo) => electron.ipcRenderer.invoke(canal, termo)
 });

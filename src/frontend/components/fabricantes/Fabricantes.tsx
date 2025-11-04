@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import FabricanteCadastro from './FabricanteCadastro';
 import FabricanteDetalhes from './FabricanteDetalhes';
+import SearchBar from "../../components/ui/SearchBar";
 
 declare global {
   interface Window {
@@ -80,6 +81,8 @@ export default function Fabricantes({ setPage }: FabricantesProps) {
           marginBottom: '20px',
         }}
       >
+
+        
         <h2 style={{ color: '#1e3a8a' }}>Fabricantes</h2>
         <button
           onClick={() => setModoCadastro(true)}
@@ -106,6 +109,11 @@ export default function Fabricantes({ setPage }: FabricantesProps) {
           padding: '20px',
         }}
       >
+        <SearchBar
+          canal="buscar-fabricantes"
+          placeholder="Pesquisar produto por nome ou código de barras..."
+          onResults={setFabricantes}
+        />
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#e5e7eb', color: '#1e3a8a', textAlign: 'left' }}>
@@ -120,7 +128,7 @@ export default function Fabricantes({ setPage }: FabricantesProps) {
               <tr key={f.CodigoFabricante} style={{ borderBottom: '1px solid #e5e7eb' }}>
                 <td style={tdStyle}>{f.CodigoFabricante}</td>
                 <td style={tdStyle}>{f.NomeFabricante}</td>
-                <td style={tdStyle}>{f.Ativo ? 'Sim' : 'Não'}</td>
+                <td style={tdStyle}>{f.Ativo == 1 ? 'Sim' : 'Não'}</td>
                 <td style={tdStyle}>
                   <button
                     onClick={() => setFabricanteSelecionado(f)}

@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-
+import toast from 'react-hot-toast';
 declare global {
   interface Window {
     electronAPI: {
-      updateProduto: (produto: any) => Promise<void>;
+      salvarProduto: (produto: any) => Promise<void>;
     };
   }
 }
@@ -44,12 +44,12 @@ export default function ProdutoDetalhes({ produtoSelecionado, voltar }: Props) {
 
   const handleSalvar = async () => {
     try {
-      await window.electronAPI.updateProduto(produto);
-      alert('Produto atualizado com sucesso!');
+      await window.electronAPI.salvarProduto(produto);
+      toast.success('Produto atualizado com sucesso!');
       voltar();
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar o produto.');
+      toast.error('Erro ao salvar o produto.');
     }
   };
 

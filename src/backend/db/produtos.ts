@@ -110,3 +110,91 @@ export async function criarProduto(produto: Produto) {
     throw new Error(error.sqlMessage || "Erro ao cadastrar produto");
   }
 }
+export async function salvarProduto(produto: Produto) {
+  try {
+    if (produto.CodigoProduto) {
+      // 🧾 UPDATE - Produto já existe
+      const sql = `
+        UPDATE produto SET
+          CodigoBarra = ?,
+          NomeProduto = ?,
+          CodigoGrupo = ?,
+          CodigoSubGrupo = ?,
+          CodigoFabricante = ?,
+          UnidadeEmbalagem = ?,
+          FracaoVenda = ?,
+          NCM = ?,
+          Eliminado = ?,
+          IPI = ?,
+          ReducaoIPI = ?,
+          PisCofinsCST = ?,
+          PisCofinsNatureza = ?,
+          PisCofinsCSTEntrada = ?,
+          CEST = ?,
+          CodigoBeneficio = ?,
+          EstoqueAtual = ?
+        WHERE CodigoProduto = ?
+      `;
+
+      await pool.execute(sql, [
+        produto.CodigoBarra ?? null,
+        produto.NomeProduto ?? null,
+        produto.CodigoGrupo ?? null,
+        produto.CodigoSubGrupo ?? null,
+        produto.CodigoFabricante ?? null,
+        produto.UnidadeEmbalagem ?? null,
+        produto.FracaoVenda ?? 1,
+        produto.NCM ?? null,
+        produto.Eliminado ?? 0,
+        produto.IPI ?? 0,
+        produto.ReducaoIPI ?? 0,
+        produto.PisCofinsCST ?? null,
+        produto.PisCofinsNatureza ?? null,
+        produto.PisCofinsCSTEntrada ?? null,
+        produto.CEST ?? null,
+        produto.CodigoBeneficio ?? null,
+        produto.EstoqueAtual ?? 0,
+        produto.CodigoProduto
+      ]);
+
+      console.log("✅ Produto atualizado com sucesso!");
+    } else {
+      // 🧩 INSERT - Novo produto
+      const sql = `
+        INSERT INTO produto (
+          CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante,
+          DataCadastro, UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI,
+          ReducaoIPI, PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada,
+          CEST, CodigoBeneficio, EstoqueAtual
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+
+      await pool.execute(sql, [
+        produto.CodigoBarra ?? null,
+        produto.NomeProduto ?? null,
+        produto.CodigoGrupo ?? null,
+        produto.CodigoSubGrupo ?? null,
+        produto.CodigoFabricante ?? null,
+        new Date(),
+        produto.UnidadeEmbalagem ?? null,
+        produto.FracaoVenda ?? 1,
+        produto.NCM ?? null,
+        produto.Eliminado ?? 0,
+        produto.IPI ?? 0,
+        produto.ReducaoIPI ?? 0,
+        produto.PisCofinsCST ?? null,
+        produto.PisCofinsNatureza ?? null,
+        produto.PisCofinsCSTEntrada ?? null,
+        produto.CEST ?? null,
+        produto.CodigoBeneficio ?? null,
+        produto.EstoqueAtual ?? 0
+      ]);
+
+      console.log("✅ Produto criado com sucesso!");
+    }
+  } catch (error: any) {
+    console.error("❌ Erro ao salvar produto:", error);
+    throw new Error(error.sqlMessage || "Erro ao salvar produto");
+  }
+}

@@ -1,6 +1,6 @@
 // src/components/fabricantes/FabricanteDetalhes.tsx
 import React, { useState } from 'react';
-
+import toast from 'react-hot-toast';
 interface FabricanteDetalhesProps {
   fabricanteSelecionado: any;
   voltar: () => void;
@@ -8,12 +8,12 @@ interface FabricanteDetalhesProps {
 
 export default function FabricanteDetalhes({ fabricanteSelecionado, voltar }: FabricanteDetalhesProps) {
   const [nome, setNome] = useState(fabricanteSelecionado.NomeFabricante || '');
-  const [ativo, setAtivo] = useState(fabricanteSelecionado.Ativo ?? true);
+  const [ativo, setAtivo] = useState(fabricanteSelecionado.Ativo);
   const [salvando, setSalvando] = useState(false);
 
   const salvar = async () => {
     if (!nome.trim()) {
-      alert('O nome do fabricante é obrigatório.');
+      toast.error('O nome do fabricante é obrigatório.');
       return;
     }
 
@@ -24,11 +24,11 @@ export default function FabricanteDetalhes({ fabricanteSelecionado, voltar }: Fa
         NomeFabricante: nome,
         Ativo: ativo ? 1 : 0,
       });
-      alert('Fabricante atualizado com sucesso!');
+      toast.success('Fabricante atualizado com sucesso!');
       voltar(); // volta para a lista de fabricantes
     } catch (err) {
       console.error(err);
-      alert('Erro ao salvar o fabricante.');
+      toast.error('Erro ao salvar o fabricante.');
     } finally {
       setSalvando(false);
     }

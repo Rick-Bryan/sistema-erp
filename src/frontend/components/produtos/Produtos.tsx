@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ProdutoDetalhes from './ProdutoDetalhes';
 import ProdutoCadastro from './ProdutoCadastro';
-
+import SearchBar from "../../components/ui/SearchBar";
 declare global {
   interface Window {
     electronAPI: {
@@ -105,6 +105,11 @@ export default function Produtos({ setPage }: ProdutosProps) {
           padding: '20px',
         }}
       >
+         <SearchBar
+        canal="buscar-produtos"
+        placeholder="Pesquisar produto por nome ou código de barras..."
+        onResults={setProdutos}
+      />
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#e5e7eb', color: '#1e3a8a', textAlign: 'left' }}>

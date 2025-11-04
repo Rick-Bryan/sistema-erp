@@ -2,13 +2,14 @@ import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Clientes from './components/clientes/Clientes';
-import Produtos from './components/Produtos';
-import ProdutoDetalhes from './components/ProdutoDetalhes';
+import Produtos from './components/Produtos/Produtos';
+import ProdutoDetalhes from './components/produtos/ProdutoDetalhes';
 import Financeiro from './components/Financeiro';
 import Ajustes from './components/Ajustes';
 import CadastrosPage from './pages/cadastros/CadastrosPage';
 import Fabricantes from './components/fabricantes/Fabricantes';
 import Colaboradores from './components/colaboradores/Colaboradores';
+import { Toaster } from 'react-hot-toast';
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
@@ -34,6 +35,7 @@ export default function App() {
   };
 
   return (
+    
     <div
       style={{
         display: 'flex',
@@ -42,6 +44,7 @@ export default function App() {
         backgroundColor: '#f5f7fa',
       }}
     >
+       <Toaster position="top-right" />
       <Sidebar setPage={setPage} />
       <main
         style={{

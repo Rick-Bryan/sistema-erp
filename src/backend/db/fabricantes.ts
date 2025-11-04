@@ -22,3 +22,28 @@ export async function criarFabricante(fabricante: Fabricante) {
     ]);
 
 }
+export async function salvarFabricante(fabricante: Fabricante) {
+  if (fabricante.CodigoFabricante) {
+    // Se tiver Código, faz UPDATE
+    const sql = `
+      UPDATE produto_fabricante
+      SET NomeFabricante = ?, Ativo = ?
+      WHERE CodigoFabricante = ?
+    `;
+    await pool.execute(sql, [
+      fabricante.NomeFabricante,
+      fabricante.Ativo ? 1 : 0,
+      fabricante.CodigoFabricante
+    ]);
+  } else {
+    // Caso contrário, faz INSERT (novo)
+    const sql = `
+      INSERT INTO produto_fabricante (NomeFabricante, Ativo)
+      VALUES (?, ?)
+    `;
+    await pool.execute(sql, [
+      fabricante.NomeFabricante,
+      fabricante.Ativo ? 1 : 0
+    ]);
+  }
+}

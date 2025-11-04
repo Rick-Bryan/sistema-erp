@@ -1,6 +1,6 @@
 // src/components/fabricantes/FabricanteCadastro.tsx
 import React, { useState } from 'react';
-
+import toast from 'react-hot-toast';
 declare global {
     interface Window {
         electronAPI: {
@@ -15,11 +15,11 @@ interface FabricanteCadastroProps {
 
 export default function FabricanteCadastro({ voltar }: FabricanteCadastroProps) {
     const [nome, setNome] = useState('');
-    const [ativo, setAtivo] = useState(true);
+    const [ativo, setAtivo] = useState(false);
 
     const salvar = async () => {
         if (!nome.trim()) {
-            alert('O nome do fabricante é obrigatório!');
+           toast.error("O nome do fabricante é obrigatorio");
             return;
         }
 
@@ -32,6 +32,7 @@ export default function FabricanteCadastro({ voltar }: FabricanteCadastroProps) 
             await window.electronAPI.salvarFabricante(fabricante);
             voltar();
         } catch (error) {
+            toast.error('Erro ao salvar fabricante:')
             console.error('Erro ao salvar fabricante:', error);
         }
     };

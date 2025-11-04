@@ -18305,21 +18305,27 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-field_flags.NOT_NULL = 1;
-field_flags.PRI_KEY = 2;
-field_flags.UNIQUE_KEY = 4;
-field_flags.MULTIPLE_KEY = 8;
-field_flags.BLOB = 16;
-field_flags.UNSIGNED = 32;
-field_flags.ZEROFILL = 64;
-field_flags.BINARY = 128;
-field_flags.ENUM = 256;
-field_flags.AUTO_INCREMENT = 512;
-field_flags.TIMESTAMP = 1024;
-field_flags.SET = 2048;
-field_flags.NO_DEFAULT_VALUE = 4096;
-field_flags.ON_UPDATE_NOW = 8192;
-field_flags.NUM = 32768;
+var hasRequiredField_flags;
+function requireField_flags() {
+  if (hasRequiredField_flags) return field_flags;
+  hasRequiredField_flags = 1;
+  field_flags.NOT_NULL = 1;
+  field_flags.PRI_KEY = 2;
+  field_flags.UNIQUE_KEY = 4;
+  field_flags.MULTIPLE_KEY = 8;
+  field_flags.BLOB = 16;
+  field_flags.UNSIGNED = 32;
+  field_flags.ZEROFILL = 64;
+  field_flags.BINARY = 128;
+  field_flags.ENUM = 256;
+  field_flags.AUTO_INCREMENT = 512;
+  field_flags.TIMESTAMP = 1024;
+  field_flags.SET = 2048;
+  field_flags.NO_DEFAULT_VALUE = 4096;
+  field_flags.ON_UPDATE_NOW = 8192;
+  field_flags.NUM = 32768;
+  return field_flags;
+}
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -18383,7 +18389,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = field_flags;
+    const fiedFlags = requireField_flags();
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -21439,7 +21445,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = field_flags;
+const FieldFlags$1 = requireField_flags();
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -21628,7 +21634,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = field_flags;
+const FieldFlags = requireField_flags();
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -25983,6 +25989,88 @@ async function criarProduto(produto) {
     throw new Error(error.sqlMessage || "Erro ao cadastrar produto");
   }
 }
+async function salvarProduto(produto) {
+  try {
+    if (produto.CodigoProduto) {
+      const sql = `
+        UPDATE produto SET
+          CodigoBarra = ?,
+          NomeProduto = ?,
+          CodigoGrupo = ?,
+          CodigoSubGrupo = ?,
+          CodigoFabricante = ?,
+          UnidadeEmbalagem = ?,
+          FracaoVenda = ?,
+          NCM = ?,
+          Eliminado = ?,
+          IPI = ?,
+          ReducaoIPI = ?,
+          PisCofinsCST = ?,
+          PisCofinsNatureza = ?,
+          PisCofinsCSTEntrada = ?,
+          CEST = ?,
+          CodigoBeneficio = ?,
+          EstoqueAtual = ?
+        WHERE CodigoProduto = ?
+      `;
+      await pool.execute(sql, [
+        produto.CodigoBarra ?? null,
+        produto.NomeProduto ?? null,
+        produto.CodigoGrupo ?? null,
+        produto.CodigoSubGrupo ?? null,
+        produto.CodigoFabricante ?? null,
+        produto.UnidadeEmbalagem ?? null,
+        produto.FracaoVenda ?? 1,
+        produto.NCM ?? null,
+        produto.Eliminado ?? 0,
+        produto.IPI ?? 0,
+        produto.ReducaoIPI ?? 0,
+        produto.PisCofinsCST ?? null,
+        produto.PisCofinsNatureza ?? null,
+        produto.PisCofinsCSTEntrada ?? null,
+        produto.CEST ?? null,
+        produto.CodigoBeneficio ?? null,
+        produto.EstoqueAtual ?? 0,
+        produto.CodigoProduto
+      ]);
+      console.log("✅ Produto atualizado com sucesso!");
+    } else {
+      const sql = `
+        INSERT INTO produto (
+          CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante,
+          DataCadastro, UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI,
+          ReducaoIPI, PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada,
+          CEST, CodigoBeneficio, EstoqueAtual
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `;
+      await pool.execute(sql, [
+        produto.CodigoBarra ?? null,
+        produto.NomeProduto ?? null,
+        produto.CodigoGrupo ?? null,
+        produto.CodigoSubGrupo ?? null,
+        produto.CodigoFabricante ?? null,
+        /* @__PURE__ */ new Date(),
+        produto.UnidadeEmbalagem ?? null,
+        produto.FracaoVenda ?? 1,
+        produto.NCM ?? null,
+        produto.Eliminado ?? 0,
+        produto.IPI ?? 0,
+        produto.ReducaoIPI ?? 0,
+        produto.PisCofinsCST ?? null,
+        produto.PisCofinsNatureza ?? null,
+        produto.PisCofinsCSTEntrada ?? null,
+        produto.CEST ?? null,
+        produto.CodigoBeneficio ?? null,
+        produto.EstoqueAtual ?? 0
+      ]);
+      console.log("✅ Produto criado com sucesso!");
+    }
+  } catch (error) {
+    console.error("❌ Erro ao salvar produto:", error);
+    throw new Error(error.sqlMessage || "Erro ao salvar produto");
+  }
+}
 async function listarFabricantes() {
   const [rows] = await pool.query("SELECT * FROM produto_fabricante ORDER BY CodigoFabricante");
   return rows;
@@ -25998,6 +26086,29 @@ async function criarFabricante(fabricante) {
     fabricante.Ativo != null ? fabricante.Ativo : 0
     // ou null, se quiser
   ]);
+}
+async function salvarFabricante(fabricante) {
+  if (fabricante.CodigoFabricante) {
+    const sql = `
+      UPDATE produto_fabricante
+      SET NomeFabricante = ?, Ativo = ?
+      WHERE CodigoFabricante = ?
+    `;
+    await pool.execute(sql, [
+      fabricante.NomeFabricante,
+      fabricante.Ativo ? 1 : 0,
+      fabricante.CodigoFabricante
+    ]);
+  } else {
+    const sql = `
+      INSERT INTO produto_fabricante (NomeFabricante, Ativo)
+      VALUES (?, ?)
+    `;
+    await pool.execute(sql, [
+      fabricante.NomeFabricante,
+      fabricante.Ativo ? 1 : 0
+    ]);
+  }
 }
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26047,17 +26158,57 @@ ipcMain.handle("add-produto", async (_, produto) => {
   const produtos = await listarProdutos();
   return produtos;
 });
+ipcMain.handle("salvar-produto", async (_, produto) => {
+  console.log("📩 salvando produto:", produto);
+  await salvarProduto(produto);
+  const produtos = await listarProdutos();
+  return produtos;
+});
 ipcMain.handle("get-fabricantes", async () => {
   return await listarFabricantes();
 });
 ipcMain.handle("salvar-fabricante", async (_event, fabricante) => {
+  await salvarFabricante(fabricante);
+  return true;
+});
+ipcMain.handle("criar-fabricante", async (_event, fabricante) => {
   await criarFabricante(fabricante);
   return true;
 });
-app.whenReady().then(createWindow);
-ipcMain.handle("get-clientes", async () => {
-  return [
-    { id: 1, nome: "Rick Bryan", email: "rick@empresa.com" },
-    { id: 2, nome: "Maria Silva", email: "maria@empresa.com" }
-  ];
+ipcMain.handle("get-colaboradores", async () => {
+  return await listarColaboradores();
 });
+ipcMain.handle("salvar-colaborador", async (_event, colaborador) => {
+  await criarColaborador(colaborador);
+  return true;
+});
+ipcMain.handle("get-clientes", async () => {
+  return await listarClientes();
+});
+ipcMain.handle("buscar-produtos", async (event, termo) => {
+  let sql = "SELECT * FROM produto";
+  let params = [];
+  if (termo && termo !== "*" && termo.trim() !== "") {
+    sql += " WHERE NomeProduto LIKE ? OR CodigoBarra LIKE ?";
+    params = [`%${termo}%`, `%${termo}%`];
+  }
+  sql += " ORDER BY NomeProduto LIMIT 100";
+  const [rows] = await pool.query(sql, params);
+  return rows;
+});
+ipcMain.handle("buscar-fabricantes", async (event, termo) => {
+  let sql = "SELECT * FROM produto_fabricante";
+  let params = [];
+  if (termo && termo !== "*" && termo.trim() !== "") {
+    sql += " WHERE NomeFabricante LIKE ? ";
+    params = [`%${termo}%`, `%${termo}%`];
+  }
+  sql += " ORDER BY CodigoFabricante LIMIT 100";
+  const [rows] = await pool.query(sql, params);
+  return rows;
+});
+ipcMain.handle("salvar-cliente", async (_event, cliente) => {
+  await criarCliente(cliente);
+  return true;
+});
+app.whenReady().then(createWindow);

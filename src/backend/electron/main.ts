@@ -2,10 +2,12 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-
-import { listarProdutos, criarProduto } from '../db/produtos';
-import { listarFabricantes,criarFabricante} from '../db/fabricantes'
-
+import pool from "../db/connection"; // sua conexão MySQL
+import { listarProdutos, criarProduto, salvarProduto } from '../db/produtos';
+import { listarFabricantes, criarFabricante, salvarFabricante } from '../db/fabricantes'
+//Falta fazer
+//import { listarColaboradores,criarColaborador} from '../db/colaboradores'
+//import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -68,6 +70,12 @@ ipcMain.handle('add-produto', async (_, produto) => {
   const produtos = await listarProdutos();
   return produtos;
 });
+ipcMain.handle('salvar-produto', async (_, produto) => {
+  console.log("📩 salvando produto:", produto); // debug
+  await salvarProduto(produto);
+  const produtos = await listarProdutos();
+  return produtos;
+});
 //Cadastro de fabricantes
 // Listar fabricantes
 ipcMain.handle('get-fabricantes', async () => {
@@ -76,15 +84,64 @@ ipcMain.handle('get-fabricantes', async () => {
 
 // Handler para salvar um fabricante
 ipcMain.handle('salvar-fabricante', async (_event, fabricante: Fabricante) => {
+  await salvarFabricante(fabricante);
+  return true;
+});
+ipcMain.handle('criar-fabricante', async (_event, fabricante: Fabricante) => {
   await criarFabricante(fabricante);
+  return true;
+});
+//Cadastro de colaboradores
+ipcMain.handle('get-colaboradores', async () => {
+  return await listarColaboradores();
+});
+
+// Handler para salvar um colaborador
+ipcMain.handle('salvar-colaborador', async (_event, colaborador: Colaborador) => {
+  await criarColaborador(colaborador);
+  return true;
+});
+//Cadastro de Clientes
+ipcMain.handle('get-clientes', async () => {
+  return await listarClientes();
+});
+//Pesquisa
+ipcMain.handle("buscar-produtos", async (event, termo) => {
+  let sql = "SELECT * FROM produto";
+  let params = [];
+
+  // 🔎 Só adiciona o filtro se tiver texto real
+  if (termo && termo !== "*" && termo.trim() !== "") {
+    sql += " WHERE NomeProduto LIKE ? OR CodigoBarra LIKE ?";
+    params = [`%${termo}%`, `%${termo}%`];
+  }
+
+  sql += " ORDER BY NomeProduto LIMIT 100"; // evita travar o app com muitos registros
+
+  const [rows] = await pool.query(sql, params);
+  return rows;
+});
+ipcMain.handle("buscar-fabricantes", async (event, termo) => {
+  let sql = "SELECT * FROM produto_fabricante";
+  let params = [];
+
+  // 🔎 Só adiciona o filtro se tiver texto real
+  if (termo && termo !== "*" && termo.trim() !== "") {
+    sql += " WHERE NomeFabricante LIKE ? ";
+    params = [`%${termo}%`, `%${termo}%`];
+  }
+
+  sql += " ORDER BY CodigoFabricante LIMIT 100"; // evita travar o app com muitos registros
+
+  const [rows] = await pool.query(sql, params);
+  return rows;
+});
+
+// Handler para salvar um colaborador
+ipcMain.handle('salvar-cliente', async (_event, cliente: Cliente) => {
+  await criarCliente(cliente);
   return true;
 });
 app.whenReady().then(createWindow)
 
 // Exemplo de comunicação entre processos
-ipcMain.handle('get-clientes', async () => {
-  return [
-    { id: 1, nome: 'Rick Bryan', email: 'rick@empresa.com' },
-    { id: 2, nome: 'Maria Silva', email: 'maria@empresa.com' }
-  ]
-})
