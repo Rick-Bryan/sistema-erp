@@ -29,4 +29,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getFabricantes: () => ipcRenderer.invoke('get-fabricantes'),
   salvarFabricante: (fabricante) => ipcRenderer.invoke('salvar-fabricante', fabricante),
   buscar: (canal: string, termo: string) => ipcRenderer.invoke(canal, termo),
+  login: (dados) => ipcRenderer.invoke("login", dados),
 });

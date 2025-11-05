@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 
 interface SidebarProps {
-  setPage: (page: 'dashboard' | 'clientes' | 'financeiro' | 'ajustes' | 'cadastros') => void;
+  setPage: (page: 'dashboard' | 'clientes' | 'movimentacao' | 'manutencao' | 'cadastros') => void;
 }
 
 export default function Sidebar({ setPage }: SidebarProps) {
@@ -16,9 +16,9 @@ export default function Sidebar({ setPage }: SidebarProps) {
 
   const menus = [
     { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { key: 'financeiro', label: 'Financeiro', icon: <DollarSign size={18} /> },
-    { key: 'ajustes', label: 'Ajustes', icon: <Settings size={18} /> },
+    { key: 'movimentacao', label: 'Movimentação', icon: <DollarSign size={18} /> },
     { key: 'cadastros', label: 'Cadastros', icon: <Users size={18} /> },
+    { key: 'manutencao', label: 'Manutenção', icon: <Settings size={18} /> },
   ];
 
   const handleClick = (page: string) => {
@@ -68,8 +68,8 @@ export default function Sidebar({ setPage }: SidebarProps) {
             (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)')
           }
           onMouseLeave={(e) =>
-            (e.currentTarget.style.backgroundColor =
-              active === item.key ? 'rgba(255,255,255,0.2)' : 'transparent')
+          (e.currentTarget.style.backgroundColor =
+            active === item.key ? 'rgba(255,255,255,0.2)' : 'transparent')
           }
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>

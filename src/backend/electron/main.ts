@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain } from 'electron'
 import { createRequire } from 'node:module'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
+import bcrypt from "bcryptjs";
 import pool from "../db/connection"; // sua conexão MySQL
 import { listarProdutos, criarProduto, salvarProduto } from '../db/produtos';
 import { listarFabricantes, criarFabricante, salvarFabricante } from '../db/fabricantes'
@@ -82,6 +83,36 @@ ipcMain.handle('get-fabricantes', async () => {
   return await listarFabricantes();
 });
 
+//Login
+ipcMain.handle("login", async (event, { email, senha }) => {
+  try {
+    const [rows] = await pool.execute("SELECT * FROM usuarios WHERE email = ?", [email]);
+    if (rows.length === 0) {
+      throw new Error("Usuário não encontrado");
+    }
+
+    const usuario = rows[0];
+    const senhaOk = await bcrypt.compare(senha, usuario.senha);
+
+    if (!senhaOk) {
+      throw new Error("Senha incorreta");
+    }
+
+    // Retorna os dados necessários da sessão
+    return {
+      sucesso: true,
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        nivel: usuario.nivel,
+      },
+    };
+  } catch (error) {
+    console.error("Erro no login:", error);
+    return { sucesso: false, mensagem: error.message };
+  }
+});
 // Handler para salvar um fabricante
 ipcMain.handle('salvar-fabricante', async (_event, fabricante: Fabricante) => {
   await salvarFabricante(fabricante);

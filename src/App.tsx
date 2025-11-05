@@ -3,8 +3,8 @@ import Sidebar from './frontend/components/Sidebar';
 import Dashboard from './frontend/components/Dashboard';
 import Clientes from './frontend/components/clientes/Clientes';
 import Produtos from './frontend/components/Produtos';
-import Financeiro from './frontend/components/Financeiro';
-import Ajustes from './frontend/components/Ajustes';
+import Movimentacao from './frontend/components/Movimentacao';
+import Manutencao from './frontend/components/Manutencao';
 
 export default function App() {
   const [page, setPage] = useState('dashboard');
@@ -14,8 +14,8 @@ export default function App() {
       case 'dashboard': return <Dashboard />;
       case 'clientes': return <Clientes />;
       case 'produtos': return <Produtos />;
-      case 'financeiro': return <Financeiro />;
-      case 'ajustes': return <Ajustes />;
+      case 'movimentacao': return <Movimentacao />;
+      case 'manutencao': return <Manutencao />;
       default: return <Dashboard />;
     }
   };

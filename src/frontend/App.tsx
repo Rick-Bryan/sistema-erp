@@ -4,8 +4,8 @@ import Dashboard from './components/Dashboard';
 import Clientes from './components/clientes/Clientes';
 import Produtos from './components/Produtos/Produtos';
 import ProdutoDetalhes from './components/produtos/ProdutoDetalhes';
-import Financeiro from './components/Financeiro';
-import Ajustes from './components/Ajustes';
+import Movimentacao from './components/Movimentacao';
+import Manutencao from './components/Manutencao';
 import CadastrosPage from './pages/cadastros/CadastrosPage';
 import Fabricantes from './components/fabricantes/Fabricantes';
 import Colaboradores from './components/colaboradores/Colaboradores';
@@ -15,14 +15,14 @@ export default function App() {
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
   const renderPage = () => {
     switch (page) {
-      case 'dashboard': return <Dashboard />;
+      case 'dashboard': return <Dashboard setPage={setPage} />
       case 'clientes': return <Clientes setPage={setPage}/>;
       case 'produtos':
         return <Produtos setPage={setPage} setProdutoSelecionado={setProdutoSelecionado} />;
       case 'produto-detalhes':
         return <ProdutoDetalhes produtoSelecionado={produtoSelecionado} voltar={() => setPage('produtos')} />;
-      case 'financeiro': return <Financeiro />;
-      case 'ajustes': return <Ajustes />;
+      case 'movimentacao': return <Movimentacao/>;
+      case 'manutencao': return <Manutencao />;
       case 'colaboradores': return <Colaboradores setPage={setPage}/>
       case 'fabricantes':
         return <Fabricantes setPage={setPage} />;

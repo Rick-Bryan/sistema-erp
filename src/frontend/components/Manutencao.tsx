@@ -1,7 +1,7 @@
-export default function Ajustes() {
+export default function Manutencao() {
   return (
     <div style={{ padding: '20px' }}>
-      <h1>Ajustes</h1>
+      <h1>Manutenção</h1>
       <p>Gerencie seus produtos aqui.</p>
     </div>
   );
