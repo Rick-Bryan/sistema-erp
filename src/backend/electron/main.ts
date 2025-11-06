@@ -6,8 +6,10 @@ import bcrypt from "bcryptjs";
 import pool from "../db/connection"; // sua conexão MySQL
 import { listarProdutos, criarProduto, salvarProduto } from '../db/produtos';
 import { listarFabricantes, criarFabricante, salvarFabricante } from '../db/fabricantes'
+import { listarColaboradores, criarColaborador, atualizarColaborador, deletarColaborador } from '../db/colaboradores';
+
 //Falta fazer
-//import { listarColaboradores,criarColaborador} from '../db/colaboradores'
+
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -122,16 +124,7 @@ ipcMain.handle('criar-fabricante', async (_event, fabricante: Fabricante) => {
   await criarFabricante(fabricante);
   return true;
 });
-//Cadastro de colaboradores
-ipcMain.handle('get-colaboradores', async () => {
-  return await listarColaboradores();
-});
 
-// Handler para salvar um colaborador
-ipcMain.handle('salvar-colaborador', async (_event, colaborador: Colaborador) => {
-  await criarColaborador(colaborador);
-  return true;
-});
 //Cadastro de Clientes
 ipcMain.handle('get-clientes', async () => {
   return await listarClientes();
@@ -166,6 +159,27 @@ ipcMain.handle("buscar-fabricantes", async (event, termo) => {
 
   const [rows] = await pool.query(sql, params);
   return rows;
+});
+
+
+// Listar colaboradores
+ipcMain.handle('get-colaboradores', async () => {
+  return await listarColaboradores();
+});
+
+// Criar colaborador
+ipcMain.handle('add-colaborador', async (_event, colaborador) => {
+  return await criarColaborador(colaborador);
+});
+
+// Atualizar colaborador
+ipcMain.handle('update-colaborador', async (_event, colaborador) => {
+  return await atualizarColaborador(colaborador);
+});
+
+// Deletar colaborador
+ipcMain.handle('delete-colaborador', async (_event, id) => {
+  return await deletarColaborador(id);
 });
 
 // Handler para salvar um colaborador

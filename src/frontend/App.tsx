@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import Clientes from './components/clientes/Clientes';
@@ -10,9 +10,36 @@ import CadastrosPage from './pages/cadastros/CadastrosPage';
 import Fabricantes from './components/fabricantes/Fabricantes';
 import Colaboradores from './components/colaboradores/Colaboradores';
 import { Toaster } from 'react-hot-toast';
+import Login from './pages/Login/LoginPage'
+
+
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
+  const [usuario, setUsuario] =  useState<any>(null);
+
+
+  useEffect(()=>{
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('usuario');
+    if(token && user ) setUsuario(JSON.parse(user));
+
+  },[])
+
+  const handleLogout = ()=>{
+    localStorage.clear();
+    setUsuario(null);
+
+  }
+   // 🔒 Se não estiver logado, mostra tela de login
+  if (!usuario) {
+    return (
+      <>
+        <Toaster position="top-right" />
+        <Login onLoginSuccess={setUsuario} />
+      </>
+    );
+  }
   const renderPage = () => {
     switch (page) {
       case 'dashboard': return <Dashboard setPage={setPage} />
@@ -45,7 +72,7 @@ export default function App() {
       }}
     >
        <Toaster position="top-right" />
-      <Sidebar setPage={setPage} />
+      <Sidebar setPage={setPage}onLogout={handleLogout}  />
       <main
         style={{
           flex: 1,

@@ -5,13 +5,14 @@ import {
   Package,
   DollarSign,
   Settings,
+  LogOut
 } from 'lucide-react';
 
 interface SidebarProps {
   setPage: (page: 'dashboard' | 'clientes' | 'movimentacao' | 'manutencao' | 'cadastros') => void;
+  onLogout?: () => void;
 }
-
-export default function Sidebar({ setPage }: SidebarProps) {
+export default function Sidebar({ setPage ,onLogout}: SidebarProps) {
   const [active, setActive] = useState('dashboard');
 
   const menus = [
@@ -54,30 +55,53 @@ export default function Sidebar({ setPage }: SidebarProps) {
         ERP
       </h2>
 
-      {menus.map((item) => (
+      <div style={{ flex: 1 }}>
+        {menus.map((item) => (
+          <button
+            key={item.key}
+            onClick={() => handleClick(item.key)}
+            style={{
+              ...btnStyle,
+              backgroundColor:
+                active === item.key ? 'rgba(255,255,255,0.25)' : 'transparent',
+              fontWeight: active === item.key ? 'bold' : 'normal',
+            }}
+            onMouseEnter={(e) =>
+              (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)')
+            }
+            onMouseLeave={(e) =>
+              (e.currentTarget.style.backgroundColor =
+                active === item.key ? 'rgba(255,255,255,0.25)' : 'transparent')
+            }
+          >
+            <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {item.icon}
+              {item.label}
+            </span>
+          </button>
+        ))}
+      </div>
+       {onLogout && (
         <button
-          key={item.key}
-          onClick={() => handleClick(item.key)}
+          onClick={onLogout}
           style={{
             ...btnStyle,
-            backgroundColor:
-              active === item.key ? 'rgba(255,255,255,0.2)' : 'transparent',
-            fontWeight: active === item.key ? 'bold' : 'normal',
+            backgroundColor: 'rgba(255,255,255,0.15)',
+           margin:'5px 5px 30px 5px'
           }}
           onMouseEnter={(e) =>
-            (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)')
+            (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)')
           }
           onMouseLeave={(e) =>
-          (e.currentTarget.style.backgroundColor =
-            active === item.key ? 'rgba(255,255,255,0.2)' : 'transparent')
+            (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)')
           }
         >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {item.icon}
-            {item.label}
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px',  marginBottom:'10px'}}>
+            <LogOut size={18} />
+            Sair
           </span>
         </button>
-      ))}
+      )}
     </div>
   );
 }
