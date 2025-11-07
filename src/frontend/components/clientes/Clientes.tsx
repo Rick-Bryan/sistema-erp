@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import toast from "react-hot-toast";
+import ClienteCadastro from './ClientesCadastro';
 
 interface Cliente {
   id: number;
@@ -14,6 +16,9 @@ export default function Clientes({ setPage }: ClientesProps) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSelecionado, setClienteSelecionado] = useState<any | null>(null);
   const [modoCadastro, setModoCadastro] = useState(false);
+  const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  const nivelUsuario = usuarioLogado?.nivel || "";
+
   useEffect(() => {
     if (window.ipcRenderer) {
       window.ipcRenderer.invoke('get-clientes').then((data: Cliente[]) => setClientes(data));
@@ -22,6 +27,43 @@ export default function Clientes({ setPage }: ClientesProps) {
     }
   }, []);
 
+  const carregarClientes = async () => {
+    try {
+      const lista = await window.ipcRenderer.invoke("get-clientes");
+
+      // Garante que sempre teremos um array
+      if (Array.isArray(lista)) {
+        setClientes(lista);
+      } else {
+        console.warn("Resposta inesperada:", lista);
+        setClientes([]);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao carregar clientes");
+      setClientes([]);
+    }
+  };
+  const excluirCliente = async (id) => {
+    try {
+      await window.ipcRenderer.invoke("delete-cliente", id, usuarioLogado)
+      toast.success("Colaborador excluido com sucesso")
+      carregarClientes();
+    }
+    catch (err) {
+      toast.error("Falha ao exluir colaborador")
+    }
+  }
+  if (modoCadastro) {
+      return (
+        <ClienteCadastro
+          onVoltar={() => {
+            setModoCadastro(false);
+            carregarClientes();
+          }}
+        />
+      );
+    }
   return (
     <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
       <button
@@ -58,12 +100,13 @@ export default function Clientes({ setPage }: ClientesProps) {
             borderRadius: '6px',
             fontWeight: 600,
             cursor: 'pointer',
+    
           }}
         >
           ＋ Novo Cliente
         </button>
       </div>
-       {/* Tabela */}
+      {/* Tabela */}
       <div
         style={{
           backgroundColor: '#fff',
@@ -77,7 +120,7 @@ export default function Clientes({ setPage }: ClientesProps) {
             <tr style={{ backgroundColor: '#e5e7eb', color: '#1e3a8a', textAlign: 'left' }}>
               <th style={thStyle}>Nome</th>
               <th style={thStyle}>Email</th>
-              
+
               <th style={thStyle}>Ações</th>
             </tr>
           </thead>
@@ -86,7 +129,7 @@ export default function Clientes({ setPage }: ClientesProps) {
               <tr key={c.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
                 <td style={tdStyle}>{c.nome}</td>
                 <td style={tdStyle}>{c.email}</td>
-              
+
                 <td style={tdStyle}>
                   <button
                     onClick={() => setClienteSelecionado(c)}
@@ -97,17 +140,35 @@ export default function Clientes({ setPage }: ClientesProps) {
                       padding: '6px 12px',
                       borderRadius: '4px',
                       cursor: 'pointer',
+                              margin:'0px 5px'
                     }}
                   >
                     Visualizar
                   </button>
+                  {nivelUsuario === "administrador" && (
+
+                    <button
+                      onClick={() => excluirCliente(c.id)}
+                      style={{
+                        backgroundColor: "#1e3a8a",
+                        color: "#fff",
+                        border: "none",
+                        padding: "6px 12px",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                      }}
+                    >
+                      Excluir
+                    </button>
+                  )
+                  }
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
-      
+
     </div>
   );
 }

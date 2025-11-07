@@ -27846,10 +27846,6 @@ async function salvarFabricante(fabricante) {
     ]);
   }
 }
-async function listarColaboradores() {
-  const [rows] = await pool.query("SELECT * FROM usuarios ORDER BY id DESC");
-  return rows;
-}
 async function criarColaborador({ nome, email, senha, nivel }) {
   const bcrypt2 = await Promise.resolve().then(() => index);
   const senhaHash = await bcrypt2.hash(senha, 10);
@@ -27868,6 +27864,28 @@ async function atualizarColaborador({ id, nome, email, nivel }) {
 }
 async function deletarColaborador(id) {
   await pool.query("DELETE FROM usuarios WHERE id = ?", [id]);
+  return true;
+}
+async function listarClientes() {
+  const [rows] = await pool.query("SELECT * FROM clientes ORDER BY id DESC");
+  return rows;
+}
+async function criarCliente({ nome, email, telefone, endereco }) {
+  const [result] = await pool.query(
+    "INSERT INTO clientes (nome, email, telefone, endereco) VALUES (?, ?, ?, ?)",
+    [nome, email, telefone, endereco]
+  );
+  return { id: result.insertId };
+}
+async function atualizarCliente({ id, nome, email, telefone, endereco }) {
+  await pool.query(
+    "UPDATE clientes SET nome = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?",
+    [nome, email, telefone, endereco, id]
+  );
+  return true;
+}
+async function deletarCliente(id) {
+  await pool.query("DELETE FROM clientes WHERE id = ?", [id]);
   return true;
 }
 createRequire(import.meta.url);
@@ -27961,7 +27979,35 @@ ipcMain.handle("criar-fabricante", async (_event, fabricante) => {
   return true;
 });
 ipcMain.handle("get-clientes", async () => {
-  return await listarClientes();
+  const clientes = await listarClientes();
+  return clientes;
+});
+ipcMain.handle("add-cliente", async (_event, cliente) => {
+  try {
+    const novo = await criarCliente(cliente);
+    return { sucesso: true, data: novo };
+  } catch (err) {
+    console.error(err);
+    return { sucesso: false, mensagem: "Erro ao criar cliente." };
+  }
+});
+ipcMain.handle("update-cliente", async (_event, cliente) => {
+  try {
+    await atualizarCliente(cliente);
+    return { sucesso: true };
+  } catch (err) {
+    console.error(err);
+    return { sucesso: false, mensagem: "Erro ao atualizar cliente." };
+  }
+});
+ipcMain.handle("delete-cliente", async (_event, id) => {
+  try {
+    await deletarCliente(id);
+    return { sucesso: true };
+  } catch (err) {
+    console.error(err);
+    return { sucesso: false, mensagem: "Erro ao excluir cliente." };
+  }
 });
 ipcMain.handle("buscar-produtos", async (event, termo) => {
   let sql = "SELECT * FROM produto";
@@ -27985,20 +28031,61 @@ ipcMain.handle("buscar-fabricantes", async (event, termo) => {
   const [rows] = await pool.query(sql, params);
   return rows;
 });
-ipcMain.handle("get-colaboradores", async () => {
-  return await listarColaboradores();
-});
 ipcMain.handle("add-colaborador", async (_event, colaborador) => {
-  return await criarColaborador(colaborador);
+  try {
+    const resultado = await criarColaborador(colaborador);
+    return { sucesso: true, data: resultado };
+  } catch (error) {
+    console.error("❌ Erro ao adicionar colaborador:", error);
+    if (error.message.includes("Duplicate entry")) {
+      return { sucesso: false, mensagem: "Este e-mail já está em uso." };
+    }
+    return { sucesso: false, mensagem: "Erro ao cadastrar colaborador." };
+  }
 });
 ipcMain.handle("update-colaborador", async (_event, colaborador) => {
-  return await atualizarColaborador(colaborador);
+  try {
+    const resultado = await atualizarColaborador(colaborador);
+    return { sucesso: true, data: resultado };
+  } catch (error) {
+    console.error("❌ Erro ao atualizar colaborador:", error);
+    return { sucesso: false, mensagem: "Erro ao atualizar colaborador." };
+  }
 });
-ipcMain.handle("delete-colaborador", async (_event, id) => {
-  return await deletarColaborador(id);
+ipcMain.handle("get-colaboradores", async (event, termo) => {
+  let sql = `
+    SELECT 
+      id, 
+      nome, 
+      email, 
+      nivel, 
+      setor 
+    FROM usuarios
+  `;
+  let params = [];
+  if (termo && termo !== "*" && termo.trim() !== "") {
+    sql += " WHERE nome LIKE ? OR email LIKE ? OR setor LIKE ?";
+    params = [`%${termo}%`, `%${termo}%`, `%${termo}%`];
+  }
+  sql += " ORDER BY nome LIMIT 100";
+  try {
+    const [rows] = await pool.query(sql, params);
+    return rows;
+  } catch (error) {
+    console.error("Erro ao buscar colaboradores:", error);
+    return [];
+  }
 });
-ipcMain.handle("salvar-cliente", async (_event, cliente) => {
-  await criarCliente(cliente);
-  return true;
+ipcMain.handle("delete-colaborador", async (_event, { id, usuario }) => {
+  if (usuario.nivel !== "administrador") {
+    return { sucesso: false, mensagem: "Acesso negado." };
+  }
+  try {
+    await deletarColaborador(id);
+    return { sucesso: true };
+  } catch (error) {
+    console.error("❌ Erro ao deletar colaborador:", error);
+    return { sucesso: false, mensagem: "Erro ao deletar colaborador." };
+  }
 });
 app.whenReady().then(createWindow);

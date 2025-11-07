@@ -4,29 +4,29 @@ import toast from "react-hot-toast";
 declare global {
   interface Window {
     electronAPI: {
-      atualizarColaborador: (colaborador: any) => Promise<void>;
+      salvarColaborador: (colaborador: any) => Promise<void>;
     };
   }
 }
 
 interface Colaborador {
-  id?: number;
+  id: number;
   nome: string;
   email: string;
-  senha?: string;
-  nivel?: string;
   setor?: string;
+  cargo?: string;
+  telefone?: string;
+  data_admissao?: string;
+  status?: string;
 }
 
 interface Props {
-  colaboradorSelecionado?: Colaborador | null;
+  colaboradorSelecionado: Colaborador;
   voltar: () => void;
 }
 
-export default function ColaboradorForm({ colaboradorSelecionado, voltar }: Props) {
-  const [colaborador, setColaborador] = useState<Colaborador>(
-    colaboradorSelecionado || { nome: "", email: "", senha: "", nivel: "", setor: "" }
-  );
+export default function ColaboradorDetalhes({ colaboradorSelecionado, voltar }: Props) {
+  const [colaborador, setColaborador] = useState<Colaborador>({ ...colaboradorSelecionado });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -35,17 +35,12 @@ export default function ColaboradorForm({ colaboradorSelecionado, voltar }: Prop
 
   const handleSalvar = async () => {
     try {
-      if (!colaborador.nome || !colaborador.email) {
-        toast.error("Preencha os campos obrigatórios.");
-        return;
-      }
-
-      await window.electronAPI.atualizarColaborador(colaborador);
-      toast.success("Colaborador salvo com sucesso!");
+      await window.electronAPI.salvarColaborador(colaborador);
+      toast.success("Colaborador atualizado com sucesso!");
       voltar();
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao salvar colaborador.");
+      toast.error("Erro ao salvar o colaborador.");
     }
   };
 
@@ -56,23 +51,23 @@ export default function ColaboradorForm({ colaboradorSelecionado, voltar }: Prop
         backgroundColor: "#f5f7fa",
         minHeight: "100vh",
         boxSizing: "border-box",
+        overflowY: "auto",
       }}
     >
-      <h2 style={{ color: "#1e3a8a", marginBottom: "20px" }}>
-        {colaboradorSelecionado ? "✏️ Editar Colaborador" : "➕ Novo Colaborador"}
-      </h2>
+      <h2 style={{ color: "#1e3a8a", marginBottom: "20px" }}>👤 Detalhes do Colaborador</h2>
 
       <div
         style={{
-          maxWidth: "800px",
+          maxWidth: "1200px",
           margin: "0 auto",
           backgroundColor: "#fff",
           padding: "20px",
           borderRadius: "8px",
           boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+          gridTemplateColumns: "repeat(auto-fit, minmax(350px, 1fr))",
           gap: "20px",
+          boxSizing: "border-box",
         }}
       >
         <div style={{ display: "flex", flexDirection: "column" }}>
@@ -80,9 +75,8 @@ export default function ColaboradorForm({ colaboradorSelecionado, voltar }: Prop
           <input
             style={inputStyle}
             name="nome"
-            value={colaborador.nome}
+            value={colaborador.nome || ""}
             onChange={handleChange}
-            required
           />
         </div>
 
@@ -91,33 +85,9 @@ export default function ColaboradorForm({ colaboradorSelecionado, voltar }: Prop
           <input
             style={inputStyle}
             name="email"
-            value={colaborador.email}
+            value={colaborador.email || ""}
             onChange={handleChange}
-            required
           />
-        </div>
-
-        {!colaboradorSelecionado && (
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <label style={labelStyle}>Senha</label>
-            <input
-              style={inputStyle}
-              name="senha"
-              type="password"
-              value={colaborador.senha || ""}
-              onChange={handleChange}
-              required
-            />
-          </div>
-        )}
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <label style={labelStyle}>Nível</label>
-          <select name="nivel" style={inputStyle} value={colaborador.nivel || ""} onChange={handleChange}>
-            <option value="">Selecione</option>
-            <option value="admin">Administrador</option>
-            <option value="colaborador">Colaborador</option>
-          </select>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column" }}>
@@ -130,18 +100,66 @@ export default function ColaboradorForm({ colaboradorSelecionado, voltar }: Prop
           />
         </div>
 
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <label style={labelStyle}>Cargo</label>
+          <input
+            style={inputStyle}
+            name="cargo"
+            value={colaborador.cargo || ""}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <label style={labelStyle}>Telefone</label>
+          <input
+            style={inputStyle}
+            name="telefone"
+            value={colaborador.telefone || ""}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <label style={labelStyle}>Data de Admissão</label>
+          <input
+            type="date"
+            style={inputStyle}
+            name="data_admissao"
+            value={colaborador.data_admissao || ""}
+            onChange={handleChange}
+          />
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <label style={labelStyle}>Status</label>
+          <select
+            style={inputStyle}
+            name="status"
+            value={colaborador.status || "ativo"}
+            onChange={handleChange}
+          >
+            <option value="ativo">Ativo</option>
+            <option value="inativo">Inativo</option>
+          </select>
+        </div>
+
         <div
           style={{
             gridColumn: "1 / -1",
             display: "flex",
             gap: "10px",
             marginTop: "20px",
+            justifyContent: "flex-start",
           }}
         >
           <button onClick={handleSalvar} style={buttonStyle}>
             Salvar
           </button>
-          <button onClick={voltar} style={{ ...buttonStyle, backgroundColor: "#6b7280" }}>
+          <button
+            onClick={voltar}
+            style={{ ...buttonStyle, backgroundColor: "#6b7280" }}
+          >
             Voltar
           </button>
         </div>

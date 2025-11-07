@@ -34,7 +34,7 @@ export default function LoginPage({
   return (
     <div style={container}>
       <form onSubmit={handleLogin} style={form}>
-        <h2 style={titulo}>🔐 Acesso ao Sistema ERP</h2>
+        <h2 style={titulo}>Acesso ao Sistema ERP</h2>
 
         <input
           type="email"

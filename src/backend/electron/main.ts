@@ -7,6 +7,7 @@ import pool from "../db/connection"; // sua conexão MySQL
 import { listarProdutos, criarProduto, salvarProduto } from '../db/produtos';
 import { listarFabricantes, criarFabricante, salvarFabricante } from '../db/fabricantes'
 import { listarColaboradores, criarColaborador, atualizarColaborador, deletarColaborador } from '../db/colaboradores';
+import { listarClientes, criarCliente, atualizarCliente, deletarCliente } from '../db/clientes';
 
 //Falta fazer
 
@@ -126,8 +127,43 @@ ipcMain.handle('criar-fabricante', async (_event, fabricante: Fabricante) => {
 });
 
 //Cadastro de Clientes
-ipcMain.handle('get-clientes', async () => {
-  return await listarClientes();
+// Listar clientes
+ipcMain.handle("get-clientes", async () => {
+  const clientes = await listarClientes();
+  return clientes; // retorna o array direto
+});
+
+// Criar cliente
+ipcMain.handle('add-cliente', async (_event, cliente) => {
+  try {
+    const novo = await criarCliente(cliente);
+    return { sucesso: true, data: novo };
+  } catch (err) {
+    console.error(err);
+    return { sucesso: false, mensagem: 'Erro ao criar cliente.' };
+  }
+});
+
+// Atualizar cliente
+ipcMain.handle('update-cliente', async (_event, cliente) => {
+  try {
+    await atualizarCliente(cliente);
+    return { sucesso: true };
+  } catch (err) {
+    console.error(err);
+    return { sucesso: false, mensagem: 'Erro ao atualizar cliente.' };
+  }
+});
+
+// Deletar cliente
+ipcMain.handle('delete-cliente', async (_event, id) => {
+  try {
+    await deletarCliente(id);
+    return { sucesso: true };
+  } catch (err) {
+    console.error(err);
+    return { sucesso: false, mensagem: 'Erro ao excluir cliente.' };
+  }
 });
 //Pesquisa
 ipcMain.handle("buscar-produtos", async (event, termo) => {
@@ -162,31 +198,80 @@ ipcMain.handle("buscar-fabricantes", async (event, termo) => {
 });
 
 
-// Listar colaboradores
-ipcMain.handle('get-colaboradores', async () => {
-  return await listarColaboradores();
-});
-
-// Criar colaborador
 ipcMain.handle('add-colaborador', async (_event, colaborador) => {
-  return await criarColaborador(colaborador);
+  try {
+    const resultado = await criarColaborador(colaborador);
+    return { sucesso: true, data: resultado };
+  } catch (error) {
+    console.error("❌ Erro ao adicionar colaborador:", error);
+    
+    if (error.message.includes("Duplicate entry")) {
+      return { sucesso: false, mensagem: "Este e-mail já está em uso." };
+    }
+
+    return { sucesso: false, mensagem: "Erro ao cadastrar colaborador." };
+  }
 });
 
-// Atualizar colaborador
 ipcMain.handle('update-colaborador', async (_event, colaborador) => {
-  return await atualizarColaborador(colaborador);
+  try {
+    const resultado = await atualizarColaborador(colaborador);
+    return { sucesso: true, data: resultado };
+  } catch (error) {
+    console.error("❌ Erro ao atualizar colaborador:", error);
+    return { sucesso: false, mensagem: "Erro ao atualizar colaborador." };
+  }
 });
 
-// Deletar colaborador
-ipcMain.handle('delete-colaborador', async (_event, id) => {
-  return await deletarColaborador(id);
+ipcMain.handle("get-colaboradores", async (event, termo) => {
+  let sql = `
+    SELECT 
+      id, 
+      nome, 
+      email, 
+      nivel, 
+      setor 
+    FROM usuarios
+  `;
+  
+  let params = [];
+
+  // 🔎 Filtro de busca
+  if (termo && termo !== "*" && termo.trim() !== "") {
+    sql += " WHERE nome LIKE ? OR email LIKE ? OR setor LIKE ?";
+    params = [`%${termo}%`, `%${termo}%`, `%${termo}%`];
+  }
+
+  sql += " ORDER BY nome LIMIT 100"; // limite de segurança
+
+  try {
+    const [rows] = await pool.query(sql, params);
+    return rows;
+  } catch (error) {
+    console.error("Erro ao buscar colaboradores:", error);
+    return [];
+  }
 });
+
+
+ipcMain.handle('delete-colaborador', async (_event, {id, usuario }) => {
+
+   if (usuario.nivel !== "administrador") {
+    return { sucesso: false, mensagem: "Acesso negado." };
+  }
+
+  try {
+    await deletarColaborador(id);
+    return { sucesso: true };
+  } catch (error) {
+    console.error("❌ Erro ao deletar colaborador:", error);
+    return { sucesso: false, mensagem: "Erro ao deletar colaborador." };
+  }
+});
+
 
 // Handler para salvar um colaborador
-ipcMain.handle('salvar-cliente', async (_event, cliente: Cliente) => {
-  await criarCliente(cliente);
-  return true;
-});
+
 app.whenReady().then(createWindow)
 
 // Exemplo de comunicação entre processos
