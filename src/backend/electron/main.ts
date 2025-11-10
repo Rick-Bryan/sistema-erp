@@ -8,7 +8,7 @@ import { listarProdutos, criarProduto, salvarProduto } from '../db/produtos';
 import { listarFabricantes, criarFabricante, salvarFabricante } from '../db/fabricantes'
 import { listarColaboradores, criarColaborador, atualizarColaborador, deletarColaborador } from '../db/colaboradores';
 import { listarClientes, criarCliente, atualizarCliente, deletarCliente } from '../db/clientes';
-
+import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornecedor } from '../db/fornecedores';
 //Falta fazer
 
 //import { listarClientes,criarClientes} from '../db/clientes'
@@ -204,7 +204,7 @@ ipcMain.handle('add-colaborador', async (_event, colaborador) => {
     return { sucesso: true, data: resultado };
   } catch (error) {
     console.error("❌ Erro ao adicionar colaborador:", error);
-    
+
     if (error.message.includes("Duplicate entry")) {
       return { sucesso: false, mensagem: "Este e-mail já está em uso." };
     }
@@ -233,7 +233,7 @@ ipcMain.handle("get-colaboradores", async (event, termo) => {
       setor 
     FROM usuarios
   `;
-  
+
   let params = [];
 
   // 🔎 Filtro de busca
@@ -254,9 +254,9 @@ ipcMain.handle("get-colaboradores", async (event, termo) => {
 });
 
 
-ipcMain.handle('delete-colaborador', async (_event, {id, usuario }) => {
+ipcMain.handle('delete-colaborador', async (_event, { id, usuario }) => {
 
-   if (usuario.nivel !== "administrador") {
+  if (usuario.nivel !== "administrador") {
     return { sucesso: false, mensagem: "Acesso negado." };
   }
 
@@ -266,6 +266,83 @@ ipcMain.handle('delete-colaborador', async (_event, {id, usuario }) => {
   } catch (error) {
     console.error("❌ Erro ao deletar colaborador:", error);
     return { sucesso: false, mensagem: "Erro ao deletar colaborador." };
+  }
+});
+
+
+ipcMain.handle('add-fornecedor', async (_event, fornecedor) => {
+  try {
+    console.log("📦 Dados recebidos no backend:", fornecedor);
+    const resultado = await criarFornecedor(fornecedor);
+    return { sucesso: true, data: resultado };
+  } catch (error) {
+    console.error("❌ Erro ao adicionar fornecedor:", error);
+
+    if (error.message.includes("Duplicate entry")) {
+      return { sucesso: false, mensagem: "Este CNPJ já está cadastrado." };
+    }
+
+    return { sucesso: false, mensagem: "Erro ao cadastrar fornecedor." };
+  }
+});
+ipcMain.handle('update-fornecedor', async (_event, fornecedor) => {
+  try {
+    const resultado = await atualizarFornecedor(fornecedor);
+    return { sucesso: true, data: resultado };
+  } catch (error) {
+    console.error("❌ Erro ao atualizar Fornecedor:", error);
+    return { sucesso: false, mensagem: "Erro ao atualizar Fornecedor." };
+  }
+});
+
+
+ipcMain.handle("get-fornecedores", async (_event, termo) => {
+  let sql = `
+    SELECT 
+      CodigoFornecedor, 
+      Nome, 
+      NomeFantasia, 
+      CNPJ, 
+      Endereco, 
+      Cidade, 
+      Bairro, 
+      Ativo, 
+      Pessoa
+    FROM fornecedores
+  `;
+
+  let params = [];
+
+  // 🔍 Se o termo for válido, aplica filtro
+  if (termo && termo.trim() !== "" && termo.trim() !== "*") {
+    sql += " WHERE Nome LIKE ? OR NomeFantasia LIKE ? OR CNPJ LIKE ?";
+    params = [`%${termo}%`, `%${termo}%`, `%${termo}%`];
+  }
+
+  sql += " ORDER BY CodigoFornecedor DESC LIMIT 100";
+
+  try {
+    const [rows] = await pool.query(sql, params);
+    return rows;
+  } catch (error) {
+    console.error("❌ Erro ao buscar fornecedores:", error);
+    return [];
+  }
+});
+
+
+
+ipcMain.handle('delete-fornecedor', async (_event, { CodigoFornecedor, usuario }) => {
+  if (usuario.nivel !== "administrador") {
+    return { sucesso: false, mensagem: "Acesso negado." };
+  }
+
+  try {
+    await deletarFornecedor(CodigoFornecedor);
+    return { sucesso: true };
+  } catch (error) {
+    console.error("❌ Erro ao deletar fornecedor:", error);
+    return { sucesso: false, mensagem: "Erro ao deletar fornecedor." };
   }
 });
 

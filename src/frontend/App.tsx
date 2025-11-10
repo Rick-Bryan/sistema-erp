@@ -11,27 +11,27 @@ import Fabricantes from './components/fabricantes/Fabricantes';
 import Colaboradores from './components/colaboradores/Colaboradores';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login/LoginPage'
-
+import Fornecedores from './components/fornecedores/Fornecedores';
 
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
-  const [usuario, setUsuario] =  useState<any>(null);
+  const [usuario, setUsuario] = useState<any>(null);
 
 
-  useEffect(()=>{
+  useEffect(() => {
     const token = localStorage.getItem('token');
     const user = localStorage.getItem('usuario');
-    if(token && user ) setUsuario(JSON.parse(user));
+    if (token && user) setUsuario(JSON.parse(user));
 
-  },[])
+  }, [])
 
-  const handleLogout = ()=>{
+  const handleLogout = () => {
     localStorage.clear();
     setUsuario(null);
 
   }
-   // 🔒 Se não estiver logado, mostra tela de login
+  // 🔒 Se não estiver logado, mostra tela de login
   if (!usuario) {
     return (
       <>
@@ -43,17 +43,18 @@ export default function App() {
   const renderPage = () => {
     switch (page) {
       case 'dashboard': return <Dashboard setPage={setPage} />
-      case 'clientes': return <Clientes setPage={setPage}/>;
+      case 'clientes': return <Clientes setPage={setPage} />;
       case 'produtos':
         return <Produtos setPage={setPage} setProdutoSelecionado={setProdutoSelecionado} />;
       case 'produto-detalhes':
         return <ProdutoDetalhes produtoSelecionado={produtoSelecionado} voltar={() => setPage('produtos')} />;
-      case 'movimentacao': return <Movimentacao/>;
+      case 'movimentacao': return <Movimentacao />;
       case 'manutencao': return <Manutencao />;
-      case 'colaboradores': return <Colaboradores setPage={setPage}/>
+      case 'colaboradores': return <Colaboradores setPage={setPage} />
       case 'fabricantes':
         return <Fabricantes setPage={setPage} />;
-
+      case 'fornecedores':
+        return <Fornecedores setPage={setPage} />;
       case 'cadastros':
         return <CadastrosPage setPage={setPage} />;
 
@@ -62,7 +63,7 @@ export default function App() {
   };
 
   return (
-    
+
     <div
       style={{
         display: 'flex',
@@ -71,8 +72,8 @@ export default function App() {
         backgroundColor: '#f5f7fa',
       }}
     >
-       <Toaster position="top-right" />
-      <Sidebar setPage={setPage}onLogout={handleLogout}  />
+      <Toaster position="top-right" />
+      <Sidebar setPage={setPage} onLogout={handleLogout} />
       <main
         style={{
           flex: 1,

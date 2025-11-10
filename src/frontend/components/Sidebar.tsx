@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 
 interface SidebarProps {
-  setPage: (page: 'dashboard' | 'clientes' | 'movimentacao' | 'manutencao' | 'cadastros') => void;
+  setPage: (page: 'dashboard' | 'movimentacao' | 'manutencao' | 'cadastros') => void;
   onLogout?: () => void;
 }
 export default function Sidebar({ setPage ,onLogout}: SidebarProps) {

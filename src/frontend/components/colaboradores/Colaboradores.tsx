@@ -10,6 +10,7 @@ interface Colaborador {
   email: string;
   nivel?: string;
   setor?: string;
+  ativo?: number; // <--- adicionado
 }
 
 interface ColaboradoresProps {
@@ -42,15 +43,23 @@ export default function Colaboradores({ setPage }: ColaboradoresProps) {
   };
 
   const excluirColaborador = async (id) => {
-    try {
-      await window.ipcRenderer.invoke("delete-colaborador", id, usuarioLogado)
-      toast.success("Colaborador excluido com sucesso")
-      carregarColaboradores();
-    }
-    catch (err) {
-      toast.error("Falha ao exluir colaborador")
-    }
-  }
+        try {
+            const resposta = await window.ipcRenderer.invoke("delete-colaborador", {
+                id,
+                usuario: usuarioLogado, // ✅ nome correto
+            });
+
+            if (resposta.sucesso) {
+                toast.success("Fornecedor excluído com sucesso!");
+                carregarColaboradores();
+            } else {
+                toast.error(resposta.mensagem || "Falha ao excluir fornecedor");
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error("Erro ao excluir fornecedor");
+        }
+    };
 
   useEffect(() => {
     carregarColaboradores();
@@ -59,7 +68,7 @@ export default function Colaboradores({ setPage }: ColaboradoresProps) {
   if (modoCadastro) {
     return (
       <ColaboradorCadastro
-        onVoltar={() => {
+        voltar={() => {
           setModoCadastro(false);
           carregarColaboradores();
         }}
@@ -142,6 +151,7 @@ export default function Colaboradores({ setPage }: ColaboradoresProps) {
               <th style={thStyle}>Nome</th>
               <th style={thStyle}>E-mail</th>
               <th style={thStyle}>Setor</th>
+              <th style={thStyle}>Ativo</th>
               <th style={thStyle}>Ações</th>
             </tr>
           </thead>
@@ -152,6 +162,8 @@ export default function Colaboradores({ setPage }: ColaboradoresProps) {
                 <td style={tdStyle}>{c.nome}</td>
                 <td style={tdStyle}>{c.email}</td>
                 <td style={tdStyle}>{c.setor}</td>
+                <td style={tdStyle}>{c.ativo ? "✅ Sim" : "❌ Não"}</td>
+
                 <td style={tdStyle}>
                   <button
                     onClick={() => setColaboradorSelecionado(c)}

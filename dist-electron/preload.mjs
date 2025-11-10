@@ -17,15 +17,26 @@ electron.contextBridge.exposeInMainWorld("ipcRenderer", {
     const [channel, ...omit] = args;
     return electron.ipcRenderer.invoke(channel, ...omit);
   }
-  // You can expose other APTs you need here.
-  // ...
 });
 electron.contextBridge.exposeInMainWorld("electronAPI", {
+  // 🧾 Produtos
   getProdutos: () => electron.ipcRenderer.invoke("get-produtos"),
   addProduto: (produto) => electron.ipcRenderer.invoke("add-produto", produto),
   salvarProduto: (produto) => electron.ipcRenderer.invoke("salvar-produto", produto),
+  // 🏭 Fabricantes
   getFabricantes: () => electron.ipcRenderer.invoke("get-fabricantes"),
   salvarFabricante: (fabricante) => electron.ipcRenderer.invoke("salvar-fabricante", fabricante),
+  // 🚚 Fornecedores
+  getFornecedores: () => electron.ipcRenderer.invoke("get-fornecedores"),
+  salvarFornecedor: (fornecedor) => electron.ipcRenderer.invoke("update-fornecedor", fornecedor),
+  deleteFornecedor: (CodigoFornecedor) => electron.ipcRenderer.invoke("delete-fornecedor", CodigoFornecedor),
+  addFornecedor: (fornecedor) => electron.ipcRenderer.invoke("add-fornecedor", fornecedor),
+  // 👥 Colaboradores (💡 ADICIONADOS AGORA)
+  listarColaboradores: () => electron.ipcRenderer.invoke("listar-colaboradores"),
+  addColaborador: (colaborador) => electron.ipcRenderer.invoke("add-colaborador", colaborador),
+  salvarColaborador: (colaborador) => electron.ipcRenderer.invoke("update-colaborador", colaborador),
+  deletarColaborador: (id) => electron.ipcRenderer.invoke("deletar-colaborador", id),
+  // 🔍 Busca e login
   buscar: (canal, termo) => electron.ipcRenderer.invoke(canal, termo),
   login: (dados) => electron.ipcRenderer.invoke("login", dados)
 });

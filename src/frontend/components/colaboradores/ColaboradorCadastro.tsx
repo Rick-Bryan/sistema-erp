@@ -1,175 +1,246 @@
-import { useState } from "react";
-import toast from "react-hot-toast";
+import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 
-interface Cliente {
+declare global {
+  interface Window {
+    electronAPI: {
+      addColaborador: (colaborador: any) => Promise<void>;
+    };
+  }
+}
+
+interface Colaborador {
   id?: number;
-  nome: string;
-  email: string;
-  telefone: string;
-  endereco: string;
+  nome?: string;
+  email?: string;
+  senha?: string;
+  nivel?: 'administrador' | 'vendedor' | 'financeiro' | 'estoquista';
+  setor?: string;
+  ativo?: boolean;
+  criado_em?: string;
 }
 
-interface ClienteCadastroProps {
-  cliente?: Cliente | null;
-  onVoltar: () => void;
-  onSalvo: () => void;
-}
-
-export default function ClienteCadastro({ cliente, onVoltar, onSalvo }: ClienteCadastroProps) {
-  const [form, setForm] = useState<Cliente>({
-    nome: cliente?.nome || "",
-    email: cliente?.email || "",
-    telefone: cliente?.telefone || "",
-    endereco: cliente?.endereco || "",
+export default function ColaboradorCadastro({ voltar }: { voltar: () => void }) {
+  const [colaborador, setColaborador] = useState<Colaborador>({
+    ativo: true,
+    criado_em: new Date().toISOString().split('T')[0],
   });
 
-  const handleSalvar = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type, checked } = e.target;
+    setColaborador((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+  };
 
+  const handleSalvar = async () => {
     try {
-      let resposta;
-
-      if (cliente?.id) {
-        resposta = await window.ipcRenderer.invoke("update-cliente", { id: cliente.id, ...form });
-      } else {
-        resposta = await window.ipcRenderer.invoke("add-cliente", form);
-      }
-
-      if (resposta.sucesso) {
-        toast.success(cliente ? "Cliente atualizado com sucesso!" : "Cliente cadastrado com sucesso!");
-        onSalvo?.(); // evita erro se a função não for passada
-      } else {
-        toast.error(resposta.mensagem || "Erro ao salvar cliente.");
-      }
+      await window.electronAPI.addColaborador(colaborador);
+      toast.success('✅ Colaborador cadastrado com sucesso!');
+      voltar();
     } catch (err) {
-      console.error("❌ Erro ao salvar cliente:", err);
-      toast.error("Erro inesperado ao salvar cliente.");
+      console.error(err);
+      toast.error('❌ Erro ao cadastrar colaborador.');
     }
   };
 
   return (
-    <div style={container}>
-      <button onClick={onVoltar} style={btnVoltar}>← Voltar</button>
+    <div style={pageContainer}>
+      <h2 style={titulo}>Cadastrar Colaborador</h2>
 
-      <div style={card}>
-        <h2 style={titulo}>{cliente ? "Editar Cliente" : "Novo Cliente"}</h2>
+      <div style={formContainer}>
+        {/* Nome */}
+        <div style={inputGroup}>
+          <label style={labelStyle}>Nome</label>
+          <input
+            style={inputStyle}
+            name="nome"
+            value={colaborador.nome || ''}
+            onChange={handleChange}
+            type="text"
+            maxLength={100}
+            placeholder="Digite o nome completo"
+          />
+        </div>
 
-        <form onSubmit={handleSalvar} style={formStyle}>
-          <div style={linha}>
-            <label style={label}>Nome</label>
-            <input
-              type="text"
-              value={form.nome}
-              onChange={(e) => setForm({ ...form, nome: e.target.value })}
-              required
-              style={input}
-            />
-          </div>
+        {/* Email */}
+        <div style={inputGroup}>
+          <label style={labelStyle}>E-mail</label>
+          <input
+            style={inputStyle}
+            name="email"
+            value={colaborador.email || ''}
+            onChange={handleChange}
+            type="email"
+            maxLength={100}
+            placeholder="exemplo@email.com"
+          />
+        </div>
 
-          <div style={linha}>
-            <label style={label}>E-mail</label>
-            <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-              required
-              style={input}
-            />
-          </div>
+        {/* Senha */}
+        <div style={inputGroup}>
+          <label style={labelStyle}>Senha</label>
+          <input
+            style={inputStyle}
+            name="senha"
+            value={colaborador.senha || ''}
+            onChange={handleChange}
+            type="password"
+            maxLength={255}
+            placeholder="Digite uma senha segura"
+          />
+        </div>
 
-          <div style={linha}>
-            <label style={label}>Telefone</label>
-            <input
-              type="text"
-              value={form.telefone}
-              onChange={(e) => setForm({ ...form, telefone: e.target.value })}
-              style={input}
-            />
-          </div>
+        {/* Nível */}
+        <div style={inputGroup}>
+          <label style={labelStyle}>Nível de Acesso</label>
+          <select
+            style={inputStyle}
+            name="nivel"
+            value={colaborador.nivel || ''}
+            onChange={handleChange}
+          >
+            <option value="">Selecione...</option>
+            <option value="administrador">Administrador</option>
+            <option value="vendedor">Vendedor</option>
+            <option value="financeiro">Financeiro</option>
+            <option value="estoquista">Estoquista</option>
+          </select>
+        </div>
 
-          <div style={linha}>
-            <label style={label}>Endereço</label>
-            <input
-              type="text"
-              value={form.endereco}
-              onChange={(e) => setForm({ ...form, endereco: e.target.value })}
-              style={input}
-            />
-          </div>
+        {/* Setor */}
+        <div style={inputGroup}>
+          <label style={labelStyle}>Setor</label>
+          <input
+            style={inputStyle}
+            name="setor"
+            value={colaborador.setor || ''}
+            onChange={handleChange}
+            type="text"
+            maxLength={50}
+            placeholder="Ex: Vendas, Suporte, Financeiro..."
+          />
+        </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 30 }}>
-            <button type="submit" style={btnSalvar}>Salvar</button>
-          </div>
-        </form>
+        {/* Ativo */}
+        <div style={{ ...inputGroup, flexDirection: 'row', alignItems: 'center' }}>
+          <label style={{ ...labelStyle, marginRight: '10px' }}>Ativo</label>
+          <input
+            type="checkbox"
+            name="ativo"
+            checked={!!colaborador.ativo}
+            onChange={handleChange}
+            style={{ width: '20px', height: '20px' }}
+          />
+        </div>
+
+        {/* Data de Criação */}
+        <div style={inputGroup}>
+          <label style={labelStyle}>Data de Criação</label>
+          <input
+            style={inputStyle}
+            name="criado_em"
+            value={colaborador.criado_em || ''}
+            onChange={handleChange}
+            type="date"
+          />
+        </div>
+
+        {/* Botões */}
+        <div style={botoesContainer}>
+          <button onClick={handleSalvar} style={buttonPrimary}>
+            Salvar
+          </button>
+          <button onClick={voltar} style={buttonSecondary}>
+            Voltar
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-// 🎨 Estilos — padronizados igual ao ColaboradorCadastro
-const container: React.CSSProperties = {
-  padding: "20px",
-  backgroundColor: "#f5f7fa",
-  minHeight: "100vh",
-};
+/* ======== ESTILOS ======== */
 
-const card: React.CSSProperties = {
-  backgroundColor: "#fff",
-  borderRadius: "8px",
-  boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-  padding: "30px",
-  maxWidth: "800px",
-  margin: "0 auto",
+const pageContainer: React.CSSProperties = {
+  padding: '30px',
+  backgroundColor: '#f3f4f6',
+  minHeight: '100vh',
+  boxSizing: 'border-box',
 };
 
 const titulo: React.CSSProperties = {
-  color: "#1e3a8a",
-  fontSize: "1.5rem",
+  color: '#1e3a8a',
   fontWeight: 700,
-  marginBottom: "20px",
-  textAlign: "center",
+  fontSize: '24px',
+  marginBottom: '25px',
+  textAlign: 'center',
 };
 
-const formStyle: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
-  gap: "15px",
+const formContainer: React.CSSProperties = {
+  maxWidth: '1100px',
+  margin: '0 auto',
+  backgroundColor: '#fff',
+  padding: '30px',
+  borderRadius: '12px',
+  boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+  gap: '25px 30px',
+  boxSizing: 'border-box',
 };
 
-const linha: React.CSSProperties = {
-  display: "flex",
-  flexDirection: "column",
+const inputGroup: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
 };
 
-const label: React.CSSProperties = {
+const labelStyle: React.CSSProperties = {
+  marginBottom: '6px',
   fontWeight: 600,
-  color: "#1e3a8a",
-  marginBottom: "5px",
+  color: '#1e3a8a',
 };
 
-const input: React.CSSProperties = {
-  padding: "8px 10px",
-  borderRadius: "5px",
-  border: "1px solid #ccc",
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 14px',
+  borderRadius: '8px',
+  border: '1px solid #d1d5db',
+  outline: 'none',
+  transition: '0.2s border-color',
+  fontSize: '15px',
+  boxSizing: 'border-box',
 };
 
-const btnVoltar: React.CSSProperties = {
-  backgroundColor: "#e5e7eb",
-  color: "#1e3a8a",
-  border: "none",
-  borderRadius: "6px",
-  padding: "8px 16px",
-  cursor: "pointer",
+const botoesContainer: React.CSSProperties = {
+  gridColumn: '1 / -1',
+  display: 'flex',
+  justifyContent: 'center',
+  gap: '15px',
+  marginTop: '30px',
+};
+
+const buttonBase: React.CSSProperties = {
+  padding: '10px 22px',
+  borderRadius: '8px',
+  border: 'none',
+  cursor: 'pointer',
   fontWeight: 600,
-  marginBottom: "20px",
+  fontSize: '15px',
+  transition: '0.2s all ease',
 };
 
-const btnSalvar: React.CSSProperties = {
-  backgroundColor: "#1e3a8a",
-  color: "#fff",
-  border: "none",
-  padding: "10px 20px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontWeight: 600,
+const buttonPrimary: React.CSSProperties = {
+  ...buttonBase,
+  backgroundColor: '#1e3a8a',
+  color: '#fff',
+};
+
+const buttonSecondary: React.CSSProperties = {
+  ...buttonBase,
+  backgroundColor: '#6b7280',
+  color: '#fff',
 };

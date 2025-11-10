@@ -12,7 +12,6 @@ export default function App() {
   const renderPage = () => {
     switch (page) {
       case 'dashboard': return <Dashboard />;
-      case 'clientes': return <Clientes />;
       case 'produtos': return <Produtos />;
       case 'movimentacao': return <Movimentacao />;
       case 'manutencao': return <Manutencao />;

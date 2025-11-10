@@ -62,7 +62,7 @@ export default function CadastrosPage({ setPage }: CadastrosPageProps) {
           </CardHeader>
           <CardContent>Outras alternativas de cadastros</CardContent>
         </Card>
-        <Card onClick={() => setPage('colaboradores')} className="cursor-pointer">
+        <Card onClick={() => setPage('fornecedores')} className="cursor-pointer">
           <CardHeader>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Users style={{ width: 28, height: 28 }} />

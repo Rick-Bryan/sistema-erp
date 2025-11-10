@@ -1734,22 +1734,6 @@ const bcrypt = {
   encodeBase64,
   decodeBase64
 };
-const index = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
-  __proto__: null,
-  compare,
-  compareSync,
-  decodeBase64,
-  default: bcrypt,
-  encodeBase64,
-  genSalt,
-  genSaltSync,
-  getRounds,
-  getSalt,
-  hash,
-  hashSync,
-  setRandomFallback,
-  truncates
-}, Symbol.toStringTag, { value: "Module" }));
 var commonjsGlobal = typeof globalThis !== "undefined" ? globalThis : typeof window !== "undefined" ? window : typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : {};
 function getDefaultExportFromCjs(x) {
   return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
@@ -1966,21 +1950,21 @@ const createLRU$3 = (options) => {
   const valList = new Array(max).fill(void 0);
   const next = new Array(max).fill(0);
   const prev = new Array(max).fill(0);
-  const setTail = (index2, type) => {
-    if (index2 === tail)
+  const setTail = (index, type) => {
+    if (index === tail)
       return;
-    const nextIndex = next[index2];
-    const prevIndex = prev[index2];
-    if (index2 === head)
+    const nextIndex = next[index];
+    const prevIndex = prev[index];
+    if (index === head)
       head = nextIndex;
     else if (type === "get" || prevIndex !== 0)
       next[prevIndex] = nextIndex;
     if (nextIndex !== 0)
       prev[nextIndex] = prevIndex;
-    next[tail] = index2;
-    prev[index2] = tail;
-    next[index2] = 0;
-    tail = index2;
+    next[tail] = index;
+    prev[index] = tail;
+    next[index] = 0;
+    tail = index;
   };
   const _evict = () => {
     const evictHead = head;
@@ -2003,33 +1987,33 @@ const createLRU$3 = (options) => {
     set(key2, value) {
       if (key2 === void 0)
         return;
-      let index2 = keyMap.get(key2);
-      if (index2 === void 0) {
-        index2 = size2 === max ? _evict() : free.length > 0 ? free.pop() : size2;
-        keyMap.set(key2, index2);
-        keyList[index2] = key2;
+      let index = keyMap.get(key2);
+      if (index === void 0) {
+        index = size2 === max ? _evict() : free.length > 0 ? free.pop() : size2;
+        keyMap.set(key2, index);
+        keyList[index] = key2;
         size2++;
       } else
-        onEviction === null || onEviction === void 0 ? void 0 : onEviction(key2, valList[index2]);
-      valList[index2] = value;
+        onEviction === null || onEviction === void 0 ? void 0 : onEviction(key2, valList[index]);
+      valList[index] = value;
       if (size2 === 1)
-        head = tail = index2;
+        head = tail = index;
       else
-        setTail(index2, "set");
+        setTail(index, "set");
     },
     /** Retrieves the value for a given key and moves the key to the most recent position. */
     get(key2) {
-      const index2 = keyMap.get(key2);
-      if (index2 === void 0)
+      const index = keyMap.get(key2);
+      if (index === void 0)
         return;
-      if (index2 !== tail)
-        setTail(index2, "get");
-      return valList[index2];
+      if (index !== tail)
+        setTail(index, "get");
+      return valList[index];
     },
     /** Retrieves the value for a given key without changing its position. */
     peek: (key2) => {
-      const index2 = keyMap.get(key2);
-      return index2 !== void 0 ? valList[index2] : void 0;
+      const index = keyMap.get(key2);
+      return index !== void 0 ? valList[index] : void 0;
     },
     /** Checks if a key exists in the cache. */
     has: (key2) => keyMap.has(key2),
@@ -2069,23 +2053,23 @@ const createLRU$3 = (options) => {
     },
     /** Deletes a key-value pair from the cache. */
     delete(key2) {
-      const index2 = keyMap.get(key2);
-      if (index2 === void 0)
+      const index = keyMap.get(key2);
+      if (index === void 0)
         return false;
-      onEviction === null || onEviction === void 0 ? void 0 : onEviction(key2, valList[index2]);
+      onEviction === null || onEviction === void 0 ? void 0 : onEviction(key2, valList[index]);
       keyMap.delete(key2);
-      free.push(index2);
-      keyList[index2] = void 0;
-      valList[index2] = void 0;
-      const prevIndex = prev[index2];
-      const nextIndex = next[index2];
+      free.push(index);
+      keyList[index] = void 0;
+      valList[index] = void 0;
+      const prevIndex = prev[index];
+      const nextIndex = next[index];
       if (prevIndex !== 0)
         next[prevIndex] = nextIndex;
       if (nextIndex !== 0)
         prev[nextIndex] = prevIndex;
-      if (index2 === head)
+      if (index === head)
         head = nextIndex;
-      if (index2 === tail)
+      if (index === tail)
         tail = prevIndex;
       size2--;
       return true;
@@ -2241,8 +2225,8 @@ function Denque(array, options) {
     this._list = new Array(4);
   }
 }
-Denque.prototype.peekAt = function peekAt(index2) {
-  var i = index2;
+Denque.prototype.peekAt = function peekAt(index) {
+  var i = index;
   if (i !== (i | 0)) {
     return void 0;
   }
@@ -2318,8 +2302,8 @@ Denque.prototype.pop = function pop() {
   if (this._head < 2 && tail > 1e4 && tail <= len >>> 2) this._shrinkArray();
   return item;
 };
-Denque.prototype.removeOne = function removeOne(index2) {
-  var i = index2;
+Denque.prototype.removeOne = function removeOne(index) {
+  var i = index;
   if (i !== (i | 0)) {
     return void 0;
   }
@@ -2331,14 +2315,14 @@ Denque.prototype.removeOne = function removeOne(index2) {
   i = this._head + i & this._capacityMask;
   var item = this._list[i];
   var k;
-  if (index2 < size2 / 2) {
-    for (k = index2; k > 0; k--) {
+  if (index < size2 / 2) {
+    for (k = index; k > 0; k--) {
       this._list[i] = this._list[i = i - 1 + len & this._capacityMask];
     }
     this._list[i] = void 0;
     this._head = this._head + 1 + len & this._capacityMask;
   } else {
-    for (k = size2 - 1 - index2; k > 0; k--) {
+    for (k = size2 - 1 - index; k > 0; k--) {
       this._list[i] = this._list[i = i + 1 + len & this._capacityMask];
     }
     this._list[i] = void 0;
@@ -2346,8 +2330,8 @@ Denque.prototype.removeOne = function removeOne(index2) {
   }
   return item;
 };
-Denque.prototype.remove = function remove(index2, count) {
-  var i = index2;
+Denque.prototype.remove = function remove(index, count) {
+  var i = index;
   var removed;
   var del_count = count;
   if (i !== (i | 0)) {
@@ -2375,14 +2359,14 @@ Denque.prototype.remove = function remove(index2, count) {
     removed[k] = this._list[this._head + i + k & this._capacityMask];
   }
   i = this._head + i & this._capacityMask;
-  if (index2 + count === size2) {
+  if (index + count === size2) {
     this._tail = this._tail - count + len & this._capacityMask;
     for (k = count; k > 0; k--) {
       this._list[i = i + 1 + len & this._capacityMask] = void 0;
     }
     return removed;
   }
-  if (index2 === 0) {
+  if (index === 0) {
     this._head = this._head + count + len & this._capacityMask;
     for (k = count - 1; k > 0; k--) {
       this._list[i = i + 1 + len & this._capacityMask] = void 0;
@@ -2390,8 +2374,8 @@ Denque.prototype.remove = function remove(index2, count) {
     return removed;
   }
   if (i < size2 / 2) {
-    this._head = this._head + index2 + count + len & this._capacityMask;
-    for (k = index2; k > 0; k--) {
+    this._head = this._head + index + count + len & this._capacityMask;
+    for (k = index; k > 0; k--) {
       this.unshift(this._list[i = i - 1 + len & this._capacityMask]);
     }
     i = this._head - 1 + len & this._capacityMask;
@@ -2399,11 +2383,11 @@ Denque.prototype.remove = function remove(index2, count) {
       this._list[i = i - 1 + len & this._capacityMask] = void 0;
       del_count--;
     }
-    if (index2 < 0) this._tail = i;
+    if (index < 0) this._tail = i;
   } else {
     this._tail = i;
     i = i + count + len & this._capacityMask;
-    for (k = size2 - (count + index2); k > 0; k--) {
+    for (k = size2 - (count + index); k > 0; k--) {
       this.push(this._list[i++]);
     }
     i = this._tail;
@@ -2415,8 +2399,8 @@ Denque.prototype.remove = function remove(index2, count) {
   if (this._head < 2 && this._tail > 1e4 && this._tail <= len >>> 2) this._shrinkArray();
   return removed;
 };
-Denque.prototype.splice = function splice(index2, count) {
-  var i = index2;
+Denque.prototype.splice = function splice(index, count) {
+  var i = index;
   if (i !== (i | 0)) {
     return void 0;
   }
@@ -23112,12 +23096,12 @@ let Query$2 = class Query2 extends Command$8 {
         stream.emit("end");
       }
     });
-    const onResult = (row, index2) => {
+    const onResult = (row, index) => {
       if (stream.destroyed) return;
       if (!stream.push(row)) {
         this._connection && this._connection.pause();
       }
-      stream.emit("result", row, index2);
+      stream.emit("result", row, index);
     };
     const onFields = (fields2) => {
       if (stream.destroyed) return;
@@ -24755,13 +24739,13 @@ function requireLruCache() {
     initializeTTLTracking() {
       this.ttls = new ZeroArray(this.max);
       this.starts = new ZeroArray(this.max);
-      this.setItemTTL = (index2, ttl, start = perf.now()) => {
-        this.starts[index2] = ttl !== 0 ? start : 0;
-        this.ttls[index2] = ttl;
+      this.setItemTTL = (index, ttl, start = perf.now()) => {
+        this.starts[index] = ttl !== 0 ? start : 0;
+        this.ttls[index] = ttl;
         if (ttl !== 0 && this.ttlAutopurge) {
           const t = setTimeout(() => {
-            if (this.isStale(index2)) {
-              this.delete(this.keyList[index2]);
+            if (this.isStale(index)) {
+              this.delete(this.keyList[index]);
             }
           }, ttl + 1);
           if (t.unref) {
@@ -24769,13 +24753,13 @@ function requireLruCache() {
           }
         }
       };
-      this.updateItemAge = (index2) => {
-        this.starts[index2] = this.ttls[index2] !== 0 ? perf.now() : 0;
+      this.updateItemAge = (index) => {
+        this.starts[index] = this.ttls[index] !== 0 ? perf.now() : 0;
       };
-      this.statusTTL = (status, index2) => {
+      this.statusTTL = (status, index) => {
         if (status) {
-          status.ttl = this.ttls[index2];
-          status.start = this.starts[index2];
+          status.ttl = this.ttls[index];
+          status.start = this.starts[index];
           status.now = cachedNow || getNow();
           status.remainingTTL = status.now + status.ttl - status.start;
         }
@@ -24796,14 +24780,14 @@ function requireLruCache() {
         return n;
       };
       this.getRemainingTTL = (key2) => {
-        const index2 = this.keyMap.get(key2);
-        if (index2 === void 0) {
+        const index = this.keyMap.get(key2);
+        if (index === void 0) {
           return 0;
         }
-        return this.ttls[index2] === 0 || this.starts[index2] === 0 ? Infinity : this.starts[index2] + this.ttls[index2] - (cachedNow || getNow());
+        return this.ttls[index] === 0 || this.starts[index] === 0 ? Infinity : this.starts[index] + this.ttls[index] - (cachedNow || getNow());
       };
-      this.isStale = (index2) => {
-        return this.ttls[index2] !== 0 && this.starts[index2] !== 0 && (cachedNow || getNow()) - this.starts[index2] > this.ttls[index2];
+      this.isStale = (index) => {
+        return this.ttls[index] !== 0 && this.starts[index] !== 0 && (cachedNow || getNow()) - this.starts[index] > this.ttls[index];
       };
     }
     updateItemAge(_index) {
@@ -24818,9 +24802,9 @@ function requireLruCache() {
     initializeSizeTracking() {
       this.calculatedSize = 0;
       this.sizes = new ZeroArray(this.max);
-      this.removeItemSize = (index2) => {
-        this.calculatedSize -= this.sizes[index2];
-        this.sizes[index2] = 0;
+      this.removeItemSize = (index) => {
+        this.calculatedSize -= this.sizes[index];
+        this.sizes[index] = 0;
       };
       this.requireSize = (k, v, size2, sizeCalculation) => {
         if (this.isBackgroundFetch(v)) {
@@ -24845,15 +24829,15 @@ function requireLruCache() {
         }
         return size2;
       };
-      this.addItemSize = (index2, size2, status) => {
-        this.sizes[index2] = size2;
+      this.addItemSize = (index, size2, status) => {
+        this.sizes[index] = size2;
         if (this.maxSize) {
-          const maxSize = this.maxSize - this.sizes[index2];
+          const maxSize = this.maxSize - this.sizes[index];
           while (this.calculatedSize > maxSize) {
             this.evict(true);
           }
         }
-        this.calculatedSize += this.sizes[index2];
+        this.calculatedSize += this.sizes[index];
         if (status) {
           status.entrySize = size2;
           status.totalCalculatedSize = this.calculatedSize;
@@ -24905,8 +24889,8 @@ function requireLruCache() {
         }
       }
     }
-    isValidIndex(index2) {
-      return index2 !== void 0 && this.keyMap.get(this.keyList[index2]) === index2;
+    isValidIndex(index) {
+      return index !== void 0 && this.keyMap.get(this.keyList[index]) === index;
     }
     *entries() {
       for (const i of this.indexes()) {
@@ -25043,24 +25027,24 @@ function requireLruCache() {
         this.delete(k);
         return this;
       }
-      let index2 = this.size === 0 ? void 0 : this.keyMap.get(k);
-      if (index2 === void 0) {
-        index2 = this.newIndex();
-        this.keyList[index2] = k;
-        this.valList[index2] = v;
-        this.keyMap.set(k, index2);
-        this.next[this.tail] = index2;
-        this.prev[index2] = this.tail;
-        this.tail = index2;
+      let index = this.size === 0 ? void 0 : this.keyMap.get(k);
+      if (index === void 0) {
+        index = this.newIndex();
+        this.keyList[index] = k;
+        this.valList[index] = v;
+        this.keyMap.set(k, index);
+        this.next[this.tail] = index;
+        this.prev[index] = this.tail;
+        this.tail = index;
         this.size++;
-        this.addItemSize(index2, size2, status);
+        this.addItemSize(index, size2, status);
         if (status) {
           status.set = "add";
         }
         noUpdateTTL = false;
       } else {
-        this.moveToTail(index2);
-        const oldVal = this.valList[index2];
+        this.moveToTail(index);
+        const oldVal = this.valList[index];
         if (v !== oldVal) {
           if (this.isBackgroundFetch(oldVal)) {
             oldVal.__abortController.abort(new Error("replaced"));
@@ -25072,9 +25056,9 @@ function requireLruCache() {
               }
             }
           }
-          this.removeItemSize(index2);
-          this.valList[index2] = v;
-          this.addItemSize(index2, size2, status);
+          this.removeItemSize(index);
+          this.valList[index] = v;
+          this.addItemSize(index, size2, status);
           if (status) {
             status.set = "replace";
             const oldValue = oldVal && this.isBackgroundFetch(oldVal) ? oldVal.__staleWhileFetching : oldVal;
@@ -25088,9 +25072,9 @@ function requireLruCache() {
         this.initializeTTLTracking();
       }
       if (!noUpdateTTL) {
-        this.setItemTTL(index2, ttl, start);
+        this.setItemTTL(index, ttl, start);
       }
-      this.statusTTL(status, index2);
+      this.statusTTL(status, index);
       if (this.disposeAfter) {
         while (this.disposed.length) {
           this.disposeAfter(...this.disposed.shift());
@@ -25141,18 +25125,18 @@ function requireLruCache() {
       return head;
     }
     has(k, { updateAgeOnHas = this.updateAgeOnHas, status } = {}) {
-      const index2 = this.keyMap.get(k);
-      if (index2 !== void 0) {
-        if (!this.isStale(index2)) {
+      const index = this.keyMap.get(k);
+      if (index !== void 0) {
+        if (!this.isStale(index)) {
           if (updateAgeOnHas) {
-            this.updateItemAge(index2);
+            this.updateItemAge(index);
           }
           if (status) status.has = "hit";
-          this.statusTTL(status, index2);
+          this.statusTTL(status, index);
           return true;
         } else if (status) {
           status.has = "stale";
-          this.statusTTL(status, index2);
+          this.statusTTL(status, index);
         }
       } else if (status) {
         status.has = "miss";
@@ -25161,14 +25145,14 @@ function requireLruCache() {
     }
     // like get(), but without any LRU updating or TTL expiration
     peek(k, { allowStale = this.allowStale } = {}) {
-      const index2 = this.keyMap.get(k);
-      if (index2 !== void 0 && (allowStale || !this.isStale(index2))) {
-        const v = this.valList[index2];
+      const index = this.keyMap.get(k);
+      if (index !== void 0 && (allowStale || !this.isStale(index))) {
+        const v = this.valList[index];
         return this.isBackgroundFetch(v) ? v.__staleWhileFetching : v;
       }
     }
-    backgroundFetch(k, index2, options, context) {
-      const v = index2 === void 0 ? void 0 : this.valList[index2];
+    backgroundFetch(k, index, options, context) {
+      const v = index === void 0 ? void 0 : this.valList[index];
       if (this.isBackgroundFetch(v)) {
         return v;
       }
@@ -25199,10 +25183,10 @@ function requireLruCache() {
         if (aborted && !ignoreAbort && !updateCache) {
           return fetchFail(ac.signal.reason);
         }
-        if (this.valList[index2] === p) {
+        if (this.valList[index] === p) {
           if (v2 === void 0) {
             if (p.__staleWhileFetching) {
-              this.valList[index2] = p.__staleWhileFetching;
+              this.valList[index] = p.__staleWhileFetching;
             } else {
               this.delete(k);
             }
@@ -25225,12 +25209,12 @@ function requireLruCache() {
         const allowStaleAborted = aborted && options.allowStaleOnFetchAbort;
         const allowStale = allowStaleAborted || options.allowStaleOnFetchRejection;
         const noDelete = allowStale || options.noDeleteOnFetchRejection;
-        if (this.valList[index2] === p) {
+        if (this.valList[index] === p) {
           const del = !noDelete || p.__staleWhileFetching === void 0;
           if (del) {
             this.delete(k);
           } else if (!allowStaleAborted) {
-            this.valList[index2] = p.__staleWhileFetching;
+            this.valList[index] = p.__staleWhileFetching;
           }
         }
         if (allowStale) {
@@ -25258,11 +25242,11 @@ function requireLruCache() {
       p.__abortController = ac;
       p.__staleWhileFetching = v;
       p.__returned = null;
-      if (index2 === void 0) {
+      if (index === void 0) {
         this.set(k, p, { ...fetchOpts.options, status: void 0 });
-        index2 = this.keyMap.get(k);
+        index = this.keyMap.get(k);
       } else {
-        this.valList[index2] = p;
+        this.valList[index] = p;
       }
       return p;
     }
@@ -25319,13 +25303,13 @@ function requireLruCache() {
         status,
         signal
       };
-      let index2 = this.keyMap.get(k);
-      if (index2 === void 0) {
+      let index = this.keyMap.get(k);
+      if (index === void 0) {
         if (status) status.fetch = "miss";
-        const p = this.backgroundFetch(k, index2, options, fetchContext);
+        const p = this.backgroundFetch(k, index, options, fetchContext);
         return p.__returned = p;
       } else {
-        const v = this.valList[index2];
+        const v = this.valList[index];
         if (this.isBackgroundFetch(v)) {
           const stale = allowStale && v.__staleWhileFetching !== void 0;
           if (status) {
@@ -25334,17 +25318,17 @@ function requireLruCache() {
           }
           return stale ? v.__staleWhileFetching : v.__returned = v;
         }
-        const isStale = this.isStale(index2);
+        const isStale = this.isStale(index);
         if (!forceRefresh && !isStale) {
           if (status) status.fetch = "hit";
-          this.moveToTail(index2);
+          this.moveToTail(index);
           if (updateAgeOnGet) {
-            this.updateItemAge(index2);
+            this.updateItemAge(index);
           }
-          this.statusTTL(status, index2);
+          this.statusTTL(status, index);
           return v;
         }
-        const p = this.backgroundFetch(k, index2, options, fetchContext);
+        const p = this.backgroundFetch(k, index, options, fetchContext);
         const hasStale = p.__staleWhileFetching !== void 0;
         const staleVal = hasStale && allowStale;
         if (status) {
@@ -25360,12 +25344,12 @@ function requireLruCache() {
       noDeleteOnStaleGet = this.noDeleteOnStaleGet,
       status
     } = {}) {
-      const index2 = this.keyMap.get(k);
-      if (index2 !== void 0) {
-        const value = this.valList[index2];
+      const index = this.keyMap.get(k);
+      if (index !== void 0) {
+        const value = this.valList[index];
         const fetching = this.isBackgroundFetch(value);
-        this.statusTTL(status, index2);
-        if (this.isStale(index2)) {
+        this.statusTTL(status, index);
+        if (this.isStale(index)) {
           if (status) status.get = "stale";
           if (!fetching) {
             if (!noDeleteOnStaleGet) {
@@ -25384,9 +25368,9 @@ function requireLruCache() {
           if (fetching) {
             return value.__staleWhileFetching;
           }
-          this.moveToTail(index2);
+          this.moveToTail(index);
           if (updateAgeOnGet) {
-            this.updateItemAge(index2);
+            this.updateItemAge(index);
           }
           return value;
         }
@@ -25398,15 +25382,15 @@ function requireLruCache() {
       this.prev[n] = p;
       this.next[p] = n;
     }
-    moveToTail(index2) {
-      if (index2 !== this.tail) {
-        if (index2 === this.head) {
-          this.head = this.next[index2];
+    moveToTail(index) {
+      if (index !== this.tail) {
+        if (index === this.head) {
+          this.head = this.next[index];
         } else {
-          this.connect(this.prev[index2], this.next[index2]);
+          this.connect(this.prev[index], this.next[index]);
         }
-        this.connect(this.tail, index2);
-        this.tail = index2;
+        this.connect(this.tail, index);
+        this.tail = index;
       }
     }
     get del() {
@@ -25416,14 +25400,14 @@ function requireLruCache() {
     delete(k) {
       let deleted = false;
       if (this.size !== 0) {
-        const index2 = this.keyMap.get(k);
-        if (index2 !== void 0) {
+        const index = this.keyMap.get(k);
+        if (index !== void 0) {
           deleted = true;
           if (this.size === 1) {
             this.clear();
           } else {
-            this.removeItemSize(index2);
-            const v = this.valList[index2];
+            this.removeItemSize(index);
+            const v = this.valList[index];
             if (this.isBackgroundFetch(v)) {
               v.__abortController.abort(new Error("deleted"));
             } else {
@@ -25433,18 +25417,18 @@ function requireLruCache() {
               }
             }
             this.keyMap.delete(k);
-            this.keyList[index2] = null;
-            this.valList[index2] = null;
-            if (index2 === this.tail) {
-              this.tail = this.prev[index2];
-            } else if (index2 === this.head) {
-              this.head = this.next[index2];
+            this.keyList[index] = null;
+            this.valList[index] = null;
+            if (index === this.tail) {
+              this.tail = this.prev[index];
+            } else if (index === this.head) {
+              this.head = this.next[index];
             } else {
-              this.next[this.prev[index2]] = this.next[index2];
-              this.prev[this.next[index2]] = this.prev[index2];
+              this.next[this.prev[index]] = this.next[index];
+              this.prev[this.next[index]] = this.prev[index];
             }
             this.size--;
-            this.free.push(index2);
+            this.free.push(index);
           }
         }
       }
@@ -25456,12 +25440,12 @@ function requireLruCache() {
       return deleted;
     }
     clear() {
-      for (const index2 of this.rindexes({ allowStale: true })) {
-        const v = this.valList[index2];
+      for (const index of this.rindexes({ allowStale: true })) {
+        const v = this.valList[index];
         if (this.isBackgroundFetch(v)) {
           v.__abortController.abort(new Error("deleted"));
         } else {
-          const k = this.keyList[index2];
+          const k = this.keyList[index];
           this.dispose(v, k, "delete");
           if (this.disposeAfter) {
             this.disposed.push([v, k, "delete"]);
@@ -27120,8 +27104,8 @@ const Connection$1 = connection;
 const EventEmitter = require$$0$4.EventEmitter;
 const makeSelector = {
   RR() {
-    let index2 = 0;
-    return (clusterIds) => clusterIds[index2++ % clusterIds.length];
+    let index = 0;
+    return (clusterIds) => clusterIds[index++ % clusterIds.length];
   },
   RANDOM() {
     return (clusterIds) => clusterIds[Math.floor(Math.random() * clusterIds.length)];
@@ -27398,9 +27382,9 @@ let PoolCluster$1 = class PoolCluster extends EventEmitter {
     });
   }
   _removeNode(node) {
-    const index2 = this._serviceableNodeIds.indexOf(node.id);
-    if (index2 !== -1) {
-      this._serviceableNodeIds.splice(index2, 1);
+    const index = this._serviceableNodeIds.indexOf(node.id);
+    if (index !== -1) {
+      this._serviceableNodeIds.splice(index, 1);
       delete this._nodes[node.id];
       this._clearFindCaches();
       node.pool.end();
@@ -27846,19 +27830,19 @@ async function salvarFabricante(fabricante) {
     ]);
   }
 }
-async function criarColaborador({ nome, email, senha, nivel }) {
-  const bcrypt2 = await Promise.resolve().then(() => index);
-  const senhaHash = await bcrypt2.hash(senha, 10);
+async function criarColaborador({ nome, email, senha, nivel, setor, ativo = 1 }) {
+  const senhaHash = await bcrypt.hash(senha, 10);
   const [result] = await pool.query(
-    "INSERT INTO usuarios (nome, email, senha, nivel) VALUES (?, ?, ?, ?)",
-    [nome, email, senhaHash, nivel || "comum"]
+    `INSERT INTO usuarios (nome, email, senha, nivel, setor, ativo, criado_em)
+     VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+    [nome, email, senhaHash, nivel || "comum", setor, ativo]
   );
   return { id: result.insertId };
 }
-async function atualizarColaborador({ id, nome, email, nivel }) {
+async function atualizarColaborador({ id, nome, email, nivel, setor, ativo }) {
   await pool.query(
-    "UPDATE usuarios SET nome = ?, email = ?, nivel = ? WHERE id = ?",
-    [nome, email, nivel, id]
+    "UPDATE usuarios SET nome = ?, email = ?, nivel = ?, setor = ?, ativo = ? WHERE id = ?",
+    [nome, email, nivel, setor, ativo, id]
   );
   return true;
 }
@@ -27886,6 +27870,48 @@ async function atualizarCliente({ id, nome, email, telefone, endereco }) {
 }
 async function deletarCliente(id) {
   await pool.query("DELETE FROM clientes WHERE id = ?", [id]);
+  return true;
+}
+async function criarFornecedor(fornecedor) {
+  const data = {
+    nome: fornecedor.Nome || fornecedor.nome,
+    nomefantasia: fornecedor.NomeFantasia || fornecedor.nomefantasia,
+    cnpj: fornecedor.CNPJ || fornecedor.cnpj,
+    endereco: fornecedor.ENDERECO || fornecedor.endereco,
+    cidade: fornecedor.CIDADE || fornecedor.cidade,
+    bairro: fornecedor.BAIRRO || fornecedor.bairro,
+    ativo: fornecedor.ATIVO ? 1 : 0,
+    pessoa: fornecedor.PESSOA || fornecedor.pessoa
+  };
+  const [result] = await pool.query(
+    `INSERT INTO fornecedores 
+     (Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, Ativo, Pessoa)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      data.nome,
+      data.nomefantasia,
+      data.cnpj,
+      data.endereco,
+      data.cidade,
+      data.bairro,
+      data.ativo,
+      data.pessoa
+    ]
+  );
+  return { codigoFornecedor: result.insertId };
+}
+async function atualizarFornecedor({ CodigoFornecedor, Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, Ativo, Pessoa }) {
+  const ativoValue = Ativo ? 1 : 0;
+  await pool.query(
+    `UPDATE fornecedores 
+     SET Nome = ?, NomeFantasia = ?, CNPJ = ?, Endereco = ?, Cidade = ?, Bairro = ?, Ativo = ?, Pessoa = ?
+     WHERE CodigoFornecedor = ?`,
+    [Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, ativoValue, Pessoa, CodigoFornecedor]
+  );
+  return true;
+}
+async function deletarFornecedor(CodigoFornecedor) {
+  await pool.query("DELETE FROM fornecedores WHERE CodigoFornecedor = ?", [CodigoFornecedor]);
   return true;
 }
 createRequire(import.meta.url);
@@ -28086,6 +28112,68 @@ ipcMain.handle("delete-colaborador", async (_event, { id, usuario }) => {
   } catch (error) {
     console.error("❌ Erro ao deletar colaborador:", error);
     return { sucesso: false, mensagem: "Erro ao deletar colaborador." };
+  }
+});
+ipcMain.handle("add-fornecedor", async (_event, fornecedor) => {
+  try {
+    console.log("📦 Dados recebidos no backend:", fornecedor);
+    const resultado = await criarFornecedor(fornecedor);
+    return { sucesso: true, data: resultado };
+  } catch (error) {
+    console.error("❌ Erro ao adicionar fornecedor:", error);
+    if (error.message.includes("Duplicate entry")) {
+      return { sucesso: false, mensagem: "Este CNPJ já está cadastrado." };
+    }
+    return { sucesso: false, mensagem: "Erro ao cadastrar fornecedor." };
+  }
+});
+ipcMain.handle("update-fornecedor", async (_event, fornecedor) => {
+  try {
+    const resultado = await atualizarFornecedor(fornecedor);
+    return { sucesso: true, data: resultado };
+  } catch (error) {
+    console.error("❌ Erro ao atualizar Fornecedor:", error);
+    return { sucesso: false, mensagem: "Erro ao atualizar Fornecedor." };
+  }
+});
+ipcMain.handle("get-fornecedores", async (_event, termo) => {
+  let sql = `
+    SELECT 
+      CodigoFornecedor, 
+      Nome, 
+      NomeFantasia, 
+      CNPJ, 
+      Endereco, 
+      Cidade, 
+      Bairro, 
+      Ativo, 
+      Pessoa
+    FROM fornecedores
+  `;
+  let params = [];
+  if (termo && termo.trim() !== "" && termo.trim() !== "*") {
+    sql += " WHERE Nome LIKE ? OR NomeFantasia LIKE ? OR CNPJ LIKE ?";
+    params = [`%${termo}%`, `%${termo}%`, `%${termo}%`];
+  }
+  sql += " ORDER BY CodigoFornecedor DESC LIMIT 100";
+  try {
+    const [rows] = await pool.query(sql, params);
+    return rows;
+  } catch (error) {
+    console.error("❌ Erro ao buscar fornecedores:", error);
+    return [];
+  }
+});
+ipcMain.handle("delete-fornecedor", async (_event, { CodigoFornecedor, usuario }) => {
+  if (usuario.nivel !== "administrador") {
+    return { sucesso: false, mensagem: "Acesso negado." };
+  }
+  try {
+    await deletarFornecedor(CodigoFornecedor);
+    return { sucesso: true };
+  } catch (error) {
+    console.error("❌ Erro ao deletar fornecedor:", error);
+    return { sucesso: false, mensagem: "Erro ao deletar fornecedor." };
   }
 });
 app.whenReady().then(createWindow);

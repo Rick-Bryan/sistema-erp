@@ -8,18 +8,15 @@ declare global {
     };
   }
 }
-
 interface Colaborador {
   id: number;
   nome: string;
   email: string;
-  setor?: string;
-  cargo?: string;
-  telefone?: string;
-  data_admissao?: string;
-  status?: string;
+  nivel: string;
+  setor: string;
+  ativo: number; // 1 ou 0
+  criado_em: string;
 }
-
 interface Props {
   colaboradorSelecionado: Colaborador;
   voltar: () => void;
@@ -90,6 +87,25 @@ export default function ColaboradorDetalhes({ colaboradorSelecionado, voltar }: 
           />
         </div>
 
+
+
+        {/* Nível */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <label style={labelStyle}>Nível</label>
+          <select
+            style={inputStyle}
+            name="nivel"
+            value={colaborador.nivel || ""}
+            onChange={handleChange}
+          >
+            <option value="administrador">Administrador</option>
+            <option value="vendedor">Vendedor</option>
+            <option value="financeiro">Financeiro</option>
+            <option value="estoquista">Estoquista</option>
+          </select>
+        </div>
+
+        {/* Setor */}
         <div style={{ display: "flex", flexDirection: "column" }}>
           <label style={labelStyle}>Setor</label>
           <input
@@ -100,50 +116,31 @@ export default function ColaboradorDetalhes({ colaboradorSelecionado, voltar }: 
           />
         </div>
 
+        {/* Ativo */}
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <label style={labelStyle}>Cargo</label>
-          <input
-            style={inputStyle}
-            name="cargo"
-            value={colaborador.cargo || ""}
-            onChange={handleChange}
-          />
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <label style={labelStyle}>Telefone</label>
-          <input
-            style={inputStyle}
-            name="telefone"
-            value={colaborador.telefone || ""}
-            onChange={handleChange}
-          />
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <label style={labelStyle}>Data de Admissão</label>
-          <input
-            type="date"
-            style={inputStyle}
-            name="data_admissao"
-            value={colaborador.data_admissao || ""}
-            onChange={handleChange}
-          />
-        </div>
-
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <label style={labelStyle}>Status</label>
+          <label style={labelStyle}>Ativo</label>
           <select
             style={inputStyle}
-            name="status"
-            value={colaborador.status || "ativo"}
-            onChange={handleChange}
+            name="ativo"
+            value={colaborador.ativo ? "1" : "0"}
+            onChange={(e) =>
+              setColaborador((prev) => ({ ...prev, ativo: e.target.value === "1" ? 1 : 0 }))
+            }
           >
-            <option value="ativo">Ativo</option>
-            <option value="inativo">Inativo</option>
+            <option value="1">Sim</option>
+            <option value="0">Não</option>
           </select>
         </div>
-
+        {/* Criado em (somente leitura) */}
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          <label style={labelStyle}>Criado em</label>
+          <input
+            style={{ ...inputStyle, backgroundColor: "#f3f4f6" }}
+            name="criado_em"
+            value={colaborador.criado_em ? new Date(colaborador.criado_em).toLocaleDateString("pt-BR") : ""}
+            readOnly
+          />
+        </div>
         <div
           style={{
             gridColumn: "1 / -1",
