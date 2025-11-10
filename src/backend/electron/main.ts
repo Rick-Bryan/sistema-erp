@@ -230,7 +230,9 @@ ipcMain.handle("get-colaboradores", async (event, termo) => {
       nome, 
       email, 
       nivel, 
-      setor 
+      setor,
+      ativo,
+      criado_em 
     FROM usuarios
   `;
 

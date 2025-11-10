@@ -122,7 +122,7 @@ export default function ColaboradorDetalhes({ colaboradorSelecionado, voltar }: 
           <select
             style={inputStyle}
             name="ativo"
-            value={colaborador.ativo ? "1" : "0"}
+            value={colaborador.ativo == 1 ? "1" : "0"} // compara com == para aceitar boolean ou número
             onChange={(e) =>
               setColaborador((prev) => ({ ...prev, ativo: e.target.value === "1" ? 1 : 0 }))
             }
@@ -130,6 +130,7 @@ export default function ColaboradorDetalhes({ colaboradorSelecionado, voltar }: 
             <option value="1">Sim</option>
             <option value="0">Não</option>
           </select>
+
         </div>
         {/* Criado em (somente leitura) */}
         <div style={{ display: "flex", flexDirection: "column" }}>
