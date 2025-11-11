@@ -156,15 +156,24 @@ ipcMain.handle('update-cliente', async (_event, cliente) => {
 });
 
 // Deletar cliente
-ipcMain.handle('delete-cliente', async (_event, id) => {
-  try {
-    await deletarCliente(id);
-    return { sucesso: true };
-  } catch (err) {
-    console.error(err);
-    return { sucesso: false, mensagem: 'Erro ao excluir cliente.' };
+ipcMain.handle('delete-cliente', async (_event, dados) => {
+
+  const { id, usuario } = dados;
+
+  if (usuario.nivel === "administrador") {
+    try {
+      await deletarCliente(id);
+      return { sucesso: true };
+    } catch (err) {
+      console.error(err);
+      return { sucesso: false, mensagem: 'Erro ao excluir cliente.' };
+    }
+  } else {
+    return { sucesso: false, mensagem: 'Usuario nao tem permissão' };
+
   }
 });
+
 //Pesquisa
 ipcMain.handle("buscar-produtos", async (event, termo) => {
   let sql = "SELECT * FROM produto";

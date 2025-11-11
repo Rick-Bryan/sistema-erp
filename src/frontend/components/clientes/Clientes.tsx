@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import toast from "react-hot-toast";
 import ClienteCadastro from './ClientesCadastro';
-
+import ClienteDetalhes from './ClientesDetalhes';
 interface Cliente {
   id: number;
   nome: string;
@@ -20,11 +20,7 @@ export default function Clientes({ setPage }: ClientesProps) {
   const nivelUsuario = usuarioLogado?.nivel || "";
 
   useEffect(() => {
-    if (window.ipcRenderer) {
-      window.ipcRenderer.invoke('get-clientes').then((data: Cliente[]) => setClientes(data));
-    } else {
-      setClientes([{ id: 1, nome: 'Cliente Exemplo', email: 'cliente@exemplo.com' }]);
-    }
+    carregarClientes();
   }, []);
 
   const carregarClientes = async () => {
@@ -46,24 +42,41 @@ export default function Clientes({ setPage }: ClientesProps) {
   };
   const excluirCliente = async (id) => {
     try {
-      await window.ipcRenderer.invoke("delete-cliente", id, usuarioLogado)
-      toast.success("Colaborador excluido com sucesso")
-      carregarClientes();
+      const resposta = await window.ipcRenderer.invoke("delete-cliente", { id, usuario: usuarioLogado });
+
+      if (resposta.sucesso) {
+        toast.success("Cliente excluído com sucesso");
+        carregarClientes();
+      } else {
+        toast.error(resposta.mensagem || "Falha ao excluir cliente");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro inesperado ao excluir cliente");
     }
-    catch (err) {
-      toast.error("Falha ao exluir colaborador")
-    }
-  }
+  };
+
   if (modoCadastro) {
-      return (
-        <ClienteCadastro
-          onVoltar={() => {
-            setModoCadastro(false);
-            carregarClientes();
-          }}
-        />
-      );
-    }
+    return (
+      <ClienteCadastro
+        onVoltar={() => {
+          setModoCadastro(false);
+          carregarClientes();
+        }}
+      />
+    );
+  }
+  if (clienteSelecionado) {
+    return (
+      <ClienteDetalhes
+        clienteSelecionado={clienteSelecionado}
+        onVoltar={() => {
+          setClienteSelecionado(null);
+          carregarClientes();
+        }}
+      />
+    )
+  }
   return (
     <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
       <button
@@ -100,7 +113,7 @@ export default function Clientes({ setPage }: ClientesProps) {
             borderRadius: '6px',
             fontWeight: 600,
             cursor: 'pointer',
-    
+
           }}
         >
           ＋ Novo Cliente
@@ -140,7 +153,7 @@ export default function Clientes({ setPage }: ClientesProps) {
                       padding: '6px 12px',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                              margin:'0px 5px'
+                      margin: '0px 5px'
                     }}
                   >
                     Visualizar

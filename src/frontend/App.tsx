@@ -4,7 +4,7 @@ import Dashboard from './components/Dashboard';
 import Clientes from './components/clientes/Clientes';
 import Produtos from './components/Produtos/Produtos';
 import ProdutoDetalhes from './components/produtos/ProdutoDetalhes';
-import Movimentacao from './components/Movimentacao';
+import Movimentacao from './pages/Movimentacao/Movimentacao';
 import Manutencao from './components/Manutencao';
 import CadastrosPage from './pages/cadastros/CadastrosPage';
 import Fabricantes from './components/fabricantes/Fabricantes';
