@@ -12,6 +12,7 @@ import Colaboradores from './components/colaboradores/Colaboradores';
 import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login/LoginPage'
 import Fornecedores from './components/fornecedores/Fornecedores';
+import Vendas from './components/vendas/Vendas';
 
 export default function App() {
   const [page, setPage] = useState('dashboard');
@@ -48,7 +49,7 @@ export default function App() {
         return <Produtos setPage={setPage} setProdutoSelecionado={setProdutoSelecionado} />;
       case 'produto-detalhes':
         return <ProdutoDetalhes produtoSelecionado={produtoSelecionado} voltar={() => setPage('produtos')} />;
-      case 'movimentacao': return <Movimentacao />;
+      case 'movimentacao': return <Movimentacao setPage={setPage} />;
       case 'manutencao': return <Manutencao />;
       case 'colaboradores': return <Colaboradores setPage={setPage} />
       case 'fabricantes':
@@ -57,7 +58,8 @@ export default function App() {
         return <Fornecedores setPage={setPage} />;
       case 'cadastros':
         return <CadastrosPage setPage={setPage} />;
-
+       case 'vendas': return <Vendas setPage={setPage} />;
+      
       default: return <Dashboard />;
     }
   };

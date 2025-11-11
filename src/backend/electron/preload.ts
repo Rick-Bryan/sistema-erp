@@ -48,6 +48,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addCliente: (cliente) => ipcRenderer.invoke('add-cliente', cliente),
   salvarCliente: (cliente) => ipcRenderer.invoke('update-cliente', cliente),
   deletarCliente: (id) => ipcRenderer.invoke('deletar-cliente', id),
+
+  //Vendas
+  getVendas: () => ipcRenderer.invoke('get-vendas'),
+  addVenda: (dados) => ipcRenderer.invoke('add-venda', dados),
+  updateVenda: (dados) => ipcRenderer.invoke('update-venda', dados),
+  deleteVenda: (id) => ipcRenderer.invoke('delete-venda', id),
   // 🔍 Busca e login
   buscar: (canal, termo) => ipcRenderer.invoke(canal, termo),
   login: (dados) => ipcRenderer.invoke('login', dados),

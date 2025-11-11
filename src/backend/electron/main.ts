@@ -10,7 +10,7 @@ import { listarColaboradores, criarColaborador, atualizarColaborador, deletarCol
 import { listarClientes, criarCliente, atualizarCliente, deletarCliente } from '../db/clientes';
 import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornecedor } from '../db/fornecedores';
 //Falta fazer
-
+import { listarVendas, criarVenda, atualizarVenda, deletarVenda } from '../db/vendas';
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -355,6 +355,28 @@ ipcMain.handle('delete-fornecedor', async (_event, { CodigoFornecedor, usuario }
     console.error("❌ Erro ao deletar fornecedor:", error);
     return { sucesso: false, mensagem: "Erro ao deletar fornecedor." };
   }
+});
+
+
+
+// Listar
+ipcMain.handle('get-vendas', async () => {
+  return await listarVendas();
+});
+
+// Criar
+ipcMain.handle('add-venda', async (_event, dados) => {
+  return await criarVenda(dados);
+});
+
+// Atualizar
+ipcMain.handle('update-venda', async (_event, dados) => {
+  return await atualizarVenda(dados);
+});
+
+// Deletar
+ipcMain.handle('delete-venda', async (_event, id) => {
+  return await deletarVenda(id);
 });
 
 

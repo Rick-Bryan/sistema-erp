@@ -131,6 +131,7 @@ export default function Clientes({ setPage }: ClientesProps) {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#e5e7eb', color: '#1e3a8a', textAlign: 'left' }}>
+              <th style={thStyle}>Codigo</th>
               <th style={thStyle}>Nome</th>
               <th style={thStyle}>Email</th>
 
@@ -140,6 +141,7 @@ export default function Clientes({ setPage }: ClientesProps) {
           <tbody>
             {clientes.map((c) => (
               <tr key={c.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                <td style={tdStyle}>{c.id}</td>
                 <td style={tdStyle}>{c.nome}</td>
                 <td style={tdStyle}>{c.email}</td>
 

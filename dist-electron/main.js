@@ -27908,6 +27908,45 @@ async function deletarFornecedor(CodigoFornecedor) {
   await pool.query("DELETE FROM fornecedores WHERE CodigoFornecedor = ?", [CodigoFornecedor]);
   return true;
 }
+async function listarVendas() {
+  const [rows] = await pool.query(`
+    SELECT 
+      v.id,
+      c.nome AS cliente_nome,
+      u.nome AS usuario_nome,
+      v.data_venda,
+      v.valor_total,
+      v.forma_pagamento,
+      v.status,
+      v.observacoes,
+      v.criado_em,
+      v.atualizado_em
+    FROM vendas v
+    LEFT JOIN clientes c ON v.cliente_id = c.id
+    LEFT JOIN usuarios u ON v.usuario_id = u.id
+    ORDER BY v.id DESC
+  `);
+  return rows;
+}
+async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes }) {
+  const [result] = await pool.query(
+    `INSERT INTO vendas (cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
+  );
+  return { id: result.insertId };
+}
+async function atualizarVenda({ id, cliente_id, valor_total, forma_pagamento, status, observacoes }) {
+  await pool.query(
+    `UPDATE vendas SET cliente_id=?, valor_total=?, forma_pagamento=?, status=?, observacoes=? WHERE id=?`,
+    [cliente_id, valor_total, forma_pagamento, status, observacoes, id]
+  );
+  return true;
+}
+async function deletarVenda(id) {
+  await pool.query(`DELETE FROM vendas WHERE id=?`, [id]);
+  return true;
+}
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.join(__dirname, "..", "..", "..");
@@ -28176,5 +28215,17 @@ ipcMain.handle("delete-fornecedor", async (_event, { CodigoFornecedor, usuario }
     console.error("❌ Erro ao deletar fornecedor:", error);
     return { sucesso: false, mensagem: "Erro ao deletar fornecedor." };
   }
+});
+ipcMain.handle("get-vendas", async () => {
+  return await listarVendas();
+});
+ipcMain.handle("add-venda", async (_event, dados) => {
+  return await criarVenda(dados);
+});
+ipcMain.handle("update-venda", async (_event, dados) => {
+  return await atualizarVenda(dados);
+});
+ipcMain.handle("delete-venda", async (_event, id) => {
+  return await deletarVenda(id);
 });
 app.whenReady().then(createWindow);
