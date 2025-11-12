@@ -20,6 +20,7 @@ export interface Produto {
   CEST?: string;
   CodigoBeneficio?: string;
   EstoqueAtual?: number;
+  PrecoVenda?: number;
 }
 
 /** 🔍 Verifica se o grupo existe */
@@ -78,9 +79,9 @@ export async function criarProduto(produto: Produto) {
       INSERT INTO produto (
         CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante, DataCadastro,
         UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI, ReducaoIPI,
-        PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada, CEST, CodigoBeneficio, EstoqueAtual
+        PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada, CEST, CodigoBeneficio, EstoqueAtual,PrecoVenda
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
     `;
 
     await pool.execute(sql, [
@@ -102,6 +103,7 @@ export async function criarProduto(produto: Produto) {
       produto.CEST ?? null,
       produto.CodigoBeneficio ?? null,
       produto.EstoqueAtual ?? 0,
+      produto.PrecoVenda ?? 0,
     ]);
 
     console.log("✅ Produto cadastrado com sucesso!");
@@ -132,7 +134,8 @@ export async function salvarProduto(produto: Produto) {
           PisCofinsCSTEntrada = ?,
           CEST = ?,
           CodigoBeneficio = ?,
-          EstoqueAtual = ?
+          EstoqueAtual = ?,
+          PrecoVenda = ?
         WHERE CodigoProduto = ?
       `;
 
@@ -154,6 +157,7 @@ export async function salvarProduto(produto: Produto) {
         produto.CEST ?? null,
         produto.CodigoBeneficio ?? null,
         produto.EstoqueAtual ?? 0,
+        produto.PrecoVenda ??0,
         produto.CodigoProduto
       ]);
 
@@ -165,9 +169,9 @@ export async function salvarProduto(produto: Produto) {
           CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante,
           DataCadastro, UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI,
           ReducaoIPI, PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada,
-          CEST, CodigoBeneficio, EstoqueAtual
+          CEST, CodigoBeneficio, EstoqueAtual,PrecoVenda
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       await pool.execute(sql, [
@@ -188,7 +192,8 @@ export async function salvarProduto(produto: Produto) {
         produto.PisCofinsCSTEntrada ?? null,
         produto.CEST ?? null,
         produto.CodigoBeneficio ?? null,
-        produto.EstoqueAtual ?? 0
+        produto.EstoqueAtual ?? 0,
+        produto.PrecoVenda ?? 0
       ]);
 
       console.log("✅ Produto criado com sucesso!");

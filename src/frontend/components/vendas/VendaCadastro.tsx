@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import toast from 'react-hot-toast';
+// VendaCadastro.tsx
+import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 declare global {
     interface Window {
@@ -10,158 +11,178 @@ declare global {
     }
 }
 
-interface Venda {
+type Venda = {
     id?: number;
-    cliente_id?: number;
-    usuario_id?: number;
+    cliente_id?: number | null; //
+    usuario_id?: number | "";
     data_venda?: string;
     valor_total?: number;
     forma_pagamento?: string;
-    status?: 'pendente' | 'pago' | 'cancelado';
+    status?: "pendente" | "pago" | "cancelado";
     observacoes?: string;
     criado_em?: string;
-}
+};
 
-interface Produto {
+type Produto = {
     CodigoProduto: number;
-    nome: string;
-    preco_venda: number;
-    estoque: number;
-}
+    NomeProduto: string;
+    PrecoVenda?: number;
+    EstoqueAtual?: number;
+    [k: string]: any;
+};
 
-interface ItemVenda {
+type ItemVenda = {
     produto_id: number;
     nome: string;
     quantidade: number;
     valor_unitario: number;
     subtotal: number;
-}
+};
 
 export default function VendaCadastro({ voltar }: { voltar: () => void }) {
     const [venda, setVenda] = useState<Venda>({
-        data_venda: new Date().toISOString().split('T')[0],
-        status: 'pendente',
+
+        data_venda: new Date().toISOString().split("T")[0],
+        status: "pendente",
         valor_total: 0,
-        forma_pagamento: '',
-        observacoes: '',
+        forma_pagamento: "",
+        observacoes: "",
     });
 
     const [clientes, setClientes] = useState<any[]>([]);
     const [colaboradores, setColaboradores] = useState<any[]>([]);
     const [produtos, setProdutos] = useState<Produto[]>([]);
-    const [buscaProduto, setBuscaProduto] = useState('');
+    const [buscaProduto, setBuscaProduto] = useState("");
     const [itens, setItens] = useState<ItemVenda[]>([]);
-    const [quantidade, setQuantidade] = useState(1);
+    const [quantidade, setQuantidade] = useState<number>(1);
 
-    // === Carrega clientes, colaboradores e produtos ===
+    // Carrega dados iniciais
     useEffect(() => {
         carregarClientes();
         carregarColaboradores();
         carregarProdutos();
     }, []);
 
+    // Recalcula total sempre que itens mudarem
+    useEffect(() => {
+        const total = itens.reduce((acc, it) => acc + (Number(it.subtotal) || 0), 0);
+        setVenda((prev) => ({ ...prev, valor_total: parseFloat(total.toFixed(2)) }));
+    }, [itens]);
+
     const carregarClientes = async () => {
         try {
-            const lista = await window.ipcRenderer.invoke('get-clientes');
+            const lista = await window.ipcRenderer.invoke("get-clientes");
             setClientes(Array.isArray(lista) ? lista : []);
         } catch (err) {
             console.error(err);
-            toast.error('Erro ao carregar clientes');
+            toast.error("Erro ao carregar clientes");
         }
     };
 
     const carregarColaboradores = async () => {
         try {
-            const lista = await window.ipcRenderer.invoke('get-colaboradores');
+            const lista = await window.ipcRenderer.invoke("get-colaboradores");
             setColaboradores(Array.isArray(lista) ? lista : []);
         } catch (err) {
             console.error(err);
-            toast.error('Erro ao carregar colaboradores');
+            toast.error("Erro ao carregar colaboradores");
         }
     };
 
     const carregarProdutos = async () => {
         try {
-            const lista = await window.ipcRenderer.invoke('buscar-produtos');
+            // busca todos inicialmente: usamos termo "*" como em outras rotas
+            const lista = await window.ipcRenderer.invoke("buscar-produtos", "*");
             setProdutos(Array.isArray(lista) ? lista : []);
-            console.log(lista)
         } catch (err) {
             console.error(err);
-            toast.error('Erro ao carregar produtos');
+            toast.error("Erro ao carregar produtos");
         }
     };
 
-    // === Manipulação do formulário ===
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const handleChangeVenda = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setVenda(prev => ({ ...prev, [name]: value }));
+        // para IDs, manter vazio ou number
+        if (name === "cliente_id" || name === "usuario_id") {
+            setVenda((prev) => ({ ...prev, [name]: value === "" ? "" : Number(value) }));
+        } else {
+            setVenda((prev) => ({ ...prev, [name]: value }));
+        }
     };
 
-    // === Adicionar produto à lista de itens ===
+    // Filtra produtos pela busca
+    const produtosFiltrados = produtos.filter((p) =>
+        String(p?.NomeProduto || "").toLowerCase().includes(buscaProduto.toLowerCase())
+    );
+
+    // Adiciona produto à lista (usa a quantidade atual)
     const handleAdicionarItem = (produto: Produto) => {
-        if (!produto) return;
-
-        const itemExistente = itens.find(i => i.Codigo_Produto === produto.CodigoProduto);
-        if (itemExistente) {
-            toast.error('Produto já adicionado!');
-            return;
-        }
-
-        const novoItem: ItemVenda = {
-            Codigo_Produto: produto.CodigoProduto,
-            NomeProduto: produto.NomeProduto,
-            EstoqueAtual: quantidade,
-            /*
-            valor_unitario: produto.preco_venda,
-            subtotal: produto.preco_venda * quantidade,*/
+        const novoItem = {
+            produto_id: produto.CodigoProduto,
+            nome: produto.NomeProduto,
+            quantidade,
+            valor_unitario: Number(produto.PrecoVenda ?? 0),
+            subtotal: Number(produto.PrecoVenda ?? 0) * quantidade,
         };
 
         const novosItens = [...itens, novoItem];
         setItens(novosItens);
-        atualizarValorTotal(novosItens);
-        setBuscaProduto('');
-        setQuantidade(1);
+
+        // 🔄 Atualiza o valor total da venda
+        const total = novosItens.reduce((acc, item) => acc + item.subtotal, 0);
+        setVenda((prev) => ({ ...prev, valor_total: total }));
     };
 
-    // === Atualiza total da venda ===
-    const atualizarValorTotal = (lista: ItemVenda[]) => {
-        const total = lista.reduce((acc, item) => acc + item.subtotal, 0);
-        setVenda(prev => ({ ...prev, valor_total: parseFloat(total.toFixed(2)) }));
-    };
+    // Atualiza quantidade de um item na tabela (input)
+    const handleAtualizarQuantidade = (produto_id: number, novaQtd: number) => {
+        const novosItens = itens.map((item) =>
+            item.produto_id === produto_id
+                ? { ...item, quantidade: novaQtd, subtotal: item.valor_unitario * novaQtd }
+                : item
+        );
 
-    // === Remover item ===
-    const handleRemoverItem = (id: number) => {
-        const novosItens = itens.filter(i => i.Codigo_Produto !== id);
         setItens(novosItens);
-        atualizarValorTotal(novosItens);
+
+        const total = novosItens.reduce((acc, item) => acc + item.subtotal, 0);
+        setVenda((prev) => ({ ...prev, valor_total: total }));
     };
 
-    // === Salvar venda ===
+
+    // Remove item
+    const handleRemoverItem = (produto_id: number) => {
+        const novosItens = itens.filter((item) => item.produto_id !== produto_id);
+        setItens(novosItens);
+
+        const total = novosItens.reduce((acc, item) => acc + item.subtotal, 0);
+        setVenda((prev) => ({ ...prev, valor_total: total }));
+    };
+
+    // Salvar venda
     const handleSalvar = async () => {
         try {
-            if (!venda.cliente_id || !venda.usuario_id || itens.length === 0) {
-                toast.error('⚠️ Selecione cliente, vendedor e pelo menos um produto.');
+            if (!venda.usuario_id) {
+                toast.error("Selecione  o vendedor.");
+                return;
+            }
+            if (itens.length === 0) {
+                toast.error("Adicione pelo menos um produto.");
                 return;
             }
 
-            const vendaCompleta = { ...venda, itens };
-            await window.electronAPI.addVenda(vendaCompleta);
-
-            toast.success('✅ Venda cadastrada com sucesso!');
+            const payload = {
+                ...venda,
+                itens,
+            };
+            await window.electronAPI.addVenda(payload);
+            toast.success("Venda cadastrada com sucesso!");
             voltar();
         } catch (err) {
             console.error(err);
-            toast.error('❌ Erro ao cadastrar venda.');
+            toast.error("Erro ao cadastrar venda.");
         }
     };
 
-    // === Filtrar produtos pela busca ===
-    const produtosFiltrados = (produtos || []).filter(p =>
-        p?.NomeProduto?.toLowerCase().includes(buscaProduto.toLowerCase())
-    );
-
-
-    // === Interface ===
+    /* ========== RENDERS ========== */
     return (
         <div style={pageContainer}>
             <h2 style={titulo}>Cadastrar Venda</h2>
@@ -170,110 +191,154 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
                 {/* Cliente */}
                 <div style={inputGroup}>
                     <label style={labelStyle}>Cliente</label>
-                    <select style={inputStyle} name="cliente_id" value={venda.cliente_id || ''} onChange={handleChange}>
+                    <select style={inputStyle} name="cliente_id" value={venda.cliente_id ?? ""} onChange={handleChangeVenda}>
                         <option value="">Selecione...</option>
-                        {clientes.map(c => (
-                            <option key={c.id} value={c.id}>{c.nome}</option>
+                        {clientes.map((c) => (
+                            <option key={c.id} value={c.id}>
+                                {c.nome}
+                            </option>
                         ))}
                     </select>
                 </div>
 
-                {/* Colaborador */}
+                {/* Vendedor */}
                 <div style={inputGroup}>
                     <label style={labelStyle}>Vendedor</label>
-                    <select style={inputStyle} name="usuario_id" value={venda.usuario_id || ''} onChange={handleChange}>
+                    <select style={inputStyle} name="usuario_id" value={venda.usuario_id ?? ""} onChange={handleChangeVenda}>
                         <option value="">Selecione...</option>
-                        {colaboradores.map(u => (
-                            <option key={u.id} value={u.id}>{u.nome}</option>
+                        {colaboradores.map((u) => (
+                            <option key={u.id} value={u.id}>
+                                {u.nome}
+                            </option>
                         ))}
                     </select>
                 </div>
 
-                {/* Buscar Produto */}
-                <div style={{ gridColumn: '1 / -1', ...inputGroup }}>
-                    <label style={labelStyle}>Buscar Produto</label>
-                    <input
-                        style={inputStyle}
-                        value={buscaProduto}
-                        onChange={e => setBuscaProduto(e.target.value)}
-                        placeholder="Digite o nome do produto"
-                    />
-                    {buscaProduto && (
-                        <div style={dropdown}>
-                            {produtosFiltrados.length > 0 ? (
-                                produtosFiltrados.map(p => (
-                                    <div
-                                        key={p.CodigoProduto}
-                                        style={dropdownItem}
-                                        onClick={() => handleAdicionarItem(p)}
-                                    >
-                                        {p.NomeProduto} — R$ 0 ({p.EstoqueAtual} em estoque)
+                {/* Bloco de busca / adicionar produto */}
+                <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={produtoBox}>
+                        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                            <div style={{ flex: 1, position: "relative" }}>
+                                <label style={{ ...labelStyle, marginBottom: 6 }}>Pesquisar Produto</label>
+                                <input
+                                    placeholder="Pesquisar produto..."
+                                    value={buscaProduto}
+                                    onChange={(e) => setBuscaProduto(e.target.value)}
+                                    style={inputStyle}
+
+                                />
+
+                                {buscaProduto && (
+                                    <div style={dropdown}>
+                                        {produtosFiltrados.length > 0 ? (
+                                            produtosFiltrados.map((p) => (
+                                                <div
+                                                    key={p.CodigoProduto}
+                                                    onClick={() => handleAdicionarItem(p)}
+                                                    style={dropdownItem}
+                                                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f7faff")}
+                                                    onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+                                                >
+                                                    <div>{p.NomeProduto}</div>
+                                                    <div style={{ fontWeight: 700 }}>R$ {Number(p.PrecoVenda ?? 0).toFixed(2)}</div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div style={dropdownItem}>Nenhum produto encontrado</div>
+                                        )}
                                     </div>
-                                ))
-                            ) : (
-                                <div style={dropdownItem}>Nenhum produto encontrado</div>
-                            )}
+                                )}
+                            </div>
+
+                            <div style={{ width: 120 }}>
+                                <label style={{ ...labelStyle, marginBottom: 6 }}>Quantidade</label>
+                                <input
+                                    type="number"
+                                    min={1}
+                                    value={quantidade}
+                                    onChange={(e) => setQuantidade(Math.max(1, Number(e.target.value || 1)))}
+                                    style={{ ...inputStyle, padding: "8px 10px" }}
+                                />
+                            </div>
+
+                            <div>
+                                <button
+                                    onClick={() => {
+                                        const p = produtosFiltrados[0];
+                                        if (p) handleAdicionarItem(p);
+                                    }}
+                                    style={buttonPrimary}
+                                >
+                                    ➕ Adicionar
+                                </button>
+                            </div>
                         </div>
-                    )}
+                    </div>
                 </div>
 
-                {/* Quantidade */}
-                <div style={inputGroup}>
-                    <label style={labelStyle}>Quantidade</label>
-                    <input
-                        style={inputStyle}
-                        type="number"
-                        min="1"
-                        value={quantidade}
-                        onChange={e => setQuantidade(parseFloat(e.target.value))}
-                    />
-                </div>
-
-                {/* Itens adicionados */}
-                <div style={{ gridColumn: '1 / -1' }}>
-                    <h3 style={{ marginBottom: '10px', color: '#1e3a8a' }}>Itens da Venda</h3>
-                    {itens.length === 0 ? (
-                        <p>Nenhum produto adicionado.</p>
-                    ) : (
-                        <table style={tableStyle}>
+                {/* Itens */}
+                <div style={{ gridColumn: "1 / -1" }}>
+                    <div style={tableWrapper}>
+                        <table style={{ width: "100%", borderCollapse: "collapse" }}>
                             <thead>
-                                <tr>
-                                    <th>Produto</th>
-                                    <th>Qtd</th>
-                                    <th>Unitário (R$)</th>
-                                    <th>Subtotal (R$)</th>
-                                    <th></th>
+                                <tr style={{ background: "#f7f9fc" }}>
+                                    <th style={th}>Produto</th>
+                                    <th style={thCenter}>Qtd</th>
+                                    <th style={thRight}>Unitário (R$)</th>
+                                    <th style={thRight}>Subtotal (R$)</th>
+                                    <th style={thCenter}></th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {itens.map(item => (
-                                    <tr key={item.produto_id}>
-                                        <td>{item.nome}</td>
-                                        <td>{item.quantidade}</td>
-                                        <td>{item.valor_unitario.toFixed(2)}</td>
-                                        <td>{item.subtotal.toFixed(2)}</td>
-                                        <td>
-                                            <button style={btnRemover} onClick={() => handleRemoverItem(item.produto_id)}>
-                                                ✕
+                                {itens.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} style={{ padding: 12 }}>
+                                            Nenhum produto adicionado.
+                                        </td>
+                                    </tr>
+                                )}
+                                {itens.map((item) => (
+                                    <tr key={item.produto_id} style={{ borderBottom: "1px solid #eee" }}>
+                                        <td style={td}>{item.nome}</td>
+                                        <td style={tdCenter}>
+                                            <input
+                                                type="number"
+                                                min={1}
+                                                value={item.quantidade}
+                                                onChange={(e) => handleAtualizarQuantidade(item.produto_id, Math.max(1, Number(e.target.value || 1)))}
+                                                style={{ width: 80, padding: 6, borderRadius: 6, border: "1px solid #ccc" }}
+                                            />
+                                        </td>
+                                        <td style={tdRight}>{Number(item.valor_unitario || 0).toFixed(2)}</td>
+                                        <td style={tdRight}>{Number(item.subtotal || 0).toFixed(2)}</td>
+                                        <td style={tdCenter}>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleRemoverItem(item.produto_id);
+                                                }}
+                                                style={btnRemover}
+                                            >
+                                                X
                                             </button>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-                    )}
+                    </div>
                 </div>
 
-                {/* Valor Total */}
+                {/* Valor total */}
                 <div style={inputGroup}>
                     <label style={labelStyle}>Valor Total</label>
-                    <input style={inputStyle} readOnly value={venda.valor_total?.toFixed(2) || '0.00'} />
+                    <input style={inputStyle} readOnly value={Number(venda.valor_total || 0).toFixed(2)} />
                 </div>
 
-                {/* Forma de Pagamento */}
+                {/* Forma de pagamento */}
                 <div style={inputGroup}>
                     <label style={labelStyle}>Forma de Pagamento</label>
-                    <select style={inputStyle} name="forma_pagamento" value={venda.forma_pagamento || ''} onChange={handleChange}>
+                    <select style={inputStyle} name="forma_pagamento" value={venda.forma_pagamento ?? ""} onChange={handleChangeVenda}>
                         <option value="">Selecione...</option>
                         <option value="dinheiro">Dinheiro</option>
                         <option value="cartao">Cartão</option>
@@ -283,37 +348,75 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
                 </div>
 
                 {/* Observações */}
-                <div style={{ ...inputGroup, gridColumn: '1 / -1' }}>
+                <div style={{ ...inputGroup, gridColumn: "1 / -1" }}>
                     <label style={labelStyle}>Observações</label>
-                    <textarea
-                        style={{ ...inputStyle, minHeight: '80px' }}
-                        name="observacoes"
-                        value={venda.observacoes || ''}
-                        onChange={handleChange}
-                    />
+                    <textarea style={{ ...inputStyle, minHeight: 80 }} name="observacoes" value={venda.observacoes ?? ""} onChange={handleChangeVenda} />
                 </div>
 
-                {/* Botões */}
+                {/* Ações */}
                 <div style={botoesContainer}>
-                    <button onClick={handleSalvar} style={buttonPrimary}>Salvar</button>
-                    <button onClick={voltar} style={buttonSecondary}>Voltar</button>
+                    <button onClick={handleSalvar} style={buttonPrimary}>
+                        Salvar
+                    </button>
+                    <button onClick={voltar} style={buttonSecondary}>
+                        Voltar
+                    </button>
                 </div>
             </div>
         </div>
     );
 }
 
-/* === ESTILOS === */
-const pageContainer: React.CSSProperties = { padding: '30px', backgroundColor: '#f3f4f6', minHeight: '100vh' };
-const titulo: React.CSSProperties = { color: '#1e3a8a', fontWeight: 700, fontSize: '24px', marginBottom: '25px', textAlign: 'center' };
-const formContainer: React.CSSProperties = { maxWidth: '1100px', margin: '0 auto', backgroundColor: '#fff', padding: '30px', borderRadius: '12px', boxShadow: '0 6px 20px rgba(0,0,0,0.1)', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '25px 30px' };
-const inputGroup: React.CSSProperties = { display: 'flex', flexDirection: 'column' };
-const labelStyle: React.CSSProperties = { marginBottom: '6px', fontWeight: 600, color: '#1e3a8a' };
-const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #d1d5db' };
-const botoesContainer: React.CSSProperties = { gridColumn: '1 / -1', display: 'flex', justifyContent: 'center', gap: '15px', marginTop: '30px' };
-const buttonPrimary: React.CSSProperties = { backgroundColor: '#1e3a8a', color: '#fff', padding: '10px 20px', border: 'none', borderRadius: '8px', cursor: 'pointer' };
-const buttonSecondary: React.CSSProperties = { backgroundColor: '#6b7280', color: '#fff', padding: '10px 20px', border: 'none', borderRadius: '8px', cursor: 'pointer' };
-const dropdown: React.CSSProperties = { backgroundColor: '#fff', border: '1px solid #d1d5db', borderRadius: '8px', marginTop: '4px', maxHeight: '150px', overflowY: 'auto', position: 'absolute', zIndex: 10, width: '100%' };
-const dropdownItem: React.CSSProperties = { padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #eee' };
-const tableStyle: React.CSSProperties = { width: '100%', borderCollapse: 'collapse' };
-const btnRemover: React.CSSProperties = { backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: 'red', fontSize: '18px' };
+/* ========== STYLES ========== */
+const pageContainer: React.CSSProperties = { padding: 30, backgroundColor: "#f3f4f6", minHeight: "100vh", boxSizing: "border-box" };
+const titulo: React.CSSProperties = { color: "#1e3a8a", fontWeight: 700, fontSize: 24, marginBottom: 20, textAlign: "center" };
+const formContainer: React.CSSProperties = {
+    maxWidth: 1100,
+    margin: "0 auto",
+    backgroundColor: "#fff",
+    padding: 24,
+    borderRadius: 12,
+    boxShadow: "0 6px 20px rgba(0,0,0,0.05)",
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gap: "18px 20px",
+};
+const inputGroup: React.CSSProperties = { display: "flex", flexDirection: "column" };
+const labelStyle: React.CSSProperties = { marginBottom: 6, fontWeight: 600, color: "#1e3a8a" };
+const inputStyle: React.CSSProperties = { width: "100%", padding: "10px 12px", borderRadius: 8, border: "1px solid #d1d5db", fontSize: 14, boxSizing: "border-box" };
+const botoesContainer: React.CSSProperties = { gridColumn: "1 / -1", display: "flex", justifyContent: "center", gap: 12, marginTop: 12 };
+const buttonPrimary: React.CSSProperties = { padding: "10px 18px", borderRadius: 8, backgroundColor: "#1e3a8a", color: "#fff", border: "none", cursor: "pointer" };
+const buttonSecondary: React.CSSProperties = { padding: "10px 18px", borderRadius: 8, backgroundColor: "#6b7280", color: "#fff", border: "none", cursor: "pointer" };
+
+const produtoBox: React.CSSProperties = { background: "#ffffff00" };
+const dropdown: React.CSSProperties = {
+    position: "absolute",
+    top: "105%",
+    left: 0,
+    right: 0,
+    background: "#fff",
+    border: "1px solid #ccc",
+    borderRadius: 8,
+    zIndex: 999,
+    maxHeight: 220,
+    overflowY: "auto",
+    boxShadow: "0 3px 10px rgba(0,0,0,0.12)",
+};
+const dropdownItem: React.CSSProperties = { display: "flex", justifyContent: "space-between", padding: "10px 12px", cursor: "pointer", borderBottom: "1px solid #f0f0f0" };
+
+const tableWrapper: React.CSSProperties = { width: "100%", overflowX: "auto", borderRadius: 8 };
+const th: React.CSSProperties = { padding: 10, textAlign: "left" };
+const thCenter: React.CSSProperties = { padding: 10, textAlign: "center", width: 100 };
+const thRight: React.CSSProperties = { padding: 10, textAlign: "right", width: 140 };
+const td: React.CSSProperties = { padding: 10 };
+const tdCenter: React.CSSProperties = { padding: 10, textAlign: "center" };
+const tdRight: React.CSSProperties = { padding: 10, textAlign: "right" };
+
+const btnRemover: React.CSSProperties = {
+    background: "#dc3545",
+    color: "#fff",
+
+    textAlign: "center",
+    cursor: "pointer",
+    padding: '5px 10px'
+};

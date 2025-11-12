@@ -27673,9 +27673,9 @@ async function criarProduto(produto) {
       INSERT INTO produto (
         CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante, DataCadastro,
         UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI, ReducaoIPI,
-        PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada, CEST, CodigoBeneficio, EstoqueAtual
+        PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada, CEST, CodigoBeneficio, EstoqueAtual,PrecoVenda
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
     `;
     await pool.execute(sql, [
       produto.CodigoBarra ?? null,
@@ -27695,7 +27695,8 @@ async function criarProduto(produto) {
       produto.PisCofinsCSTEntrada ?? null,
       produto.CEST ?? null,
       produto.CodigoBeneficio ?? null,
-      produto.EstoqueAtual ?? 0
+      produto.EstoqueAtual ?? 0,
+      produto.PrecoVenda ?? 0
     ]);
     console.log("✅ Produto cadastrado com sucesso!");
   } catch (error) {
@@ -27724,7 +27725,8 @@ async function salvarProduto(produto) {
           PisCofinsCSTEntrada = ?,
           CEST = ?,
           CodigoBeneficio = ?,
-          EstoqueAtual = ?
+          EstoqueAtual = ?,
+          PrecoVenda = ?
         WHERE CodigoProduto = ?
       `;
       await pool.execute(sql, [
@@ -27745,6 +27747,7 @@ async function salvarProduto(produto) {
         produto.CEST ?? null,
         produto.CodigoBeneficio ?? null,
         produto.EstoqueAtual ?? 0,
+        produto.PrecoVenda ?? 0,
         produto.CodigoProduto
       ]);
       console.log("✅ Produto atualizado com sucesso!");
@@ -27754,9 +27757,9 @@ async function salvarProduto(produto) {
           CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante,
           DataCadastro, UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI,
           ReducaoIPI, PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada,
-          CEST, CodigoBeneficio, EstoqueAtual
+          CEST, CodigoBeneficio, EstoqueAtual,PrecoVenda
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `;
       await pool.execute(sql, [
         produto.CodigoBarra ?? null,
@@ -27776,7 +27779,8 @@ async function salvarProduto(produto) {
         produto.PisCofinsCSTEntrada ?? null,
         produto.CEST ?? null,
         produto.CodigoBeneficio ?? null,
-        produto.EstoqueAtual ?? 0
+        produto.EstoqueAtual ?? 0,
+        produto.PrecoVenda ?? 0
       ]);
       console.log("✅ Produto criado com sucesso!");
     }
@@ -28225,7 +28229,16 @@ ipcMain.handle("add-venda", async (_event, dados) => {
 ipcMain.handle("update-venda", async (_event, dados) => {
   return await atualizarVenda(dados);
 });
-ipcMain.handle("delete-venda", async (_event, id) => {
-  return await deletarVenda(id);
+ipcMain.handle("delete-venda", async (_event, { id, usuario }) => {
+  if (usuario.nivel !== "administrador") {
+    return { sucesso: false, mensagem: "Acesso negado." };
+  }
+  try {
+    await deletarVenda(id);
+    return { sucesso: true };
+  } catch (error) {
+    console.error("❌ Erro ao deletar fornecedor:", error);
+    return { sucesso: false, mensagem: "Erro ao deletar fornecedor." };
+  }
 });
 app.whenReady().then(createWindow);

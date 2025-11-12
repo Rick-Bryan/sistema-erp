@@ -375,10 +375,20 @@ ipcMain.handle('update-venda', async (_event, dados) => {
 });
 
 // Deletar
-ipcMain.handle('delete-venda', async (_event, id) => {
-  return await deletarVenda(id);
-});
 
+ipcMain.handle('delete-venda', async (_event, { id, usuario }) => {
+  if (usuario.nivel !== "administrador") {
+    return { sucesso: false, mensagem: "Acesso negado." };
+  }
+
+  try {
+    await deletarVenda(id);
+    return { sucesso: true };
+  } catch (error) {
+    console.error("❌ Erro ao deletar fornecedor:", error);
+    return { sucesso: false, mensagem: "Erro ao deletar fornecedor." };
+  }
+});
 
 // Handler para salvar um colaborador
 

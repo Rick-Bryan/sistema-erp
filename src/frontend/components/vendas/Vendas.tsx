@@ -19,15 +19,12 @@ interface Venda {
 interface VendasProps {
     setPage: (page: string) => void;
 }
-
 export default function Vendas({ setPage }: VendasProps) {
     const [vendas, setVendas] = useState<Venda[]>([]);
     const [vendaSelecionada, setVendaSelecionada] = useState<Venda | null>(null);
     const [modoCadastro, setModoCadastro] = useState(false);
-
     const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
     const nivelUsuario = usuarioLogado?.nivel;
-
     const carregarVendas = async () => {
         try {
             const lista = await window.ipcRenderer.invoke("get-vendas");
@@ -83,7 +80,7 @@ export default function Vendas({ setPage }: VendasProps) {
     if (vendaSelecionada) {
         return (
             <VendaDetalhes
-                vendaSelecionada={vendaSelecionada}
+                venda={vendaSelecionada}
                 voltar={() => {
                     setVendaSelecionada(null);
                     carregarVendas();
