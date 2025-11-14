@@ -24,7 +24,8 @@ export default function Vendas({ setPage }: VendasProps) {
     const [vendaSelecionada, setVendaSelecionada] = useState<Venda | null>(null);
     const [modoCadastro, setModoCadastro] = useState(false);
     const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
-    const nivelUsuario = usuarioLogado?.nivel;
+    const nivelUsuario = usuarioLogado?.nivel;      
+    console.log(vendaSelecionada)
     const carregarVendas = async () => {
         try {
             const lista = await window.ipcRenderer.invoke("get-vendas");

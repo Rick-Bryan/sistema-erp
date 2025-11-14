@@ -53,7 +53,7 @@ export default function CadastrosPage({ setPage }: CadastrosPageProps) {
           </CardHeader>
           <CardContent>Cadastre e edite Colaboradores</CardContent>
         </Card>
-        <Card onClick={() => setPage('colaboradores')} className="cursor-pointer">
+        <Card onClick={() => setPage('cadastrosauxiliares')} className="cursor-pointer">
           <CardHeader>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <Users style={{ width: 28, height: 28 }} />

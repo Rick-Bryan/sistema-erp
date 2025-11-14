@@ -13,6 +13,8 @@ import { Toaster } from 'react-hot-toast';
 import Login from './pages/Login/LoginPage'
 import Fornecedores from './components/fornecedores/Fornecedores';
 import Vendas from './components/vendas/Vendas';
+import CadastrosAuxiliares from './pages/cadastros/CadastrosAuxiliares';
+import Caixa from './components/caixa/Caixa';
 
 export default function App() {
   const [page, setPage] = useState('dashboard');
@@ -58,9 +60,13 @@ export default function App() {
         return <Fornecedores setPage={setPage} />;
       case 'cadastros':
         return <CadastrosPage setPage={setPage} />;
-       case 'vendas': return <Vendas setPage={setPage} />;
-      
+      case 'vendas': return <Vendas setPage={setPage} />;
+      case 'cadastrosauxiliares':
+        return <CadastrosAuxiliares setPage={setPage} />
+      case 'caixa':
+        return <Caixa setPage={setPage} />
       default: return <Dashboard />;
+
     }
   };
 
