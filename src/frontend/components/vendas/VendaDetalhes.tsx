@@ -72,6 +72,23 @@ const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
             </Typography>
           </Box>
         )}
+        {venda.status === "pendente" && (
+    <button
+        
+        style={{
+            backgroundColor: "#1e3a8a",
+            color: "#fff",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "6px",
+            fontWeight: 600,
+            cursor: "pointer",
+            marginTop: "20px",
+        }}
+    >
+        Finalizar Venda
+    </button>
+)}
       </Paper>
 
       {/* Itens da venda */}

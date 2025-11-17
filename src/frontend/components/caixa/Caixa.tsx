@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import ColaboradorDetalhes from "./CaixaDetalhes";
-import ColaboradorCadastro from "./CaixaCadastro";
+import CaixaDetalhes from "./CaixaDetalhes";
+
 import SearchBar from "../../components/ui/SearchBar";
+import CaixaAbertura from "./CaixaAbertura";
+
 
 interface Colaborador {
   id: number;
@@ -15,19 +17,143 @@ interface Colaborador {
 
 interface CaixaProps {
   setPage: (page: string) => void;
+
 }
 
 export default function Caixa({ setPage }: CaixaProps) {
 
   const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
   const nivelUsuario = usuarioLogado?.nivel;
-  
+  const [modoCadastro, setModoCadastro] = useState(false);
+  const [sessoes, setSessoes] = useState([]);
 
+
+
+
+  async function carregarSessoes() {
+
+    const lista = await window.ipcRenderer.invoke("get-sessoes-caixa");
+
+    if (Array.isArray(lista)) {
+      setSessoes(lista);
+    } else {
+      console.warn("Resposta inesperada:", lista);
+      setSessoes([]);
+    }
+  }
+
+  carregarSessoes();
+
+  if (modoCadastro) {
+    return (
+      <CaixaAbertura
+        onVoltar={() => {
+          setModoCadastro(false);
+
+        }}
+      />
+    );
+  }
   return (
-    <div>
-        TESTE
+    <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
+      <button
+        onClick={() => setPage('movimentacao')}
+        style={{
+          backgroundColor: '#e5e7eb',
+          color: '#1e3a8a',
+          border: 'none',
+          borderRadius: '6px',
+          padding: '8px 16px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          marginBottom: '20px',
+        }}
+      >
+        ← Voltar
+      </button>
+      <button
+        onClick={() => setPage('caixa-dashboard')}
+        style={{
+          backgroundColor: '#e5e7eb',
+          color: '#1e3a8a',
+          border: 'none',
+          borderRadius: '6px',
+          padding: '8px 16px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          marginBottom: '20px',
+        }}
+      >
+        Dashboard
+      </button>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '20px',
+        }}
+      >
+        <h2 style={{ color: '#1e3a8a' }}>Caixa</h2>
+        <button
+          onClick={() => setModoCadastro(true)}
+          style={{
+            backgroundColor: '#1e3a8a',
+            color: '#fff',
+            border: 'none',
+            padding: '10px 16px',
+            borderRadius: '6px',
+            fontWeight: 600,
+            cursor: 'pointer',
+
+          }}
+        >
+          ＋ Abrir novo caixa
+        </button>
+      </div>
+      {/* Tabela */}
+      <div
+        style={{
+          backgroundColor: '#fff',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+          padding: '20px',
+        }}
+      >
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ backgroundColor: '#e5e7eb', color: '#1e3a8a', textAlign: 'left' }}>
+              <th style={thStyle}>Codigo</th>
+              <th style={thStyle}>Colaborador</th>
+              <th style={thStyle}>Data_Abertura</th>
+              <th style={thStyle}>Valor_Abertura</th>
+              <th style={thStyle}>Data_Fechamento</th>
+              <th style={thStyle}>Valor_Fechamento</th>
+              <th style={thStyle}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+
+            {sessoes.map((s) => (
+              <tr key={s.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
+                <td style={tdStyle}>{s.id}</td>
+                <td style={tdStyle}>{s.usuario_id}</td>
+                <td style={tdStyle}>{new Date(s.aberto_em).toLocaleString('pt-BR')}</td>
+                <td style={tdStyle}>{s.valor_abertura}</td>
+                <td style={tdStyle}> {s.fechado_em && s.fechado_em !== "0000-00-00 00:00:00"
+                  ? new Date(s.fechado_em).toLocaleString('pt-BR')
+                  : "Ainda aberto"}</td>
+                <td style={tdStyle}>{s.valor_fechamento || 'Ainda aberto'}</td>
+                <td style={tdStyle}>{s.status}</td>
+              </tr>
+            ))}
+
+          </tbody>
+        </table>
+      </div>
+
     </div>
-    )
+  );
 }
 
 const thStyle: React.CSSProperties = { padding: 10, textAlign: "left" };

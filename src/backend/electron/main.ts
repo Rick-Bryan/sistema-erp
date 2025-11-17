@@ -11,6 +11,7 @@ import { listarClientes, criarCliente, atualizarCliente, deletarCliente } from '
 import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornecedor } from '../db/fornecedores';
 //Falta fazer
 import { listarVendas, criarVenda, atualizarVenda, deletarVenda } from '../db/vendas';
+import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoesCaixa } from '../db/caixa';
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -390,6 +391,38 @@ ipcMain.handle('delete-venda', async (_event, { id, usuario }) => {
   }
 });
 
+
+//CAIXA
+
+ipcMain.handle('get-sessoes-caixa', async ()=>{
+  return await listarSessoesCaixa();
+});
+ipcMain.handle('add-sessoes-caixa', async (_event, dados) => {
+  return await abrirCaixa(dados);
+});
+
+ipcMain.handle('get-movimentos-caixa', async ()=>{
+  return await listarMovimentosCaixa();
+});
+
+ipcMain.handle('add-movimentos-caixa', async (_event,dados)=>{
+  return await inserirMovimentoCaixa(dados);
+});
+ipcMain.handle('caixa:registrar-venda', async (_, payload) => {
+  return await registrarVendaNoCaixa(payload);
+});
+
+ipcMain.handle('caixa:cancelar-venda', async (_, payload) => {
+  return await registrarCancelamentoVenda(payload);
+});
+
+ipcMain.handle('caixa:resumo', async (_, caixa_id) => {
+  return await resumoCaixa(caixa_id);
+});
+
+ipcMain.handle('caixa:fechar', async (_, payload) => {
+  return await fecharCaixa(payload);
+});
 // Handler para salvar um colaborador
 
 app.whenReady().then(createWindow)

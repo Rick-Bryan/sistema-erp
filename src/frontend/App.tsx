@@ -15,6 +15,7 @@ import Fornecedores from './components/fornecedores/Fornecedores';
 import Vendas from './components/vendas/Vendas';
 import CadastrosAuxiliares from './pages/cadastros/CadastrosAuxiliares';
 import Caixa from './components/caixa/Caixa';
+import CaixaDashboard from './components/caixa/CaixaDashboard';
 
 export default function App() {
   const [page, setPage] = useState('dashboard');
@@ -65,6 +66,9 @@ export default function App() {
         return <CadastrosAuxiliares setPage={setPage} />
       case 'caixa':
         return <Caixa setPage={setPage} />
+      case 'caixa-dashboard':
+        return <CaixaDashboard setPage={setPage}/>
+        
       default: return <Dashboard />;
 
     }

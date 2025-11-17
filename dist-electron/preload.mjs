@@ -46,6 +46,15 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
   addVenda: (dados) => electron.ipcRenderer.invoke("add-venda", dados),
   updateVenda: (dados) => electron.ipcRenderer.invoke("update-venda", dados),
   deleteVenda: (id) => electron.ipcRenderer.invoke("delete-venda", id),
+  //Caixa
+  getSessoesCaixa: () => electron.ipcRenderer.invoke("get-sessoes-caixa"),
+  addSessoesCaixa: (dados) => electron.ipcRenderer.invoke("add-sessoes-caixa", dados),
+  getMovimentosCaixa: () => electron.ipcRenderer.invoke("get-movimentos-caixa"),
+  addMovimentosCaixa: (dados) => electron.ipcRenderer.invoke("add-movimentos-caixa", dados),
+  registrarVendaNoCaixa: (payload) => electron.ipcRenderer.invoke("caixa:registrar-venda", payload),
+  registrarCancelamentoVenda: (payload) => electron.ipcRenderer.invoke("caixa:cancelar-venda", payload),
+  resumoCaixa: (caixa_id) => electron.ipcRenderer.invoke("caixa:resumo", caixa_id),
+  fecharCaixa: (payload) => electron.ipcRenderer.invoke("caixa:fechar", payload),
   // 🔍 Busca e login
   buscar: (canal, termo) => electron.ipcRenderer.invoke(canal, termo),
   login: (dados) => electron.ipcRenderer.invoke("login", dados)
