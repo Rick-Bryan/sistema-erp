@@ -53,7 +53,7 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
     });
 
 
-    const caixaId = localStorage.getItem("caixa_id");
+    const caixaId = Number(localStorage.getItem("caixa_id"));
     const [clientes, setClientes] = useState<any[]>([]);
     const [colaboradores, setColaboradores] = useState<any[]>([]);
     const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -176,22 +176,17 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
                 itens,
             };
 
-            await window.electronAPI.addVenda(payload);
-            if (venda.status === 'pago') {
-                try {
-                    await window.ipcRenderer.invoke("pagar-venda", {
-                        venda_id: venda.id,
-                        forma_pagamento: venda.forma_pagamento,
-                        usuario_id: usuarioId,
-                        caixa_id: Number(caixaId)
-                    });
+            const resposta = await window.electronAPI.addVenda(payload);
 
-
-                } catch (e) {
-                    console.error(e);
-
-                }
+            if (venda.status === "pago") {
+                await window.ipcRenderer.invoke("pagar-venda", {
+                    venda_id: resposta.id,          // ID verdadeiro
+                    forma_pagamento: venda.forma_pagamento,
+                    usuario_id: usuarioId,
+                    caixa_id: Number(caixaId)
+                });
             }
+
             toast.success("Venda cadastrada com sucesso!");
             voltar();
         } catch (err) {

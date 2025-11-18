@@ -19,9 +19,9 @@ export async function resumoMovimentosCaixa(caixaId: number) {
 }
 export async function abrirCaixa({ usuario_id, valor_abertura, observacoes }) {
 
-  const [verify] = await pool.query('SELECT * FROM caixa_sessoes WHERE usuario_id = ? AND status = "Aberto"',[usuario_id])
+  const [verify] = await pool.query('SELECT * FROM caixa_sessoes WHERE usuario_id = ? AND status = "Aberto"', [usuario_id])
 
-  if(verify.length > 0){
+  if (verify.length > 0) {
     throw new Error("O Colaborador ja possui um caixa em aberto");
   }
   const [result] = await pool.query(
@@ -31,9 +31,29 @@ export async function abrirCaixa({ usuario_id, valor_abertura, observacoes }) {
   return { id: result.insertId };
 };
 export async function inserirMovimentoCaixa({ usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id }) {
+
+
+
+  const [cx] = await pool.query(`
+    SELECT id FROM caixa_sessoes
+    WHERE usuario_id = ? AND status = 'Aberto'
+    ORDER BY id DESC
+    LIMIT 1
+`, [usuario_id]);
+
+  let caixaIdFinal;
+  if (cx.length === 0) {
+    const novoCaixa = await abrirCaixa({ usuario_id, valor_abertura: 0, observacoes: " " })
+    caixaIdFinal = novoCaixa.id;
+  } else {
+    caixaIdFinal = cx[0].id;
+  }
+
+
+
   const [result] = await pool.query(
     'INSERT INTO caixa_movimentos(usuario_id,caixa_id,observacoes,tipo,descricao,valor,origem,venda_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id]
+    [usuario_id, caixaIdFinal, observacoes, tipo, descricao, valor, origem, venda_id]
   );
   return { id: result.insertId };
 };

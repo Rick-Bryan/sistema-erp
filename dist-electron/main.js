@@ -27918,71 +27918,6 @@ async function deletarFornecedor(CodigoFornecedor) {
   await pool.query("DELETE FROM fornecedores WHERE CodigoFornecedor = ?", [CodigoFornecedor]);
   return true;
 }
-async function listarVendas() {
-  const [rows] = await pool.query(`
-    SELECT 
-      v.id,
-      c.nome AS cliente_nome,
-      u.nome AS usuario_nome,
-      v.data_venda,
-      v.valor_total,
-      v.forma_pagamento,
-      v.status,
-      v.observacoes,
-      v.criado_em,
-      v.atualizado_em
-    FROM vendas v
-    LEFT JOIN clientes c ON v.cliente_id = c.id
-    LEFT JOIN usuarios u ON v.usuario_id = u.id
-    ORDER BY v.id DESC
-  `);
-  return rows;
-}
-async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes }) {
-  const [result] = await pool.query(
-    `INSERT INTO vendas (cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
-  );
-  return { id: result.insertId };
-}
-async function atualizarVenda({ id, cliente_id, valor_total, forma_pagamento, status, observacoes }) {
-  await pool.query(
-    `UPDATE vendas SET cliente_id=?, valor_total=?, forma_pagamento=?, status=?, observacoes=? WHERE id=?`,
-    [cliente_id, valor_total, forma_pagamento, status, observacoes, id]
-  );
-  return true;
-}
-async function deletarVenda(id) {
-  await pool.query(`DELETE FROM vendas WHERE id=?`, [id]);
-  return true;
-}
-async function pagarVenda(id, forma_pagamento, usuarioId, caixaId) {
-  const [result] = await pool.query(`
-        UPDATE vendas
-        SET status = 'pago', forma_pagamento = ?, atualizado_em = NOW()
-        WHERE id = ?
-    `, [forma_pagamento, id]);
-  if (result.affectedRows === 0) {
-    return { sucesso: false, mensagem: "Venda não encontrada" };
-  }
-  await pool.query(`
-    INSERT INTO caixa_movimentos
-    (caixa_id, venda_id, tipo, descricao, valor, origem, criado_em, usuario_id)
-    SELECT 
-        ?,                -- caixa_id
-        id,               -- venda_id
-        'entrada',        -- tipo
-        CONCAT('Venda #', id, ' paga'),
-        valor_total,      -- valor
-        'venda',          -- origem
-        NOW(),            -- criado_em
-        ?
-    FROM vendas
-    WHERE id = ?
-  `, [caixaId, usuarioId, id]);
-  return { sucesso: true };
-}
 async function listarSessoesCaixa() {
   const [rows] = await pool.query("SELECT * FROM caixa_sessoes ORDER BY id DESC");
   return rows;
@@ -28010,9 +27945,22 @@ async function abrirCaixa({ usuario_id, valor_abertura, observacoes }) {
   return { id: result.insertId };
 }
 async function inserirMovimentoCaixa({ usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id }) {
+  const [cx] = await pool.query(`
+    SELECT id FROM caixa_sessoes
+    WHERE usuario_id = ? AND status = 'Aberto'
+    ORDER BY id DESC
+    LIMIT 1
+`, [usuario_id]);
+  let caixaIdFinal;
+  if (cx.length === 0) {
+    const novoCaixa = await abrirCaixa({ usuario_id, valor_abertura: 0, observacoes: " " });
+    caixaIdFinal = novoCaixa.id;
+  } else {
+    caixaIdFinal = cx[0].id;
+  }
   const [result] = await pool.query(
     "INSERT INTO caixa_movimentos(usuario_id,caixa_id,observacoes,tipo,descricao,valor,origem,venda_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id]
+    [usuario_id, caixaIdFinal, observacoes, tipo, descricao, valor, origem, venda_id]
   );
   return { id: result.insertId };
 }
@@ -28073,6 +28021,88 @@ async function fecharCaixa({ caixa_id, valor_fechamento = null }) {
     [totalFinal, caixa_id]
   );
   return { changes: result.affectedRows, valor_fechamento: totalFinal };
+}
+async function listarVendas() {
+  const [rows] = await pool.query(`
+    SELECT 
+      v.id,
+      c.nome AS cliente_nome,
+      u.nome AS usuario_nome,
+      v.data_venda,
+      v.valor_total,
+      v.forma_pagamento,
+      v.status,
+      v.observacoes,
+      v.criado_em,
+      v.atualizado_em
+    FROM vendas v
+    LEFT JOIN clientes c ON v.cliente_id = c.id
+    LEFT JOIN usuarios u ON v.usuario_id = u.id
+    ORDER BY v.id DESC
+  `);
+  return rows;
+}
+async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes }) {
+  const [result] = await pool.query(
+    `INSERT INTO vendas (cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
+  );
+  return { id: result.insertId };
+}
+async function atualizarVenda({ id, cliente_id, valor_total, forma_pagamento, status, observacoes }) {
+  await pool.query(
+    `UPDATE vendas SET cliente_id=?, valor_total=?, forma_pagamento=?, status=?, observacoes=? WHERE id=?`,
+    [cliente_id, valor_total, forma_pagamento, status, observacoes, id]
+  );
+  return true;
+}
+async function deletarVenda(id) {
+  await pool.query(`DELETE FROM vendas WHERE id=?`, [id]);
+  return true;
+}
+async function pagarVenda(id, forma_pagamento, usuarioId) {
+  const [result] = await pool.query(`
+    UPDATE vendas
+    SET status = 'pago', forma_pagamento = ?, atualizado_em = NOW()
+    WHERE id = ?
+  `, [forma_pagamento, id]);
+  if (result.affectedRows === 0) {
+    return { sucesso: false, mensagem: "Venda não encontrada" };
+  }
+  const [cx] = await pool.query(`
+    SELECT id FROM caixa_sessoes
+    WHERE usuario_id = ? AND status = 'Aberto'
+    ORDER BY id DESC
+    LIMIT 1
+  `, [usuarioId]);
+  let caixaId;
+  if (cx.length === 0) {
+    const novo = await abrirCaixa({
+      usuario_id: usuarioId,
+      valor_abertura: 0,
+      observacoes: "Abertura automática por pagamento de venda"
+    });
+    caixaId = novo.id;
+  } else {
+    caixaId = cx[0].id;
+  }
+  await pool.query(`
+    INSERT INTO caixa_movimentos
+      (caixa_id, venda_id, tipo, descricao, valor, origem, criado_em, usuario_id)
+    SELECT 
+        ?,                
+        id,               
+        'entrada',        
+        CONCAT('Venda #', id, ' paga'),
+        valor_total,      
+        'venda',          
+        NOW(),            
+        ?
+    FROM vendas
+    WHERE id = ?
+  `, [caixaId, usuarioId, id]);
+  return { sucesso: true, caixaId };
 }
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28389,7 +28419,7 @@ ipcMain.handle("caixa:resumo", async (_, caixa_id) => {
   return await resumoCaixa(caixa_id);
 });
 ipcMain.handle("pagar-venda", async (event, { venda_id, forma_pagamento, usuario_id, caixa_id }) => {
-  const resposta = await pagarVenda(venda_id, forma_pagamento, usuario_id, caixa_id);
+  const resposta = await pagarVenda(venda_id, forma_pagamento, usuario_id);
   return resposta;
 });
 ipcMain.handle("caixa:fechar", async (_, payload) => {

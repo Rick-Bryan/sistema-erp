@@ -1,5 +1,5 @@
 import pool from './connection.js';
-
+import { abrirCaixa } from './caixa.js';
 /** Lista todas as vendas */
 export async function listarVendas() {
   const [rows] = await pool.query(`
@@ -46,33 +46,57 @@ export async function deletarVenda(id) {
   await pool.query(`DELETE FROM vendas WHERE id=?`, [id]);
   return true;
 }
-export async function pagarVenda(id, forma_pagamento, usuarioId, caixaId) {
+export async function pagarVenda(id, forma_pagamento, usuarioId) {
+
+  // 1. Atualizar venda
   const [result] = await pool.query(`
-        UPDATE vendas
-        SET status = 'pago', forma_pagamento = ?, atualizado_em = NOW()
-        WHERE id = ?
-    `, [forma_pagamento, id]);
+    UPDATE vendas
+    SET status = 'pago', forma_pagamento = ?, atualizado_em = NOW()
+    WHERE id = ?
+  `, [forma_pagamento, id]);
 
   if (result.affectedRows === 0) {
     return { sucesso: false, mensagem: "Venda não encontrada" };
   }
 
-  // cria movimento no caixa
+  // 2. Buscar caixa aberto
+  const [cx] = await pool.query(`
+    SELECT id FROM caixa_sessoes
+    WHERE usuario_id = ? AND status = 'Aberto'
+    ORDER BY id DESC
+    LIMIT 1
+  `, [usuarioId]);
+
+  let caixaId;
+
+  if (cx.length === 0) {
+    // Abre automaticamente
+    const novo = await abrirCaixa({
+      usuario_id: usuarioId,
+      valor_abertura: 0,
+      observacoes: "Abertura automática por pagamento de venda"
+    });
+    caixaId = novo.id;
+  } else {
+    caixaId = cx[0].id;
+  }
+
+  // 3. Criar movimento no caixa
   await pool.query(`
     INSERT INTO caixa_movimentos
-    (caixa_id, venda_id, tipo, descricao, valor, origem, criado_em, usuario_id)
+      (caixa_id, venda_id, tipo, descricao, valor, origem, criado_em, usuario_id)
     SELECT 
-        ?,                -- caixa_id
-        id,               -- venda_id
-        'entrada',        -- tipo
+        ?,                
+        id,               
+        'entrada',        
         CONCAT('Venda #', id, ' paga'),
-        valor_total,      -- valor
-        'venda',          -- origem
-        NOW(),            -- criado_em
+        valor_total,      
+        'venda',          
+        NOW(),            
         ?
     FROM vendas
     WHERE id = ?
   `, [caixaId, usuarioId, id]);
 
-  return { sucesso: true };
+  return { sucesso: true, caixaId };
 }
