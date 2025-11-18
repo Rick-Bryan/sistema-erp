@@ -66,6 +66,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   registrarCancelamentoVenda: (payload) => ipcRenderer.invoke('caixa:cancelar-venda', payload),
   resumoCaixa: (caixa_id) => ipcRenderer.invoke('caixa:resumo', caixa_id),
   fecharCaixa: (payload) => ipcRenderer.invoke('caixa:fechar', payload),
+  pagarVenda: (payload) => ipcRenderer.invoke('pagar-venda',payload),
+  resumoMovimentosCaixa: (caixa_id) => ipcRenderer.invoke('caixa:resumo-movimentos', caixa_id),
   // 🔍 Busca e login
   buscar: (canal, termo) => ipcRenderer.invoke(canal, termo),
   login: (dados) => ipcRenderer.invoke('login', dados),

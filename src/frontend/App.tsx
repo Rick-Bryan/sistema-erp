@@ -15,13 +15,13 @@ import Fornecedores from './components/fornecedores/Fornecedores';
 import Vendas from './components/vendas/Vendas';
 import CadastrosAuxiliares from './pages/cadastros/CadastrosAuxiliares';
 import Caixa from './components/caixa/Caixa';
-import CaixaDashboard from './components/caixa/CaixaDashboard';
+import CaixaDetalhes from './components/caixa/CaixaDetalhes';
 
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
   const [usuario, setUsuario] = useState<any>(null);
-
+  const [caixaSelecionado, setCaixaSelecionado] = useState<any>(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -65,10 +65,16 @@ export default function App() {
       case 'cadastrosauxiliares':
         return <CadastrosAuxiliares setPage={setPage} />
       case 'caixa':
-        return <Caixa setPage={setPage} />
-      case 'caixa-dashboard':
-        return <CaixaDashboard setPage={setPage}/>
-        
+        return <Caixa setPage={setPage} setCaixaSelecionado={setCaixaSelecionado} />
+      case 'caixa-detalhes':
+        return (
+          <CaixaDetalhes
+            caixa={caixaSelecionado}     // ← envia o ID
+            voltar={() => setPage('caixa')}
+          />
+        );
+
+
       default: return <Dashboard />;
 
     }

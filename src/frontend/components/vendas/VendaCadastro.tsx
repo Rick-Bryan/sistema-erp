@@ -40,15 +40,20 @@ type ItemVenda = {
 };
 
 export default function VendaCadastro({ voltar }: { voltar: () => void }) {
+    const usuario = JSON.parse(localStorage.getItem("usuarioLogado"));
+    const usuarioId = usuario?.id;
     const [venda, setVenda] = useState<Venda>({
-
+        cliente_id: null,
         data_venda: new Date().toISOString().split("T")[0],
         status: "pendente",
         valor_total: 0,
         forma_pagamento: "",
         observacoes: "",
+        usuario_id: usuarioId
     });
 
+
+    const caixaId = localStorage.getItem("caixa_id");
     const [clientes, setClientes] = useState<any[]>([]);
     const [colaboradores, setColaboradores] = useState<any[]>([]);
     const [produtos, setProdutos] = useState<Produto[]>([]);
@@ -104,7 +109,7 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
         const { name, value } = e.target;
         // para IDs, manter vazio ou number
         if (name === "cliente_id" || name === "usuario_id") {
-            setVenda((prev) => ({ ...prev, [name]: value === "" ? "" : Number(value) }));
+            setVenda((prev) => ({ ...prev, [name]: value === "" ? null : Number(value) }));
         } else {
             setVenda((prev) => ({ ...prev, [name]: value }));
         }
@@ -160,10 +165,7 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
     // Salvar venda
     const handleSalvar = async () => {
         try {
-            if (!venda.usuario_id) {
-                toast.error("Selecione  o vendedor.");
-                return;
-            }
+
             if (itens.length === 0) {
                 toast.error("Adicione pelo menos um produto.");
                 return;
@@ -173,7 +175,23 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
                 ...venda,
                 itens,
             };
+
             await window.electronAPI.addVenda(payload);
+            if (venda.status === 'pago') {
+                try {
+                    await window.ipcRenderer.invoke("pagar-venda", {
+                        venda_id: venda.id,
+                        forma_pagamento: venda.forma_pagamento,
+                        usuario_id: usuarioId,
+                        caixa_id: Number(caixaId)
+                    });
+
+
+                } catch (e) {
+                    console.error(e);
+
+                }
+            }
             toast.success("Venda cadastrada com sucesso!");
             voltar();
         } catch (err) {
@@ -181,7 +199,7 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
             toast.error("Erro ao cadastrar venda.");
         }
     };
-
+    console.log(venda)
     /* ========== RENDERS ========== */
     return (
         <div style={pageContainer}>
@@ -201,18 +219,7 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
                     </select>
                 </div>
 
-                {/* Vendedor */}
-                <div style={inputGroup}>
-                    <label style={labelStyle}>Vendedor</label>
-                    <select style={inputStyle} name="usuario_id" value={venda.usuario_id ?? ""} onChange={handleChangeVenda}>
-                        <option value="">Selecione...</option>
-                        {colaboradores.map((u) => (
-                            <option key={u.id} value={u.id}>
-                                {u.nome}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+
 
                 {/* Bloco de busca / adicionar produto */}
                 <div style={{ gridColumn: "1 / -1" }}>
@@ -346,7 +353,15 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
                         <option value="boleto">Boleto</option>
                     </select>
                 </div>
+                <div style={inputGroup}>
+                    <label style={labelStyle}>Status</label>
+                    <select style={inputStyle} name="status" value={venda.status ?? ""} onChange={handleChangeVenda}>
+                        <option value="">selecione</option>
+                        <option value="pago">Pago</option>
+                        <option value="pendente">Pendente</option>
 
+                    </select>
+                </div>
                 {/* Observações */}
                 <div style={{ ...inputGroup, gridColumn: "1 / -1" }}>
                     <label style={labelStyle}>Observações</label>

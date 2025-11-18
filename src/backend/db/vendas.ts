@@ -46,3 +46,33 @@ export async function deletarVenda(id) {
   await pool.query(`DELETE FROM vendas WHERE id=?`, [id]);
   return true;
 }
+export async function pagarVenda(id, forma_pagamento, usuarioId, caixaId) {
+  const [result] = await pool.query(`
+        UPDATE vendas
+        SET status = 'pago', forma_pagamento = ?, atualizado_em = NOW()
+        WHERE id = ?
+    `, [forma_pagamento, id]);
+
+  if (result.affectedRows === 0) {
+    return { sucesso: false, mensagem: "Venda não encontrada" };
+  }
+
+  // cria movimento no caixa
+  await pool.query(`
+    INSERT INTO caixa_movimentos
+    (caixa_id, venda_id, tipo, descricao, valor, origem, criado_em, usuario_id)
+    SELECT 
+        ?,                -- caixa_id
+        id,               -- venda_id
+        'entrada',        -- tipo
+        CONCAT('Venda #', id, ' paga'),
+        valor_total,      -- valor
+        'venda',          -- origem
+        NOW(),            -- criado_em
+        ?
+    FROM vendas
+    WHERE id = ?
+  `, [caixaId, usuarioId, id]);
+
+  return { sucesso: true };
+}

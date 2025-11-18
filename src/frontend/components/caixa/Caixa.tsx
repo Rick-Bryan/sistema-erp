@@ -17,10 +17,10 @@ interface Colaborador {
 
 interface CaixaProps {
   setPage: (page: string) => void;
-
+  setCaixaSelecionado: (id: number) => void;
 }
 
-export default function Caixa({ setPage }: CaixaProps) {
+export default function Caixa({ setPage, setCaixaSelecionado }: CaixaProps) {
 
   const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
   const nivelUsuario = usuarioLogado?.nivel;
@@ -42,7 +42,10 @@ export default function Caixa({ setPage }: CaixaProps) {
     }
   }
 
-  carregarSessoes();
+  useEffect(() => {
+    carregarSessoes();
+  }, []);
+
 
   if (modoCadastro) {
     return (
@@ -71,21 +74,7 @@ export default function Caixa({ setPage }: CaixaProps) {
       >
         ← Voltar
       </button>
-      <button
-        onClick={() => setPage('caixa-dashboard')}
-        style={{
-          backgroundColor: '#e5e7eb',
-          color: '#1e3a8a',
-          border: 'none',
-          borderRadius: '6px',
-          padding: '8px 16px',
-          cursor: 'pointer',
-          fontWeight: 600,
-          marginBottom: '20px',
-        }}
-      >
-        Dashboard
-      </button>
+    
       <div
         style={{
           display: 'flex',
@@ -130,6 +119,8 @@ export default function Caixa({ setPage }: CaixaProps) {
               <th style={thStyle}>Data_Fechamento</th>
               <th style={thStyle}>Valor_Fechamento</th>
               <th style={thStyle}>Status</th>
+              <th style={thStyle}>Ações</th>
+
             </tr>
           </thead>
           <tbody>
@@ -145,6 +136,23 @@ export default function Caixa({ setPage }: CaixaProps) {
                   : "Ainda aberto"}</td>
                 <td style={tdStyle}>{s.valor_fechamento || 'Ainda aberto'}</td>
                 <td style={tdStyle}>{s.status}</td>
+                <td style={tdStyle}><button
+                  onClick={() => {
+                    setCaixaSelecionado(s.id); // <-- manda tudo
+                    setPage("caixa-detalhes");
+                  }}
+                  style={{
+                    backgroundColor: "#1e3a8a",
+                    color: "#fff",
+                    border: "none",
+                    padding: "6px 12px",
+                    borderRadius: "4px",
+                    cursor: "pointer",
+                    marginRight: 8,
+                  }}
+                >
+                  Visualizar
+                </button></td>
               </tr>
             ))}
 

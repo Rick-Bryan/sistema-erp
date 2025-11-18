@@ -1,6 +1,6 @@
 import React from "react";
 import { Button, Typography, Box, Paper, Divider, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
-
+import toast from "react-hot-toast";
 interface VendaDetalhesProps {
   venda: any;
   voltar: () => void;
@@ -10,7 +10,43 @@ const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
   if (!venda) return null;
   console.log(venda);
   const itens = venda.itens || [];
-  
+
+
+ const finalizarVenda = async () => {
+  const usuario = JSON.parse(localStorage.getItem("usuarioLogado"));
+  const usuarioId = usuario?.id;
+
+  const caixaId = localStorage.getItem("caixa_id");
+
+  if (!usuarioId) {
+    toast.error("Usuário não encontrado");
+    return;
+  }
+
+
+  try {
+    const resposta = await window.ipcRenderer.invoke("pagar-venda", {
+      venda_id: venda.id,
+      forma_pagamento: venda.forma_pagamento,
+      usuario_id: usuarioId,
+      caixa_id: Number(caixaId)
+    });
+
+    if (resposta.sucesso) {
+      toast.success("Venda finalizada!");
+      voltar();
+    } else {
+      toast.error(resposta.mensagem || "Erro ao finalizar a venda");
+    }
+  } catch (e) {
+    console.error(e);
+    toast.error("Erro ao finalizar a venda");
+  }
+};
+
+
+
+
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 800, mx: "auto" }}>
       {/* Cabeçalho */}
@@ -35,6 +71,7 @@ const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
           <Typography variant="body1">
             <strong>Forma de Pagamento:</strong> {venda.forma_pagamento || "-"}
           </Typography>
+
           <Typography variant="body1">
             <strong>Status:</strong>{" "}
             <span
@@ -73,22 +110,22 @@ const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
           </Box>
         )}
         {venda.status === "pendente" && (
-    <button
-        
-        style={{
-            backgroundColor: "#1e3a8a",
-            color: "#fff",
-            border: "none",
-            padding: "10px 16px",
-            borderRadius: "6px",
-            fontWeight: 600,
-            cursor: "pointer",
-            marginTop: "20px",
-        }}
-    >
-        Finalizar Venda
-    </button>
-)}
+          <button
+            onClick={finalizarVenda}
+            style={{
+              backgroundColor: "#1e3a8a",
+              color: "#fff",
+              border: "none",
+              padding: "10px 16px",
+              borderRadius: "6px",
+              fontWeight: 600,
+              cursor: "pointer",
+              marginTop: "20px",
+            }}
+          >
+            Finalizar Venda
+          </button>
+        )}
       </Paper>
 
       {/* Itens da venda */}

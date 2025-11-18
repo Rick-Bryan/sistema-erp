@@ -27957,6 +27957,32 @@ async function deletarVenda(id) {
   await pool.query(`DELETE FROM vendas WHERE id=?`, [id]);
   return true;
 }
+async function pagarVenda(id, forma_pagamento, usuarioId, caixaId) {
+  const [result] = await pool.query(`
+        UPDATE vendas
+        SET status = 'pago', forma_pagamento = ?, atualizado_em = NOW()
+        WHERE id = ?
+    `, [forma_pagamento, id]);
+  if (result.affectedRows === 0) {
+    return { sucesso: false, mensagem: "Venda não encontrada" };
+  }
+  await pool.query(`
+    INSERT INTO caixa_movimentos
+    (caixa_id, venda_id, tipo, descricao, valor, origem, criado_em, usuario_id)
+    SELECT 
+        ?,                -- caixa_id
+        id,               -- venda_id
+        'entrada',        -- tipo
+        CONCAT('Venda #', id, ' paga'),
+        valor_total,      -- valor
+        'venda',          -- origem
+        NOW(),            -- criado_em
+        ?
+    FROM vendas
+    WHERE id = ?
+  `, [caixaId, usuarioId, id]);
+  return { sucesso: true };
+}
 async function listarSessoesCaixa() {
   const [rows] = await pool.query("SELECT * FROM caixa_sessoes ORDER BY id DESC");
   return rows;
@@ -27965,7 +27991,18 @@ async function listarMovimentosCaixa() {
   const [rows] = await pool.query("SELECT * FROM caixa_movimentos ORDER BY id DESC");
   return rows;
 }
+async function resumoMovimentosCaixa(caixaId) {
+  const [rows] = await pool.query(
+    "SELECT * FROM caixa_movimentos WHERE caixa_id = ? ORDER BY id DESC",
+    [caixaId]
+  );
+  return rows;
+}
 async function abrirCaixa({ usuario_id, valor_abertura, observacoes }) {
+  const [verify] = await pool.query('SELECT * FROM caixa_sessoes WHERE usuario_id = ? AND status = "Aberto"', [usuario_id]);
+  if (verify.length > 0) {
+    throw new Error("O Colaborador ja possui um caixa em aberto");
+  }
   const [result] = await pool.query(
     "INSERT INTO caixa_sessoes (usuario_id, valor_abertura, observacoes) VALUES (?, ?, ?)",
     [usuario_id, valor_abertura, observacoes]
@@ -27978,6 +28015,64 @@ async function inserirMovimentoCaixa({ usuario_id, caixa_id, observacoes, tipo, 
     [usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id]
   );
   return { id: result.insertId };
+}
+async function registrarCancelamentoVenda({
+  caixa_id,
+  venda_id
+}) {
+  const [vendas] = await pool.query(
+    "SELECT valor_total, forma_pagamento FROM vendas WHERE id = ?",
+    [venda_id]
+  );
+  if (!vendas.length) throw new Error("Venda não encontrada");
+  const venda = vendas[0];
+  const [result] = await pool.query(
+    `
+      INSERT INTO caixa_movimentos
+      (caixa_id, venda_id, tipo, valor, forma_pagamento, descricao, data_movimento)
+      VALUES (?, ?, 'saída', ?, ?, ?, NOW())
+    `,
+    [
+      caixa_id,
+      venda_id,
+      venda.valor_total,
+      venda.forma_pagamento,
+      `Cancelamento da venda #${venda_id}`
+    ]
+  );
+  return { id: result.insertId };
+}
+async function resumoCaixa(caixa_id) {
+  const [entradasRow] = await pool.query(
+    `SELECT IFNULL(SUM(valor),0) AS total FROM caixa_movimentos WHERE caixa_id = ? AND tipo = 'entrada'`,
+    [caixa_id]
+  );
+  const [saidasRow] = await pool.query(
+    `SELECT IFNULL(SUM(valor),0) AS total FROM caixa_movimentos WHERE caixa_id = ? AND tipo = 'saida'`,
+    [caixa_id]
+  );
+  const [sessRows] = await pool.query("SELECT * FROM caixa_sessoes WHERE id = ?", [caixa_id]);
+  if (!sessRows.length) throw new Error("Sessão de caixa não encontrada");
+  const sessao = sessRows[0];
+  const valor_abertura = Number(sessao.valor_abertura || 0);
+  const entradas = Number(entradasRow[0].total || 0);
+  const saidas = Number(saidasRow[0].total || 0);
+  const saldo_esperado = valor_abertura + entradas - saidas;
+  return {
+    valor_abertura,
+    total_entradas: entradas,
+    total_saidas: saidas,
+    saldo_esperado
+  };
+}
+async function fecharCaixa({ caixa_id, valor_fechamento = null }) {
+  const resumo = await resumoCaixa(caixa_id);
+  const totalFinal = valor_fechamento !== null ? Number(valor_fechamento) : resumo.saldo_esperado;
+  const [result] = await pool.query(
+    `UPDATE caixa_sessoes SET fechado_em = NOW(), valor_fechamento = ?, status = 'fechado' WHERE id = ?`,
+    [totalFinal, caixa_id]
+  );
+  return { changes: result.affectedRows, valor_fechamento: totalFinal };
 }
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28278,6 +28373,9 @@ ipcMain.handle("add-sessoes-caixa", async (_event, dados) => {
 ipcMain.handle("get-movimentos-caixa", async () => {
   return await listarMovimentosCaixa();
 });
+ipcMain.handle("caixa:resumo-movimentos", async (_, caixa_id) => {
+  return await resumoMovimentosCaixa(caixa_id);
+});
 ipcMain.handle("add-movimentos-caixa", async (_event, dados) => {
   return await inserirMovimentoCaixa(dados);
 });
@@ -28289,6 +28387,10 @@ ipcMain.handle("caixa:cancelar-venda", async (_, payload) => {
 });
 ipcMain.handle("caixa:resumo", async (_, caixa_id) => {
   return await resumoCaixa(caixa_id);
+});
+ipcMain.handle("pagar-venda", async (event, { venda_id, forma_pagamento, usuario_id, caixa_id }) => {
+  const resposta = await pagarVenda(venda_id, forma_pagamento, usuario_id, caixa_id);
+  return resposta;
 });
 ipcMain.handle("caixa:fechar", async (_, payload) => {
   return await fecharCaixa(payload);

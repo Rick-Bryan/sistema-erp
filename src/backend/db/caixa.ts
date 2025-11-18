@@ -1,29 +1,41 @@
 import pool from './connection';
 
-export async function listarSessoesCaixa(){
+export async function listarSessoesCaixa() {
 
-    const [rows] = await pool.query('SELECT * FROM caixa_sessoes ORDER BY id DESC');
-    return rows;
+  const [rows] = await pool.query('SELECT * FROM caixa_sessoes ORDER BY id DESC');
+  return rows;
 };
 
 export async function listarMovimentosCaixa() {
-    const [rows] = await pool.query('SELECT * FROM caixa_movimentos ORDER BY id DESC');
-    return rows;
+  const [rows] = await pool.query('SELECT * FROM caixa_movimentos ORDER BY id DESC');
+  return rows;
 };
+export async function resumoMovimentosCaixa(caixaId: number) {
+  const [rows] = await pool.query(
+    'SELECT * FROM caixa_movimentos WHERE caixa_id = ? ORDER BY id DESC',
+    [caixaId]
+  );
+  return rows;
+}
+export async function abrirCaixa({ usuario_id, valor_abertura, observacoes }) {
 
-export async function abrirCaixa({usuario_id,valor_abertura,observacoes}) {
-      const [result] = await pool.query(
+  const [verify] = await pool.query('SELECT * FROM caixa_sessoes WHERE usuario_id = ? AND status = "Aberto"',[usuario_id])
+
+  if(verify.length > 0){
+    throw new Error("O Colaborador ja possui um caixa em aberto");
+  }
+  const [result] = await pool.query(
     'INSERT INTO caixa_sessoes (usuario_id, valor_abertura, observacoes) VALUES (?, ?, ?)',
     [usuario_id, valor_abertura, observacoes]
   );
-   return { id: result.insertId };
+  return { id: result.insertId };
 };
-export async function inserirMovimentoCaixa({usuario_id,caixa_id,observacoes,tipo,descricao,valor,origem,venda_id}) {
-      const [result] = await pool.query(
+export async function inserirMovimentoCaixa({ usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id }) {
+  const [result] = await pool.query(
     'INSERT INTO caixa_movimentos(usuario_id,caixa_id,observacoes,tipo,descricao,valor,origem,venda_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [usuario_id,caixa_id,observacoes,tipo,descricao,valor,origem,venda_id]
+    [usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id]
   );
-   return { id: result.insertId };
+  return { id: result.insertId };
 };
 
 export async function registrarVendaNoCaixa({ caixa_id, venda_id }) {
