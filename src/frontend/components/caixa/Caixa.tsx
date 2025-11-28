@@ -129,7 +129,7 @@ export default function Caixa({ setPage, setCaixaSelecionado }: CaixaProps) {
               <tr key={s.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
                 <td style={tdStyle}>{s.id}</td>
                 <td style={tdStyle}>{s.usuario_id}</td>
-                <td style={tdStyle}>{new Date(s.aberto_em).toLocaleString('pt-BR')}</td>
+                <td style={tdStyle}>{new Date(s.criado_em).toLocaleString('pt-BR')}</td>
                 <td style={tdStyle}>{s.valor_abertura}</td>
                 <td style={tdStyle}> {s.fechado_em && s.fechado_em !== "0000-00-00 00:00:00"
                   ? new Date(s.fechado_em).toLocaleString('pt-BR')

@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 import pool from "../db/connection"; // sua conexão MySQL
 import { listarProdutos, criarProduto, salvarProduto } from '../db/produtos';
 import { listarFabricantes, criarFabricante, salvarFabricante } from '../db/fabricantes'
-import { listarColaboradores, criarColaborador, atualizarColaborador, deletarColaborador } from '../db/colaboradores';
+import { listarColaboradores, criarColaborador, atualizarColaborador, deletarColaborador ,getColaboradorById} from '../db/colaboradores';
 import { listarClientes, criarCliente, atualizarCliente, deletarCliente } from '../db/clientes';
 import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornecedor } from '../db/fornecedores';
 //Falta fazer
@@ -415,6 +415,16 @@ ipcMain.handle('caixa:registrar-venda', async (_, payload) => {
   return await registrarVendaNoCaixa(payload);
 });
 
+
+ipcMain.handle("getColaboradorById", async (event, usuarioId) => {
+  try {
+    const colaborador = await getColaboradorById(usuarioId);
+    return colaborador;
+  } catch (err) {
+    console.error("Erro ao obter colaborador:", err);
+    throw err;
+  }
+});
 ipcMain.handle('caixa:cancelar-venda', async (_, payload) => {
   return await registrarCancelamentoVenda(payload);
 });

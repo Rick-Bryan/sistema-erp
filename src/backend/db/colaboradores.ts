@@ -27,6 +27,20 @@ export async function criarColaborador({ nome, email, senha, nivel, setor, ativo
 
   return { id: result.insertId };
 }
+/**
+ * Retorna um colaborador específico pelo ID
+ */
+export async function getColaboradorById(id) {
+  const [rows] = await pool.query(
+    `SELECT id, nome, email, nivel, setor, ativo, criado_em 
+     FROM usuarios 
+     WHERE id = ?
+     LIMIT 1`,
+    [id]
+  );
+
+  return rows.length > 0 ? rows[0] : null; // retorna objeto ou null
+}
 
 /**
  * Atualiza um colaborador existente

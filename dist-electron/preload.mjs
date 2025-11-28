@@ -36,6 +36,7 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
   addColaborador: (colaborador) => electron.ipcRenderer.invoke("add-colaborador", colaborador),
   salvarColaborador: (colaborador) => electron.ipcRenderer.invoke("update-colaborador", colaborador),
   deletarColaborador: (id) => electron.ipcRenderer.invoke("deletar-colaborador", id),
+  getColaboradorById: (id) => electron.ipcRenderer.invoke("getColaboradorById", id),
   // 👥 Clientes (💡 ADICIONADOS AGORA)
   listarClientes: () => electron.ipcRenderer.invoke("listar-clientes"),
   addCliente: (cliente) => electron.ipcRenderer.invoke("add-cliente", cliente),

@@ -20025,21 +20025,27 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-field_flags.NOT_NULL = 1;
-field_flags.PRI_KEY = 2;
-field_flags.UNIQUE_KEY = 4;
-field_flags.MULTIPLE_KEY = 8;
-field_flags.BLOB = 16;
-field_flags.UNSIGNED = 32;
-field_flags.ZEROFILL = 64;
-field_flags.BINARY = 128;
-field_flags.ENUM = 256;
-field_flags.AUTO_INCREMENT = 512;
-field_flags.TIMESTAMP = 1024;
-field_flags.SET = 2048;
-field_flags.NO_DEFAULT_VALUE = 4096;
-field_flags.ON_UPDATE_NOW = 8192;
-field_flags.NUM = 32768;
+var hasRequiredField_flags;
+function requireField_flags() {
+  if (hasRequiredField_flags) return field_flags;
+  hasRequiredField_flags = 1;
+  field_flags.NOT_NULL = 1;
+  field_flags.PRI_KEY = 2;
+  field_flags.UNIQUE_KEY = 4;
+  field_flags.MULTIPLE_KEY = 8;
+  field_flags.BLOB = 16;
+  field_flags.UNSIGNED = 32;
+  field_flags.ZEROFILL = 64;
+  field_flags.BINARY = 128;
+  field_flags.ENUM = 256;
+  field_flags.AUTO_INCREMENT = 512;
+  field_flags.TIMESTAMP = 1024;
+  field_flags.SET = 2048;
+  field_flags.NO_DEFAULT_VALUE = 4096;
+  field_flags.ON_UPDATE_NOW = 8192;
+  field_flags.NUM = 32768;
+  return field_flags;
+}
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20103,7 +20109,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = field_flags;
+    const fiedFlags = requireField_flags();
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23159,7 +23165,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = field_flags;
+const FieldFlags$1 = requireField_flags();
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23348,7 +23354,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = field_flags;
+const FieldFlags = requireField_flags();
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -27837,6 +27843,16 @@ async function criarColaborador({ nome, email, senha, nivel, setor, ativo = 1 })
   );
   return { id: result.insertId };
 }
+async function getColaboradorById(id) {
+  const [rows] = await pool.query(
+    `SELECT id, nome, email, nivel, setor, ativo, criado_em 
+     FROM usuarios 
+     WHERE id = ?
+     LIMIT 1`,
+    [id]
+  );
+  return rows.length > 0 ? rows[0] : null;
+}
 async function atualizarColaborador({ id, nome, email, nivel, setor, ativo }) {
   await pool.query(
     "UPDATE usuarios SET nome = ?, email = ?, nivel = ?, setor = ?, ativo = ? WHERE id = ?",
@@ -27912,6 +27928,7 @@ async function deletarFornecedor(CodigoFornecedor) {
   await pool.query("DELETE FROM fornecedores WHERE CodigoFornecedor = ?", [CodigoFornecedor]);
   return true;
 }
+const isPositiveInt = (v) => Number.isInteger(v) && v > 0;
 async function listarSessoesCaixa() {
   const [rows] = await pool.query("SELECT * FROM caixa_sessoes ORDER BY id DESC");
   return rows;
@@ -27921,47 +27938,112 @@ async function listarMovimentosCaixa() {
   return rows;
 }
 async function resumoMovimentosCaixa(caixaId) {
+  if (!isPositiveInt(caixaId)) throw new Error("caixaId inválido");
   const [rows] = await pool.query(
     "SELECT * FROM caixa_movimentos WHERE caixa_id = ? ORDER BY id DESC",
     [caixaId]
   );
   return rows;
 }
-async function abrirCaixa({ usuario_id, valor_abertura, observacoes }) {
-  const [verify] = await pool.query('SELECT * FROM caixa_sessoes WHERE usuario_id = ? AND status = "Aberto"', [usuario_id]);
-  if (verify.length > 0) {
-    throw new Error("O Colaborador ja possui um caixa em aberto");
-  }
-  const [result] = await pool.query(
-    "INSERT INTO caixa_sessoes (usuario_id, valor_abertura, observacoes) VALUES (?, ?, ?)",
-    [usuario_id, valor_abertura, observacoes]
-  );
-  return { id: result.insertId };
-}
-async function inserirMovimentoCaixa({ usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id }) {
-  const [cx] = await pool.query(`
-    SELECT id FROM caixa_sessoes
-    WHERE usuario_id = ? AND status = 'Aberto'
+async function getCaixaAberto(usuario_id, empresa_id = null, pdv_id = null) {
+  if (!isPositiveInt(usuario_id)) throw new Error("usuario_id inválido");
+  const sqlSelect = `
+    SELECT id 
+    FROM caixa_sessoes 
+    WHERE usuario_id = ? 
+      AND (? IS NULL OR empresa_id = ?)
+      AND (? IS NULL OR pdv_id = ?)
+      AND status = 'aberto'
     ORDER BY id DESC
     LIMIT 1
-`, [usuario_id]);
-  let caixaIdFinal;
-  if (cx.length === 0) {
-    const novoCaixa = await abrirCaixa({ usuario_id, valor_abertura: 0, observacoes: " " });
-    caixaIdFinal = novoCaixa.id;
-  } else {
-    caixaIdFinal = cx[0].id;
+  `;
+  const [rows] = await pool.query(sqlSelect, [usuario_id, empresa_id, empresa_id, pdv_id, pdv_id]);
+  if (rows.length > 0) {
+    return rows[0].id;
+  }
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const insertSql = `
+      INSERT INTO caixa_sessoes (usuario_id, empresa_id, pdv_id, valor_abertura, observacoes, status, criado_em)
+      VALUES (?, ?, ?, 0, 'Abertura automática', 'aberto', NOW())
+    `;
+    const [result] = await conn.query(insertSql, [usuario_id, empresa_id, pdv_id]);
+    await conn.commit();
+    return result.insertId;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+async function abrirCaixa({ usuario_id, valor_abertura = 0, observacoes = "", empresa_id = null, pdv_id = null }) {
+  if (!isPositiveInt(usuario_id)) throw new Error("usuario_id inválido");
+  const [verify] = await pool.query(
+    'SELECT id FROM caixa_sessoes WHERE usuario_id = ? AND (? IS NULL OR empresa_id = ?) AND (? IS NULL OR pdv_id = ?) AND status = "Aberto"',
+    [usuario_id, empresa_id, empresa_id, pdv_id, pdv_id]
+  );
+  if (verify.length > 0) {
+    throw new Error("O colaborador já possui um caixa aberto nesta empresa/PDV");
   }
   const [result] = await pool.query(
-    "INSERT INTO caixa_movimentos(usuario_id,caixa_id,observacoes,tipo,descricao,valor,origem,venda_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
-    [usuario_id, caixaIdFinal, observacoes, tipo, descricao, valor, origem, venda_id]
+    'INSERT INTO caixa_sessoes (usuario_id, empresa_id, pdv_id, valor_abertura, observacoes, status, criado_em) VALUES (?, ?, ?, ?, ?, "Aberto", NOW())',
+    [usuario_id, empresa_id, pdv_id, Number(valor_abertura) || 0, observacoes || ""]
   );
   return { id: result.insertId };
 }
-async function registrarCancelamentoVenda({
-  caixa_id,
-  venda_id
+async function inserirMovimentoCaixa({
+  usuario_id,
+  empresa_id = null,
+  pdv_id = null,
+  caixa_id = null,
+  observacoes = "",
+  tipo = "entrada",
+  descricao = "",
+  valor = 0,
+  origem = null,
+  venda_id = null,
+  forma_pagamento = null
 }) {
+  if (!isPositiveInt(usuario_id)) throw new Error("usuario_id inválido");
+  if (typeof valor !== "number") valor = Number(valor) || 0;
+  if (!["entrada", "saida"].includes(tipo)) throw new Error('tipo deve ser "entrada" ou "saida"');
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    let caixaIdFinal = caixa_id;
+    if (!isPositiveInt(caixaIdFinal)) {
+      caixaIdFinal = await getCaixaAberto(usuario_id, empresa_id, pdv_id);
+    }
+    const insertSql = `
+      INSERT INTO caixa_movimentos
+      (usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id, forma_pagamento, data_movimento)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    `;
+    const [result] = await conn.query(insertSql, [
+      usuario_id,
+      caixaIdFinal,
+      observacoes || "",
+      tipo,
+      descricao || "",
+      valor,
+      origem || null,
+      venda_id || null,
+      forma_pagamento || null
+    ]);
+    await conn.commit();
+    return { id: result.insertId };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+async function registrarCancelamentoVenda({ caixa_id, venda_id }) {
+  if (!isPositiveInt(caixa_id)) throw new Error("caixa_id inválido");
+  if (!isPositiveInt(venda_id)) throw new Error("venda_id inválido");
   const [vendas] = await pool.query(
     "SELECT valor_total, forma_pagamento FROM vendas WHERE id = ?",
     [venda_id]
@@ -27972,19 +28054,14 @@ async function registrarCancelamentoVenda({
     `
       INSERT INTO caixa_movimentos
       (caixa_id, venda_id, tipo, valor, forma_pagamento, descricao, data_movimento)
-      VALUES (?, ?, 'saída', ?, ?, ?, NOW())
+      VALUES (?, ?, 'saida', ?, ?, ?, NOW())
     `,
-    [
-      caixa_id,
-      venda_id,
-      venda.valor_total,
-      venda.forma_pagamento,
-      `Cancelamento da venda #${venda_id}`
-    ]
+    [caixa_id, venda_id, venda.valor_total, venda.forma_pagamento || null, `Cancelamento da venda #${venda_id}`]
   );
   return { id: result.insertId };
 }
 async function resumoCaixa(caixa_id) {
+  if (!isPositiveInt(caixa_id)) throw new Error("caixa_id inválido");
   const [entradasRow] = await pool.query(
     `SELECT IFNULL(SUM(valor),0) AS total FROM caixa_movimentos WHERE caixa_id = ? AND tipo = 'entrada'`,
     [caixa_id]
@@ -28007,14 +28084,36 @@ async function resumoCaixa(caixa_id) {
     saldo_esperado
   };
 }
-async function fecharCaixa({ caixa_id, valor_fechamento = null }) {
+async function fecharCaixa({ caixa_id, valor_fechamento_usuario = null }) {
+  if (!caixa_id || isNaN(Number(caixa_id))) {
+    throw new Error("ID do caixa inválido!");
+  }
   const resumo = await resumoCaixa(caixa_id);
-  const totalFinal = valor_fechamento !== null ? Number(valor_fechamento) : resumo.saldo_esperado;
+  if (!resumo) throw new Error("Caixa não encontrado!");
+  const valorEsperado = Number(resumo.saldo_esperado);
+  let valorFinal = valorEsperado;
+  if (valor_fechamento_usuario !== null && !isNaN(Number(valor_fechamento_usuario))) {
+    valorFinal = Number(valor_fechamento_usuario);
+  }
   const [result] = await pool.query(
-    `UPDATE caixa_sessoes SET fechado_em = NOW(), valor_fechamento = ?, status = 'fechado' WHERE id = ?`,
-    [totalFinal, caixa_id]
+    `
+      UPDATE caixa_sessoes
+      SET
+        fechado_em = NOW(),
+        valor_fechamento = ?,
+        valor_fechamento_informado = ?,
+        status = 'fechado',
+        atualizado_em = NOW()
+      WHERE id = ?
+    `,
+    [valorFinal, valor_fechamento_usuario, caixa_id]
   );
-  return { changes: result.affectedRows, valor_fechamento: totalFinal };
+  return {
+    alterados: result.affectedRows,
+    valor_fechamento: valorFinal,
+    esperado: valorEsperado,
+    diferenca: Number(valorFinal) - Number(valorEsperado)
+  };
 }
 async function listarVendas() {
   const [rows] = await pool.query(`
@@ -28405,6 +28504,15 @@ ipcMain.handle("add-movimentos-caixa", async (_event, dados) => {
 });
 ipcMain.handle("caixa:registrar-venda", async (_, payload) => {
   return await registrarVendaNoCaixa(payload);
+});
+ipcMain.handle("getColaboradorById", async (event, usuarioId) => {
+  try {
+    const colaborador = await getColaboradorById(usuarioId);
+    return colaborador;
+  } catch (err) {
+    console.error("Erro ao obter colaborador:", err);
+    throw err;
+  }
 });
 ipcMain.handle("caixa:cancelar-venda", async (_, payload) => {
   return await registrarCancelamentoVenda(payload);

@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addColaborador: (colaborador) => ipcRenderer.invoke('add-colaborador', colaborador),
   salvarColaborador: (colaborador) => ipcRenderer.invoke('update-colaborador', colaborador),
   deletarColaborador: (id) => ipcRenderer.invoke('deletar-colaborador', id),
+  getColaboradorById: (id) => ipcRenderer.invoke("getColaboradorById", id),
 
 
   // 👥 Clientes (💡 ADICIONADOS AGORA)
@@ -66,7 +67,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   registrarCancelamentoVenda: (payload) => ipcRenderer.invoke('caixa:cancelar-venda', payload),
   resumoCaixa: (caixa_id) => ipcRenderer.invoke('caixa:resumo', caixa_id),
   fecharCaixa: (payload) => ipcRenderer.invoke('caixa:fechar', payload),
-  pagarVenda: (payload) => ipcRenderer.invoke('pagar-venda',payload),
+  pagarVenda: (payload) => ipcRenderer.invoke('pagar-venda', payload),
+
   resumoMovimentosCaixa: (caixa_id) => ipcRenderer.invoke('caixa:resumo-movimentos', caixa_id),
   // 🔍 Busca e login
   buscar: (canal, termo) => ipcRenderer.invoke(canal, termo),
