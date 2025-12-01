@@ -28062,38 +28062,56 @@ async function registrarCancelamentoVenda({ caixa_id, venda_id }) {
 }
 async function resumoCaixa(caixa_id) {
   if (!isPositiveInt(caixa_id)) throw new Error("caixa_id inválido");
-  const [entradasRow] = await pool.query(
-    `SELECT IFNULL(SUM(valor),0) AS total FROM caixa_movimentos WHERE caixa_id = ? AND tipo = 'entrada'`,
+  const [[entradasRow]] = await pool.query(
+    `SELECT IFNULL(SUM(valor),0) AS total
+     FROM caixa_movimentos
+     WHERE caixa_id = ? AND tipo = 'entrada'`,
     [caixa_id]
   );
-  const [saidasRow] = await pool.query(
-    `SELECT IFNULL(SUM(valor),0) AS total FROM caixa_movimentos WHERE caixa_id = ? AND tipo = 'saida'`,
+  const [[saidasRow]] = await pool.query(
+    `SELECT IFNULL(SUM(valor),0) AS total
+     FROM caixa_movimentos
+     WHERE caixa_id = ? AND tipo = 'saida'`,
     [caixa_id]
   );
-  const [sessRows] = await pool.query("SELECT * FROM caixa_sessoes WHERE id = ?", [caixa_id]);
+  const [sessRows] = await pool.query(
+    `SELECT valor_abertura, valor_fechamento_informado
+     FROM caixa_sessoes
+     WHERE id = ?`,
+    [caixa_id]
+  );
   if (!sessRows.length) throw new Error("Sessão de caixa não encontrada");
   const sessao = sessRows[0];
   const valor_abertura = Number(sessao.valor_abertura || 0);
-  const entradas = Number(entradasRow[0].total || 0);
-  const saidas = Number(saidasRow[0].total || 0);
+  const entradas = Number(entradasRow.total || 0);
+  const saidas = Number(saidasRow.total || 0);
+  const valorInformado = Number(sessao.valor_fechamento_informado || 0);
   const saldo_esperado = valor_abertura + entradas - saidas;
+  const diferenca = valorInformado > 0 ? Number((valorInformado - saldo_esperado).toFixed(2)) : 0;
   return {
     valor_abertura,
     total_entradas: entradas,
     total_saidas: saidas,
-    saldo_esperado
+    saldo_esperado,
+    valor_informado: valorInformado,
+    diferenca
   };
 }
-async function fecharCaixa({ caixa_id, valor_fechamento_usuario = null }) {
+async function fecharCaixa({
+  caixa_id,
+  valor_fechamento_informado = null,
+  motivo_diferenca = null
+}) {
   if (!caixa_id || isNaN(Number(caixa_id))) {
     throw new Error("ID do caixa inválido!");
   }
   const resumo = await resumoCaixa(caixa_id);
   if (!resumo) throw new Error("Caixa não encontrado!");
   const valorEsperado = Number(resumo.saldo_esperado);
-  let valorFinal = valorEsperado;
-  if (valor_fechamento_usuario !== null && !isNaN(Number(valor_fechamento_usuario))) {
-    valorFinal = Number(valor_fechamento_usuario);
+  const valorFinal = valor_fechamento_informado !== null ? Number(valor_fechamento_informado) : valorEsperado;
+  const diferenca = Number(valorFinal) - Number(valorEsperado);
+  if (diferenca !== 0 && (!motivo_diferenca || motivo_diferenca.trim() === "")) {
+    throw new Error("É obrigatório informar o motivo da diferença!");
   }
   const [result] = await pool.query(
     `
@@ -28102,17 +28120,30 @@ async function fecharCaixa({ caixa_id, valor_fechamento_usuario = null }) {
         fechado_em = NOW(),
         valor_fechamento = ?,
         valor_fechamento_informado = ?,
+        diferenca = ?,
+        motivo_diferenca = ?,
         status = 'fechado',
         atualizado_em = NOW()
       WHERE id = ?
     `,
-    [valorFinal, valor_fechamento_usuario, caixa_id]
+    [
+      valorFinal,
+      // valor calculado/contado
+      valor_fechamento_informado,
+      // valor informado pelo usuário (ou null)
+      diferenca,
+      // diferença registrada
+      motivo_diferenca,
+      // motivo, se houver
+      caixa_id
+    ]
   );
   return {
     alterados: result.affectedRows,
     valor_fechamento: valorFinal,
     esperado: valorEsperado,
-    diferenca: Number(valorFinal) - Number(valorEsperado)
+    diferenca,
+    motivo_diferenca
   };
 }
 async function listarVendas() {

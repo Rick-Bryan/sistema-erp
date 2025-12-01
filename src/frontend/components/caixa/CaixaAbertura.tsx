@@ -119,10 +119,6 @@ export default function CaixaAbertura({ onVoltar }: CaixaCadastroProps) {
           />
         </div>
 
-
-
-
-
         <div style={botoesContainer}>
           <button style={buttonPrimary} onClick={abrirCaixa}>Abrir Caixa</button>
         </div>

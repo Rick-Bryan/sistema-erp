@@ -1,6 +1,6 @@
 // src/renderer/components/CaixaDetalhes.tsx
 import React, { useEffect, useState } from "react";
-import { Button, Card, CardContent } from "@mui/material";
+import { Button, Card, CardContent ,Dialog,DialogTitle,DialogContent,TextField,DialogActions} from "@mui/material";
 import toast from "react-hot-toast";
 
 interface CaixaDetalhesProps {
@@ -16,11 +16,35 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
   // ESTADOS DO FECHAMENTO
   const [valorContado, setValorContado] = useState<string>("");
   const [motivoDiferenca, setMotivoDiferenca] = useState("");
+  const [modalSangriaAberto, setModalSangriaAberto] = useState(false);
+  function abrirModalSangria() {
+    setModalSangriaAberto(true);
+  }
+  function fecharModalSangria() {
+    setModalSangriaAberto(false);
+  }
 
   async function carregarSessao() {
     const lista = await window.electronAPI.getSessoesCaixa();
     const selecionada = lista.find((s: any) => s.id === caixa);
     setDados(selecionada || null);
+  }
+  const [valorSangria, setValorSangria] = useState("");
+  const [motivoSangria, setMotivoSangria] = useState("");
+
+  async function salvarSangria() {
+    if (!valorSangria) return toast.error("Informe o valor!");
+
+    await window.electronAPI.addMovimentosCaixa({
+      caixa_id: dados.id,
+      tipo: "saida",
+      valor: Number(valorSangria),
+      descricao: motivoSangria || "Sangria"
+    });
+
+    toast.success("Sangria registrada!");
+    carregarMovimentos();
+    carregarResumo();
   }
 
 
@@ -140,6 +164,16 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
               ))}
             </ul>
           )}
+          {dados.status === "aberto" && (
+            <Button
+              variant="outlined"
+              style={{ marginTop: 20 }}
+              onClick={() => abrirModalSangria()}
+            >
+              Registrar Sangria
+            </Button>
+          )}
+
 
           {/* 🔻 FECHAMENTO DE CAIXA 🔻 */}
           {dados.status === "aberto" && resumo && (
@@ -164,21 +198,44 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
                 }}
               />
 
-              {/* MOTIVO DA DIFERENÇA */}
-              <label style={{ fontWeight: 600 }}>Motivo da diferença (opcional):</label>
-              <textarea
-                placeholder="Ex: faltou troco, erro no pagamento, etc"
-                value={motivoDiferenca}
-                onChange={(e) => setMotivoDiferenca(e.target.value)}
-                style={{
-                  width: "100%",
-                  marginTop: 5,
-                  padding: 8,
-                  borderRadius: 6,
-                  border: "1px solid #d1d5db",
-                  minHeight: 60,
-                }}
-              />
+              {/* DIFERENÇA AUTOMÁTICA */}
+              {valorContado && (
+                <div style={{ marginBottom: 15, fontSize: "16px" }}>
+                  <strong>Diferença: </strong>
+                  {(
+                    Number(valorContado || 0) - Number(resumo.saldo_esperado || 0)
+                  ).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+
+                  <span style={{ marginLeft: 10, color: "#1e3a8a" }}>
+                    {Number(valorContado) > resumo.saldo_esperado ? "(sobrando)" :
+                      Number(valorContado) < resumo.saldo_esperado ? "(faltando)" :
+                        "(sem diferença)"}
+                  </span>
+                </div>
+              )}
+
+
+              {/* MOTIVO DA DIFERENÇA (somente se houver diferença) */}
+              {valorContado && Number(valorContado) !== resumo.saldo_esperado && (
+                <>
+                  <label style={{ fontWeight: 600 }}>Motivo da diferença:</label>
+                  <textarea
+                    placeholder="Ex: faltou troco, erro no pagamento, etc"
+                    value={motivoDiferenca}
+                    onChange={(e) => setMotivoDiferenca(e.target.value)}
+                    style={{
+                      width: "100%",
+                      marginTop: 5,
+                      padding: 8,
+                      borderRadius: 6,
+                      border: "1px solid #d1d5db",
+                      minHeight: 60,
+                    }}
+                  />
+                </>
+              )}
+
+
 
               <Button
                 variant="contained"
@@ -190,9 +247,17 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
                     return;
                   }
 
-                  const r = await window.electronAPI.fecharCaixa({
+                  const temDiferenca =
+                    Number(valorContado) !== Number(resumo.saldo_esperado);
+
+                  if (temDiferenca && !motivoDiferenca) {
+                    toast.error("Explique o motivo da diferença!");
+                    return;
+                  }
+
+                  await window.electronAPI.fecharCaixa({
                     caixa_id: dados.id,
-                    valor_fechamento_usuario: Number(valorContado),
+                    valor_fechamento_informado: Number(valorContado),
                     motivo_diferenca: motivoDiferenca || null,
                   });
 
@@ -204,8 +269,66 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
               </Button>
             </div>
           )}
+          {/* 🔻 DETALHES DA DIFERENÇA (caso exista) 🔻 */}
+          {dados.status === "fechado" && (
+            <div style={{ marginTop: 25, padding: 20, background: "#fff7ed", borderRadius: 8 }}>
+              <h3 style={{ marginBottom: 10 }}>Fechamento do Caixa</h3>
+
+              <div><strong>Valor esperado:</strong> R$ {Number(resumo?.saldo_esperado || 0).toFixed(2)}</div>
+              <div><strong>Valor informado:</strong> R$ {Number(dados.valor_fechamento_informado || 0).toFixed(2)}</div>
+              <div>
+                <strong>Diferença:</strong>{" "}
+                <span style={{ color: Number(dados.diferenca) === 0 ? "green" : "red" }}>
+                  R$ {Number(dados.diferenca || 0).toFixed(2)}
+                </span>
+              </div>
+
+              {dados.diferenca !== 0 && (
+                <div style={{ marginTop: 10 }}>
+                  <strong>Motivo declarado:</strong>
+                  <p style={{ background: "#fff", padding: 10, borderRadius: 6 }}>
+                    {dados.motivo_diferenca || "Nenhum motivo informado"}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+
         </CardContent>
       </Card>
+      <Dialog open={modalSangriaAberto} onClose={fecharModalSangria} fullWidth>
+        <DialogTitle>Registrar Sangria</DialogTitle>
+
+        <DialogContent>
+          <TextField
+            label="Valor da sangria"
+            fullWidth
+            type="number"
+            margin="dense"
+            value={valorSangria}
+            onChange={(e) => setValorSangria(e.target.value)}
+          />
+
+          <TextField
+            label="Motivo"
+            fullWidth
+            margin="dense"
+            multiline
+            rows={3}
+            value={motivoSangria}
+            onChange={(e) => setMotivoSangria(e.target.value)}
+          />
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={fecharModalSangria}>Cancelar</Button>
+          <Button variant="contained" onClick={salvarSangria}>
+            Confirmar Sangria
+          </Button>
+        </DialogActions>
+      </Dialog>
+
     </div>
   );
 }
