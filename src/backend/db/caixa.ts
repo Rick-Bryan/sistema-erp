@@ -145,17 +145,39 @@ export async function inserirMovimentoCaixa({
   try {
     await conn.beginTransaction();
 
-    // se caixa_id foi passado e válido, usa. Senão busca/gera um aberto
+    // se caixa_id não informado, busca o caixa aberto
     let caixaIdFinal = caixa_id;
     if (!isPositiveInt(caixaIdFinal)) {
       caixaIdFinal = await getCaixaAberto(usuario_id, empresa_id, pdv_id);
-      // getCaixaAberto já cria se não existir
     }
 
+    // 🔍 BUSCA SALDOS DO CAIXA
+    const [[saldos]] = await conn.query(
+      `
+      SELECT 
+        cs.valor_abertura,
+        IFNULL((SELECT SUM(valor) FROM caixa_movimentos WHERE caixa_id = cs.id AND tipo='entrada'),0) AS entradas,
+        IFNULL((SELECT SUM(valor) FROM caixa_movimentos WHERE caixa_id = cs.id AND tipo='saida'),0) AS saidas
+      FROM caixa_sessoes cs
+      WHERE cs.id = ?
+      `,
+      [caixaIdFinal]
+    );
+
+    if (!saldos) throw new Error('Caixa não encontrado');
+
+    const saldoAtual = Number(saldos.valor_abertura) + Number(saldos.entradas) - Number(saldos.saidas);
+
+    // 🚫 VALIDA SAÍDA MAIOR QUE SALDO
+    if (tipo === 'saida' && valor > saldoAtual) {
+      throw new Error(`Saldo insuficiente no caixa. Disponível: R$ ${saldoAtual.toFixed(2)}`);
+    }
+
+    // INSERE O MOVIMENTO
     const insertSql = `
       INSERT INTO caixa_movimentos
-      (usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id, forma_pagamento, data_movimento)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      (usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id, forma_pagamento)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const [result] = await conn.query(insertSql, [
@@ -172,6 +194,7 @@ export async function inserirMovimentoCaixa({
 
     await conn.commit();
     return { id: result.insertId };
+
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -179,6 +202,7 @@ export async function inserirMovimentoCaixa({
     conn.release();
   }
 }
+
 
 /**
  * Registra uma venda (entrada) no caixa.
@@ -279,14 +303,23 @@ export async function resumoCaixa(caixa_id) {
   const saidas = Number(saidasRow.total || 0);
   const valorInformado = Number(sessao.valor_fechamento_informado || 0);
 
+  if (saidas > valor_abertura + entradas) {
+    throw new Error(
+      'O valor de saída não pode exceder o saldo disponível do caixa'
+    );
+  }
+
+  if (valor_abertura === 0 && entradas === 0 && saidas > 0) {
+    throw new Error('Existe saída no caixa sem valor de abertura definido');
+  }
+
   // CÁLCULO DO SALDO ESPERADO
   const saldo_esperado = valor_abertura + entradas - saidas;
 
   // DIFERENÇA ENTRE O QUE O SISTEMA ESPERA E O QUE FOI INFORMADO
-  const diferenca =
-    valorInformado > 0
-      ? Number((valorInformado - saldo_esperado).toFixed(2))
-      : 0;
+  const diferenca = Number((valorInformado - saldo_esperado).toFixed(2));
+
+
 
   return {
     valor_abertura,
@@ -294,8 +327,9 @@ export async function resumoCaixa(caixa_id) {
     total_saidas: saidas,
     saldo_esperado,
     valor_informado: valorInformado,
-    diferenca
+    diferenca: diferenca
   };
+
 }
 
 /**
@@ -329,9 +363,13 @@ export async function fecharCaixa({
   // Calcula diferença
   const diferenca = Number(valorFinal) - Number(valorEsperado);
 
+
   // Se houver diferença e nenhum motivo, impede o fechamento
   if (diferenca !== 0 && (!motivo_diferenca || motivo_diferenca.trim() === "")) {
     throw new Error("É obrigatório informar o motivo da diferença!");
+  }
+  if (valorFinal < 0) {
+    throw new Error("Valor de fechamento não pode ser negativo!");
   }
 
   const [result] = await pool.query(

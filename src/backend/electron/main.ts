@@ -12,6 +12,7 @@ import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornec
 //Falta fazer
 import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda } from '../db/vendas';
 import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoesCaixa, registrarCancelamentoVenda, resumoCaixa, fecharCaixa, resumoMovimentosCaixa } from '../db/caixa';
+import { entradaEstoque , saidaEstoque, atualizarEstoque} from '../db/estoque_movimento';
 
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
@@ -440,6 +441,19 @@ ipcMain.handle("pagar-venda", async (event, { venda_id, forma_pagamento, usuario
 ipcMain.handle('caixa:fechar', async (_, payload) => {
   return await fecharCaixa(payload);
 });
+
+
+
+//ESTOQUE
+ipcMain.handle('estoque:entrada', async (__dirname, payload)=>{
+  return await entradaEstoque(payload);
+})
+ipcMain.handle('estoque:saida', async (__dirname, payload)=>{
+  return await saidaEstoque(payload);
+})
+ipcMain.handle('estoque:ajuste', async (__dirname, payload)=>{
+  return await atualizarEstoque(payload);
+})
 // Handler para salvar um colaborador
 
 app.whenReady().then(createWindow)

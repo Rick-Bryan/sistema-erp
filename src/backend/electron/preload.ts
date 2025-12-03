@@ -71,6 +71,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   resumoMovimentosCaixa: (caixa_id) => ipcRenderer.invoke('caixa:resumo-movimentos', caixa_id),
   // 🔍 Busca e login
+
+
+  //ESTOQUE
+
+  addEntradaEstoque:() => ipcRenderer.invoke('estoque:entrada',payload),
+  addSaidaEstoque:() => ipcRenderer.invoke('estoque:saida',payload),
+  addAjusteEstoque: () => ipcRenderer.invoke('estoque:ajuste',payload)
+
   buscar: (canal, termo) => ipcRenderer.invoke(canal, termo),
   login: (dados) => ipcRenderer.invoke('login', dados),
 });

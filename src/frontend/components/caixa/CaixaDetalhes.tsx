@@ -36,6 +36,7 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
     if (!valorSangria) return toast.error("Informe o valor!");
 
     await window.electronAPI.addMovimentosCaixa({
+      usuario_id: dados.usuario_id,  
       caixa_id: dados.id,
       tipo: "saida",
       valor: Number(valorSangria),
@@ -46,7 +47,8 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
     carregarMovimentos();
     carregarResumo();
   }
-
+  
+  console.log("DADOS ", dados)
 
   async function carregarColaborador() {
     if (!dados?.usuario_id) return;
@@ -123,7 +125,7 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
           </div>
 
           <div>
-            <strong>Fechamento:</strong>{" "}
+            <strong>Data Fechamento:</strong>{" "}
             {dados.fechado_em && dados.fechado_em !== "0000-00-00 00:00:00"
               ? new Date(dados.fechado_em).toLocaleString("pt-BR")
               : "Ainda aberto"}
