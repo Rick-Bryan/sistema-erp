@@ -6,6 +6,7 @@ declare global {
     interface Window {
         electronAPI: {
             addVenda: (venda: any) => Promise<void>;
+            salvarVendaComleta: (venda: any) => Promise<void>;
         };
         ipcRenderer: any;
     }
@@ -176,7 +177,7 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
                 itens,
             };
 
-            const resposta = await window.electronAPI.addVenda(payload);
+            const resposta = await window.electronAPI.salvarVendaCompleta(payload);
 
             if (venda.status === "pago") {
                 await window.ipcRenderer.invoke("pagar-venda", {

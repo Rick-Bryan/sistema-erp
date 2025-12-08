@@ -10,9 +10,9 @@ import { listarColaboradores, criarColaborador, atualizarColaborador, deletarCol
 import { listarClientes, criarCliente, atualizarCliente, deletarCliente } from '../db/clientes';
 import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornecedor } from '../db/fornecedores';
 //Falta fazer
-import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda } from '../db/vendas';
+import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda,salvarVendaCompleta } from '../db/vendas';
 import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoesCaixa, registrarCancelamentoVenda, resumoCaixa, fecharCaixa, resumoMovimentosCaixa } from '../db/caixa';
-import { entradaEstoque , saidaEstoque, atualizarEstoque} from '../db/estoque_movimento';
+import { entradaEstoque , saidaEstoque, registrarMovimentoEstoque,atualizarEstoqueECusto,atualizarEstoque, listarMovimentosEstoque} from '../db/estoque_movimento';
 
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
@@ -437,7 +437,9 @@ ipcMain.handle("pagar-venda", async (event, { venda_id, forma_pagamento, usuario
   const resposta = await pagarVenda(venda_id, forma_pagamento, usuario_id, caixa_id);
   return resposta;
 });
-
+ipcMain.handle("salvar-venda-completa", async (event, dadosVenda) => {
+  return await salvarVendaCompleta(dadosVenda);
+});
 ipcMain.handle('caixa:fechar', async (_, payload) => {
   return await fecharCaixa(payload);
 });
@@ -445,17 +447,31 @@ ipcMain.handle('caixa:fechar', async (_, payload) => {
 
 
 //ESTOQUE
-ipcMain.handle('estoque:entrada', async (__dirname, payload)=>{
+ipcMain.handle('estoque:entrada', async (event, payload) => {
   return await entradaEstoque(payload);
-})
-ipcMain.handle('estoque:saida', async (__dirname, payload)=>{
+});
+ipcMain.handle('estoque:saida', async (event, payload) => {
   return await saidaEstoque(payload);
-})
-ipcMain.handle('estoque:ajuste', async (__dirname, payload)=>{
+});
+ipcMain.handle('estoque:movimento', async (event, payload) => {
+  return await registrarMovimentoEstoque(payload);
+});
+ipcMain.handle('estoque:atualizarEstoqueECusto', async (event, payload) => {
+  return await atualizarEstoqueECusto(payload);
+});
+ipcMain.handle('estoque:atualizarEstoque', async (event, payload) => {
   return await atualizarEstoque(payload);
-})
-// Handler para salvar um colaborador
+});
+ipcMain.handle('estoque:listar-movimentos', async (event, payload) => {
+  return await listarMovimentosEstoque();
+});
 
+// Handler para salvar um colaborador
+//COMPRAS 
+
+ipcMain.handle('compras:listar', async (event,payload )=>{
+  return await 
+})
 app.whenReady().then(createWindow)
 
 // Exemplo de comunicação entre processos

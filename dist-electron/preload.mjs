@@ -52,13 +52,18 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
   addSessoesCaixa: (dados) => electron.ipcRenderer.invoke("add-sessoes-caixa", dados),
   getMovimentosCaixa: () => electron.ipcRenderer.invoke("get-movimentos-caixa"),
   addMovimentosCaixa: (dados) => electron.ipcRenderer.invoke("add-movimentos-caixa", dados),
-  registrarVendaNoCaixa: (payload) => electron.ipcRenderer.invoke("caixa:registrar-venda", payload),
-  registrarCancelamentoVenda: (payload) => electron.ipcRenderer.invoke("caixa:cancelar-venda", payload),
+  registrarVendaNoCaixa: (payload2) => electron.ipcRenderer.invoke("caixa:registrar-venda", payload2),
+  registrarCancelamentoVenda: (payload2) => electron.ipcRenderer.invoke("caixa:cancelar-venda", payload2),
   resumoCaixa: (caixa_id) => electron.ipcRenderer.invoke("caixa:resumo", caixa_id),
-  fecharCaixa: (payload) => electron.ipcRenderer.invoke("caixa:fechar", payload),
-  pagarVenda: (payload) => electron.ipcRenderer.invoke("pagar-venda", payload),
+  fecharCaixa: (payload2) => electron.ipcRenderer.invoke("caixa:fechar", payload2),
+  pagarVenda: (payload2) => electron.ipcRenderer.invoke("pagar-venda", payload2),
+  salvarVendaCompleta: (payload2) => electron.ipcRenderer.invoke("salvar-venda-completa", payload2),
   resumoMovimentosCaixa: (caixa_id) => electron.ipcRenderer.invoke("caixa:resumo-movimentos", caixa_id),
   // 🔍 Busca e login
+  //ESTOQUE
+  getMovimentosEstoque: () => electron.ipcRenderer.invoke("estoque:listar-movimentos"),
+  addEntradaEstoque: () => electron.ipcRenderer.invoke("estoque:entrada", payload),
+  addSaidaEstoque: () => electron.ipcRenderer.invoke("estoque:saida", payload),
   buscar: (canal, termo) => electron.ipcRenderer.invoke(canal, termo),
   login: (dados) => electron.ipcRenderer.invoke("login", dados)
 });

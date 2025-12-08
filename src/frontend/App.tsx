@@ -17,6 +17,7 @@ import CadastrosAuxiliares from './pages/cadastros/CadastrosAuxiliares';
 import Caixa from './components/caixa/Caixa';
 import CaixaDetalhes from './components/caixa/CaixaDetalhes';
 
+import EstoqueMovimentos from './components/estoque/EstoqueMovimentos';
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
@@ -66,6 +67,9 @@ export default function App() {
         return <CadastrosAuxiliares setPage={setPage} />
       case 'caixa':
         return <Caixa setPage={setPage} setCaixaSelecionado={setCaixaSelecionado} />
+      case "movimentacao-estoque":
+        return <EstoqueMovimentos setPage={setPage} />;
+
       case 'caixa-detalhes':
         return (
           <CaixaDetalhes

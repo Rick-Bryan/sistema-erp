@@ -20025,27 +20025,21 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-var hasRequiredField_flags;
-function requireField_flags() {
-  if (hasRequiredField_flags) return field_flags;
-  hasRequiredField_flags = 1;
-  field_flags.NOT_NULL = 1;
-  field_flags.PRI_KEY = 2;
-  field_flags.UNIQUE_KEY = 4;
-  field_flags.MULTIPLE_KEY = 8;
-  field_flags.BLOB = 16;
-  field_flags.UNSIGNED = 32;
-  field_flags.ZEROFILL = 64;
-  field_flags.BINARY = 128;
-  field_flags.ENUM = 256;
-  field_flags.AUTO_INCREMENT = 512;
-  field_flags.TIMESTAMP = 1024;
-  field_flags.SET = 2048;
-  field_flags.NO_DEFAULT_VALUE = 4096;
-  field_flags.ON_UPDATE_NOW = 8192;
-  field_flags.NUM = 32768;
-  return field_flags;
-}
+field_flags.NOT_NULL = 1;
+field_flags.PRI_KEY = 2;
+field_flags.UNIQUE_KEY = 4;
+field_flags.MULTIPLE_KEY = 8;
+field_flags.BLOB = 16;
+field_flags.UNSIGNED = 32;
+field_flags.ZEROFILL = 64;
+field_flags.BINARY = 128;
+field_flags.ENUM = 256;
+field_flags.AUTO_INCREMENT = 512;
+field_flags.TIMESTAMP = 1024;
+field_flags.SET = 2048;
+field_flags.NO_DEFAULT_VALUE = 4096;
+field_flags.ON_UPDATE_NOW = 8192;
+field_flags.NUM = 32768;
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20109,7 +20103,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = requireField_flags();
+    const fiedFlags = field_flags;
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23165,7 +23159,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = requireField_flags();
+const FieldFlags$1 = field_flags;
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23354,7 +23348,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = requireField_flags();
+const FieldFlags = field_flags;
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -27640,6 +27634,142 @@ const pool = mysql.createPool({
   connectionLimit: 10,
   queueLimit: 0
 });
+function toNumberSafe(v, decimals = 4) {
+  const n = Number(v);
+  if (Number.isNaN(n)) return 0;
+  return Number(n.toFixed(decimals));
+}
+async function registrarMovimentoEstoque({
+  produto_id,
+  tipo,
+  origem,
+  quantidade,
+  custo_unitario = null,
+  documento_id = null,
+  observacao = null
+}) {
+  const [result] = await pool.query(
+    "INSERT INTO estoque_movimento(produto_id, tipo, origem,quantidade,custo_unitario,documento_id,observacao) VALUES (?,?,?,?,?,?,?)",
+    [produto_id, tipo, origem, quantidade, custo_unitario, documento_id, observacao]
+  );
+  return { id: result.insertId };
+}
+async function listarMovimentosEstoque() {
+  const [rows] = await pool.query(`
+        SELECT  
+            m.id,
+            p.NomeProduto,
+            m.tipo,
+            m.origem,
+            m.quantidade,
+            m.custo_unitario,
+            m.observacao,
+            (m.quantidade * m.custo_unitario) AS valor_total,
+            m.criado_em
+        FROM estoque_movimento m
+        JOIN produto p ON m.produto_id = p.CodigoProduto
+        ORDER BY m.criado_em DESC
+    `);
+  return JSON.parse(JSON.stringify(rows));
+}
+async function atualizarEstoqueECusto({ produto_id, quantidade, custo_unitario }) {
+  const [[produto]] = await pool.query(
+    `SELECT EstoqueAtual, CustoMedio FROM produto WHERE CodigoProduto = ?`,
+    [produto_id]
+  );
+  if (!produto) throw new Error("Produto não encontrado");
+  const estoqueAtual = toNumberSafe(produto.EstoqueAtual || 0, 3);
+  const custoMedioAtual = toNumberSafe(produto.CustoMedio || 0, 4);
+  const qtd = toNumberSafe(quantidade, 3);
+  const custo = toNumberSafe(custo_unitario, 4);
+  const novoEstoque = estoqueAtual + qtd;
+  const novoCustoMedio = novoEstoque > 0 ? (estoqueAtual * custoMedioAtual + qtd * custo) / novoEstoque : custo;
+  await pool.query(
+    `UPDATE produto
+     SET EstoqueAtual = ?, CustoMedio = ?, CustoUltimaCompra = ?, atualizado_em = NOW()
+     WHERE CodigoProduto = ?`,
+    [novoEstoque, novoCustoMedio, custo, produto_id]
+  );
+  return { novoEstoque, novoCustoMedio };
+}
+async function validarEstoqueDisponivel({ produto_id, quantidadeSolicitada }) {
+  const [[produto]] = await pool.query(
+    `SELECT EstoqueAtual FROM produto WHERE CodigoProduto = ?`,
+    [produto_id]
+  );
+  if (!produto) throw new Error("Produto não encontrado");
+  const estoqueAtual = toNumberSafe(produto.EstoqueAtual || 0, 3);
+  if (estoqueAtual < quantidadeSolicitada) {
+    throw new Error(`Quantidade insuficiente. Disponível: ${estoqueAtual}`);
+  }
+  return estoqueAtual;
+}
+async function entradaEstoque({
+  produto_id,
+  origem = "compra",
+  quantidade,
+  custo_unitario,
+  documento_id,
+  observacao
+}) {
+  if (!quantidade || quantidade <= 0) throw new Error("Quantidade inválida");
+  if (custo_unitario == null || Number(custo_unitario) <= 0) throw new Error("Custo não pode ser zero na entrada");
+  const movimento_id = await registrarMovimentoEstoque({
+    produto_id,
+    tipo: "entrada",
+    origem,
+    quantidade,
+    custo_unitario,
+    documento_id,
+    observacao
+  });
+  await atualizarEstoqueECusto({ produto_id, quantidade, custo_unitario });
+  return { movimento_id };
+}
+async function saidaEstoque({
+  produto_id,
+  origem = "venda",
+  quantidade,
+  documento_id,
+  observacao
+}) {
+  if (!quantidade || quantidade <= 0) throw new Error("Quantidade inválida");
+  await validarEstoqueDisponivel({ produto_id, quantidadeSolicitada: quantidade });
+  const custo_unitario = await obterCustoMedio(produto_id);
+  const movimento_id = await registrarMovimentoEstoque({
+    produto_id,
+    tipo: "saida",
+    origem,
+    quantidade,
+    custo_unitario,
+    documento_id,
+    observacao
+  });
+  await atualizarEstoque({ produto_id, deltaQuantidade: -quantidade });
+  return { movimento_id };
+}
+async function obterCustoMedio(produto_id) {
+  const [[produto]] = await pool.query(
+    `SELECT CustoMedio FROM produto WHERE CodigoProduto = ?`,
+    [produto_id]
+  );
+  return toNumberSafe((produto == null ? void 0 : produto.CustoMedio) || 0, 4);
+}
+async function atualizarEstoque({ produto_id, deltaQuantidade }) {
+  const [[produto]] = await pool.query(
+    `SELECT EstoqueAtual FROM produto WHERE CodigoProduto = ?`,
+    [produto_id]
+  );
+  if (!produto) throw new Error("Produto não encontrado");
+  const estoqueAtual = toNumberSafe(produto.EstoqueAtual || 0, 3);
+  const novoEstoque = toNumberSafe(estoqueAtual + deltaQuantidade, 3);
+  if (novoEstoque < 0) throw new Error("Estoque resultante não pode ser negativo");
+  await pool.query(
+    `UPDATE produto SET EstoqueAtual = ?, atualizado_em = NOW() WHERE CodigoProduto = ?`,
+    [novoEstoque, produto_id]
+  );
+  return { estoqueAnterior: estoqueAtual, estoqueAtual: novoEstoque };
+}
 async function grupoExiste(codigoGrupo) {
   if (!codigoGrupo) return false;
   const [rows] = await pool.query("SELECT CodigoGrupo FROM produto_grupo WHERE CodigoGrupo = ?", [codigoGrupo]);
@@ -27661,35 +27791,25 @@ async function listarProdutos() {
 }
 async function criarProduto(produto) {
   try {
-    console.log("🧾 Dados recebidos:", produto);
-    let codigoGrupoValido = null;
-    let codigoSubGrupoValido = null;
-    let codigoFabricanteValido = null;
-    if (await grupoExiste(produto.CodigoGrupo)) {
-      codigoGrupoValido = produto.CodigoGrupo;
-    }
-    if (await subgrupoExiste(produto.CodigoSubGrupo)) {
-      codigoSubGrupoValido = produto.CodigoSubGrupo;
-    }
-    if (await fabricanteExiste(produto.CodigoFabricante)) {
-      codigoFabricanteValido = produto.CodigoFabricante;
-    }
-    console.log("✅ Grupo:", codigoGrupoValido, "| ✅ SubGrupo:", codigoSubGrupoValido, "| ✅ Fabricante:", codigoFabricanteValido);
+    let codigoGrupoValido = await grupoExiste(produto.CodigoGrupo) ? produto.CodigoGrupo : null;
+    let codigoSubGrupoValido = await subgrupoExiste(produto.CodigoSubGrupo) ? produto.CodigoSubGrupo : null;
+    let codigoFabricanteValido = await fabricanteExiste(produto.CodigoFabricante) ? produto.CodigoFabricante : null;
     const sql = `
       INSERT INTO produto (
-        CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante, DataCadastro,
-        UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI, ReducaoIPI,
-        PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada, CEST, CodigoBeneficio, EstoqueAtual,PrecoVenda
+        CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante,
+        DataCadastro, UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI,
+        ReducaoIPI, PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada,
+        CEST, CodigoBeneficio, PrecoVenda
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
-    await pool.execute(sql, [
+    const [result] = await pool.execute(sql, [
       produto.CodigoBarra ?? null,
       produto.NomeProduto ?? null,
       codigoGrupoValido,
       codigoSubGrupoValido,
       codigoFabricanteValido,
-      produto.DataCadastro ?? /* @__PURE__ */ new Date(),
+      /* @__PURE__ */ new Date(),
       produto.UnidadeEmbalagem ?? null,
       produto.FracaoVenda ?? 1,
       produto.NCM ?? null,
@@ -27701,10 +27821,19 @@ async function criarProduto(produto) {
       produto.PisCofinsCSTEntrada ?? null,
       produto.CEST ?? null,
       produto.CodigoBeneficio ?? null,
-      produto.EstoqueAtual ?? 0,
       produto.PrecoVenda ?? 0
     ]);
-    console.log("✅ Produto cadastrado com sucesso!");
+    const novoId = result.insertId;
+    console.log("📌 Produto criado ID:", novoId);
+    if (produto.EstoqueAtual && produto.EstoqueAtual > 0) {
+      await entradaEstoque({
+        produto_id: novoId,
+        origem: "compra",
+        quantidade: produto.EstoqueAtual,
+        custo_unitario: produto.PrecoVenda ?? 1
+      });
+    }
+    console.log("✅ Produto cadastrado com movimentação correta!");
   } catch (error) {
     console.error("❌ Erro ao criar produto:", error);
     throw new Error(error.sqlMessage || "Erro ao cadastrar produto");
@@ -27712,84 +27841,60 @@ async function criarProduto(produto) {
 }
 async function salvarProduto(produto) {
   try {
-    if (produto.CodigoProduto) {
-      const sql = `
-        UPDATE produto SET
-          CodigoBarra = ?,
-          NomeProduto = ?,
-          CodigoGrupo = ?,
-          CodigoSubGrupo = ?,
-          CodigoFabricante = ?,
-          UnidadeEmbalagem = ?,
-          FracaoVenda = ?,
-          NCM = ?,
-          Eliminado = ?,
-          IPI = ?,
-          ReducaoIPI = ?,
-          PisCofinsCST = ?,
-          PisCofinsNatureza = ?,
-          PisCofinsCSTEntrada = ?,
-          CEST = ?,
-          CodigoBeneficio = ?,
-          EstoqueAtual = ?,
-          PrecoVenda = ?
-        WHERE CodigoProduto = ?
-      `;
-      await pool.execute(sql, [
-        produto.CodigoBarra ?? null,
-        produto.NomeProduto ?? null,
-        produto.CodigoGrupo ?? null,
-        produto.CodigoSubGrupo ?? null,
-        produto.CodigoFabricante ?? null,
-        produto.UnidadeEmbalagem ?? null,
-        produto.FracaoVenda ?? 1,
-        produto.NCM ?? null,
-        produto.Eliminado ?? 0,
-        produto.IPI ?? 0,
-        produto.ReducaoIPI ?? 0,
-        produto.PisCofinsCST ?? null,
-        produto.PisCofinsNatureza ?? null,
-        produto.PisCofinsCSTEntrada ?? null,
-        produto.CEST ?? null,
-        produto.CodigoBeneficio ?? null,
-        produto.EstoqueAtual ?? 0,
-        produto.PrecoVenda ?? 0,
-        produto.CodigoProduto
-      ]);
-      console.log("✅ Produto atualizado com sucesso!");
-    } else {
-      const sql = `
-        INSERT INTO produto (
-          CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante,
-          DataCadastro, UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI,
-          ReducaoIPI, PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada,
-          CEST, CodigoBeneficio, EstoqueAtual,PrecoVenda
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
-      await pool.execute(sql, [
-        produto.CodigoBarra ?? null,
-        produto.NomeProduto ?? null,
-        produto.CodigoGrupo ?? null,
-        produto.CodigoSubGrupo ?? null,
-        produto.CodigoFabricante ?? null,
-        /* @__PURE__ */ new Date(),
-        produto.UnidadeEmbalagem ?? null,
-        produto.FracaoVenda ?? 1,
-        produto.NCM ?? null,
-        produto.Eliminado ?? 0,
-        produto.IPI ?? 0,
-        produto.ReducaoIPI ?? 0,
-        produto.PisCofinsCST ?? null,
-        produto.PisCofinsNatureza ?? null,
-        produto.PisCofinsCSTEntrada ?? null,
-        produto.CEST ?? null,
-        produto.CodigoBeneficio ?? null,
-        produto.EstoqueAtual ?? 0,
-        produto.PrecoVenda ?? 0
-      ]);
-      console.log("✅ Produto criado com sucesso!");
+    if (!produto.CodigoProduto) return criarProduto(produto);
+    const [[antes]] = await pool.query(
+      "SELECT EstoqueAtual, PrecoVenda FROM produto WHERE CodigoProduto = ?",
+      [produto.CodigoProduto]
+    );
+    const sql = `
+      UPDATE produto SET
+        CodigoBarra=?, NomeProduto=?, CodigoGrupo=?, CodigoSubGrupo=?, CodigoFabricante=?,
+        UnidadeEmbalagem=?, FracaoVenda=?, NCM=?, Eliminado=?, IPI=?, ReducaoIPI=?, 
+        PisCofinsCST=?, PisCofinsNatureza=?, PisCofinsCSTEntrada=?, CEST=?, CodigoBeneficio=?,
+        PrecoVenda=?
+      WHERE CodigoProduto=?
+    `;
+    await pool.execute(sql, [
+      produto.CodigoBarra ?? null,
+      produto.NomeProduto ?? null,
+      produto.CodigoGrupo ?? null,
+      produto.CodigoSubGrupo ?? null,
+      produto.CodigoFabricante ?? null,
+      produto.UnidadeEmbalagem ?? null,
+      produto.FracaoVenda ?? 1,
+      produto.NCM ?? null,
+      produto.Eliminado ?? 0,
+      produto.IPI ?? 0,
+      produto.ReducaoIPI ?? 0,
+      produto.PisCofinsCST ?? null,
+      produto.PisCofinsNatureza ?? null,
+      produto.PisCofinsCSTEntrada ?? null,
+      produto.CEST ?? null,
+      produto.CodigoBeneficio ?? null,
+      produto.PrecoVenda ?? 0,
+      produto.CodigoProduto
+    ]);
+    console.log("📝 Produto atualizado. Verificando estoque...");
+    if (produto.EstoqueAtual != null && antes) {
+      const delta = produto.EstoqueAtual - antes.EstoqueAtual;
+      if (delta > 0) {
+        await entradaEstoque({
+          produto_id: produto.CodigoProduto,
+          origem: "ajuste",
+          quantidade: delta,
+          custo_unitario: antes.PrecoVenda ?? 1,
+          observacao: "Ajuste positivo via edição de produto"
+        });
+      } else if (delta < 0) {
+        await saidaEstoque({
+          produto_id: produto.CodigoProduto,
+          origem: "ajuste",
+          quantidade: Math.abs(delta),
+          observacao: "Ajuste negativo via edição de produto"
+        });
+      }
     }
+    console.log("✨ Estoque ajustado automaticamente!");
   } catch (error) {
     console.error("❌ Erro ao salvar produto:", error);
     throw new Error(error.sqlMessage || "Erro ao salvar produto");
@@ -28193,6 +28298,38 @@ async function listarVendas() {
   `);
   return rows;
 }
+async function salvarVendaCompleta(dados) {
+  try {
+    const venda = await criarVenda({
+      cliente_id: dados.cliente_id,
+      usuario_id: dados.usuario_id,
+      valor_total: dados.valor_total,
+      forma_pagamento: dados.forma_pagamento,
+      status: dados.status,
+      observacoes: dados.observacoes
+    });
+    await criarItensVenda(venda.id, dados.itens);
+    return { sucesso: true, id: venda.id };
+  } catch (err) {
+    console.error("❌ Erro ao salvar venda completa:", err);
+    throw err;
+  }
+}
+async function criarItensVenda(vendaId, itens) {
+  for (const item of itens) {
+    await pool.query(
+      `INSERT INTO itens_venda (venda_id, produto_id, quantidade, valor_unitario)
+       VALUES (?, ?, ?, ?)`,
+      [vendaId, item.produto_id, item.quantidade, item.valor_unitario]
+    );
+    await saidaEstoque({
+      produto_id: item.produto_id,
+      quantidade: item.quantidade,
+      documento_id: vendaId,
+      observacao: `Saída por venda #${vendaId}`
+    });
+  }
+}
 async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes }) {
   const [result] = await pool.query(
     `INSERT INTO vendas (cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
@@ -28254,95 +28391,6 @@ async function pagarVenda(id, forma_pagamento, usuarioId) {
     WHERE id = ?
   `, [caixaId, usuarioId, id]);
   return { sucesso: true, caixaId };
-}
-function toNumberSafe(v, decimals = 4) {
-  const n = Number(v);
-  if (Number.isNaN(n)) return 0;
-  return Number(n.toFixed(decimals));
-}
-async function registrarMovimentoEstoque({ produto_id, tipo, origem, quantidade, custo_unitario = null, documento_id = null, observacao = null }) {
-  const [result] = await pool.query(
-    "INSERT INTO estoque_movimento(produto_id, tipo, origem,quantidade,custo_unitario,documento_id,observacao) VALUES (?,?,?,?,?,?,?)",
-    [produto_id, tipo, origem, quantidade, custo_unitario, documento_id, observacao]
-  );
-  return { id: result.insertId };
-}
-async function atualizarEstoqueECusto(produto_id, quantidade, custo_unitario) {
-  const [[produto]] = await pool.query(
-    `SELECT EstoqueAtual, CustoMedio FROM produto WHERE CodigoProduto = ?`,
-    [produto_id]
-  );
-  if (!produto) throw new Error("Produto não encontrado");
-  const estoqueAtual = toNumberSafe(produto.EstoqueAtual || 0, 3);
-  const custoMedioAtual = toNumberSafe(produto.CustoMedio || 0, 4);
-  const qtd = toNumberSafe(quantidade, 3);
-  const custo = toNumberSafe(custo_unitario, 4);
-  const novoEstoque = estoqueAtual + qtd;
-  const novoCustoMedio = novoEstoque > 0 ? (estoqueAtual * custoMedioAtual + qtd * custo) / novoEstoque : custo;
-  await pool.query(
-    `UPDATE produto
-     SET EstoqueAtual = ?, CustoMedio = ?, CustoUltimaCompra = ?, atualizado_em = NOW()
-     WHERE CodigoProduto = ?`,
-    [novoEstoque, novoCustoMedio, custo, produto_id]
-  );
-  return { novoEstoque, novoCustoMedio };
-}
-async function validarEstoqueDisponivel(produto_id, quantidadeSolicitada) {
-  const [[produto]] = await pool.query(
-    `SELECT EstoqueAtual FROM produto WHERE CodigoProduto = ?`,
-    [produto_id]
-  );
-  if (!produto) throw new Error("Produto não encontrado");
-  const estoqueAtual = toNumberSafe(produto.EstoqueAtual || 0, 3);
-  if (estoqueAtual < quantidadeSolicitada) {
-    throw new Error(`Quantidade insuficiente. Disponível: ${estoqueAtual}`);
-  }
-  return estoqueAtual;
-}
-async function entradaEstoque({ produto_id, origem = "compra", quantidade, custo_unitario, documento_id, observacao }) {
-  if (!quantidade || quantidade <= 0) throw new Error("Quantidade inválida");
-  if (!custo_unitario || custo_unitario <= 0) throw new Error("Custo não pode ser zero na entrada");
-  const movimento_id = await registrarMovimentoEstoque({
-    produto_id,
-    tipo: "entrada",
-    origem,
-    quantidade,
-    custo_unitario,
-    documento_id,
-    observacao
-  });
-  await atualizarEstoqueECusto(produto_id, quantidade, custo_unitario);
-  return { movimento_id };
-}
-async function saidaEstoque({ produto_id, origem = "venda", quantidade, documento_id, observacao }) {
-  if (!quantidade || quantidade <= 0) throw new Error("Quantidade inválida");
-  await validarEstoqueDisponivel(produto_id, quantidade);
-  const movimento_id = await registrarMovimentoEstoque({
-    produto_id,
-    tipo: "saida",
-    origem,
-    quantidade,
-    custo_unitario: null,
-    documento_id,
-    observacao
-  });
-  await atualizarEstoque(produto_id, -quantidade);
-  return { movimento_id };
-}
-async function atualizarEstoque(produto_id, deltaQuantidade) {
-  const [[produto]] = await pool.query(
-    `SELECT EstoqueAtual FROM produto WHERE CodigoProduto = ?`,
-    [produto_id]
-  );
-  if (!produto) throw new Error("Produto não encontrado");
-  const estoqueAtual = toNumberSafe(produto.EstoqueAtual || 0, 3);
-  const novoEstoque = toNumberSafe(estoqueAtual + deltaQuantidade, 3);
-  if (novoEstoque < 0) throw new Error("Estoque resultante não pode ser negativo");
-  await pool.query(
-    `UPDATE produto SET EstoqueAtual = ?, atualizado_em = NOW() WHERE CodigoProduto = ?`,
-    [novoEstoque, produto_id]
-  );
-  return { estoqueAnterior: estoqueAtual, estoqueAtual: novoEstoque };
 }
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28671,16 +28719,28 @@ ipcMain.handle("pagar-venda", async (event, { venda_id, forma_pagamento, usuario
   const resposta = await pagarVenda(venda_id, forma_pagamento, usuario_id);
   return resposta;
 });
+ipcMain.handle("salvar-venda-completa", async (event, dadosVenda) => {
+  return await salvarVendaCompleta(dadosVenda);
+});
 ipcMain.handle("caixa:fechar", async (_, payload) => {
   return await fecharCaixa(payload);
 });
-ipcMain.handle("estoque:entrada", async (__dirname2, payload) => {
+ipcMain.handle("estoque:entrada", async (event, payload) => {
   return await entradaEstoque(payload);
 });
-ipcMain.handle("estoque:saida", async (__dirname2, payload) => {
+ipcMain.handle("estoque:saida", async (event, payload) => {
   return await saidaEstoque(payload);
 });
-ipcMain.handle("estoque:ajuste", async (__dirname2, payload) => {
+ipcMain.handle("estoque:movimento", async (event, payload) => {
+  return await registrarMovimentoEstoque(payload);
+});
+ipcMain.handle("estoque:atualizarEstoqueECusto", async (event, payload) => {
+  return await atualizarEstoqueECusto(payload);
+});
+ipcMain.handle("estoque:atualizarEstoque", async (event, payload) => {
   return await atualizarEstoque(payload);
+});
+ipcMain.handle("estoque:listar-movimentos", async (event, payload) => {
+  return await listarMovimentosEstoque();
 });
 app.whenReady().then(createWindow);

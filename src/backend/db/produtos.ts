@@ -1,5 +1,5 @@
 import pool from './connection';
-
+import { entradaEstoque, saidaEstoque } from "./estoque_movimento"; 
 export interface Produto {
   CodigoProduto?: number;
   CodigoBarra?: string;
@@ -51,46 +51,30 @@ export async function listarProdutos(): Promise<Produto[]> {
 }
 
 /** 🧾 Cria novo produto (com validação de FK) */
+
 export async function criarProduto(produto: Produto) {
   try {
-    console.log("🧾 Dados recebidos:", produto);
+    let codigoGrupoValido = await grupoExiste(produto.CodigoGrupo) ? produto.CodigoGrupo : null;
+    let codigoSubGrupoValido = await subgrupoExiste(produto.CodigoSubGrupo) ? produto.CodigoSubGrupo : null;
+    let codigoFabricanteValido = await fabricanteExiste(produto.CodigoFabricante) ? produto.CodigoFabricante : null;
 
-    // ✅ Verifica se as FKs são válidas
-    let codigoGrupoValido: number | null = null;
-    let codigoSubGrupoValido: number | null = null;
-    let codigoFabricanteValido: number | null = null;
-
-    if (await grupoExiste(produto.CodigoGrupo)) {
-      codigoGrupoValido = produto.CodigoGrupo!;
-    }
-
-    if (await subgrupoExiste(produto.CodigoSubGrupo)) {
-      codigoSubGrupoValido = produto.CodigoSubGrupo!;
-    }
-
-    if (await fabricanteExiste(produto.CodigoFabricante)) {
-      codigoFabricanteValido = produto.CodigoFabricante!;
-    }
-
-    console.log("✅ Grupo:", codigoGrupoValido, "| ✅ SubGrupo:", codigoSubGrupoValido, "| ✅ Fabricante:", codigoFabricanteValido);
-
-    // 🧩 Query de inserção
     const sql = `
       INSERT INTO produto (
-        CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante, DataCadastro,
-        UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI, ReducaoIPI,
-        PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada, CEST, CodigoBeneficio, EstoqueAtual,PrecoVenda
+        CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante,
+        DataCadastro, UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI,
+        ReducaoIPI, PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada,
+        CEST, CodigoBeneficio, PrecoVenda
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
-    await pool.execute(sql, [
+    const [result]: any = await pool.execute(sql, [
       produto.CodigoBarra ?? null,
       produto.NomeProduto ?? null,
       codigoGrupoValido,
       codigoSubGrupoValido,
       codigoFabricanteValido,
-      produto.DataCadastro ?? new Date(),
+      new Date(),
       produto.UnidadeEmbalagem ?? null,
       produto.FracaoVenda ?? 1,
       produto.NCM ?? null,
@@ -102,102 +86,94 @@ export async function criarProduto(produto: Produto) {
       produto.PisCofinsCSTEntrada ?? null,
       produto.CEST ?? null,
       produto.CodigoBeneficio ?? null,
-      produto.EstoqueAtual ?? 0,
-      produto.PrecoVenda ?? 0,
+      produto.PrecoVenda ?? 0
     ]);
 
-    console.log("✅ Produto cadastrado com sucesso!");
+    const novoId = result.insertId;
+    console.log("📌 Produto criado ID:", novoId);
+
+    // 📦 Se veio estoque inicial, registra movimentação
+    if (produto.EstoqueAtual && produto.EstoqueAtual > 0) {
+      await entradaEstoque({
+        produto_id: novoId,
+        origem: "compra",
+        quantidade: produto.EstoqueAtual,
+        custo_unitario: produto.PrecoVenda ?? 1
+      });
+    }
+
+    console.log("✅ Produto cadastrado com movimentação correta!");
   } catch (error: any) {
     console.error("❌ Erro ao criar produto:", error);
     throw new Error(error.sqlMessage || "Erro ao cadastrar produto");
   }
 }
+
 export async function salvarProduto(produto: Produto) {
   try {
-    if (produto.CodigoProduto) {
-      // 🧾 UPDATE - Produto já existe
-      const sql = `
-        UPDATE produto SET
-          CodigoBarra = ?,
-          NomeProduto = ?,
-          CodigoGrupo = ?,
-          CodigoSubGrupo = ?,
-          CodigoFabricante = ?,
-          UnidadeEmbalagem = ?,
-          FracaoVenda = ?,
-          NCM = ?,
-          Eliminado = ?,
-          IPI = ?,
-          ReducaoIPI = ?,
-          PisCofinsCST = ?,
-          PisCofinsNatureza = ?,
-          PisCofinsCSTEntrada = ?,
-          CEST = ?,
-          CodigoBeneficio = ?,
-          EstoqueAtual = ?,
-          PrecoVenda = ?
-        WHERE CodigoProduto = ?
-      `;
+    if (!produto.CodigoProduto) return criarProduto(produto);
 
-      await pool.execute(sql, [
-        produto.CodigoBarra ?? null,
-        produto.NomeProduto ?? null,
-        produto.CodigoGrupo ?? null,
-        produto.CodigoSubGrupo ?? null,
-        produto.CodigoFabricante ?? null,
-        produto.UnidadeEmbalagem ?? null,
-        produto.FracaoVenda ?? 1,
-        produto.NCM ?? null,
-        produto.Eliminado ?? 0,
-        produto.IPI ?? 0,
-        produto.ReducaoIPI ?? 0,
-        produto.PisCofinsCST ?? null,
-        produto.PisCofinsNatureza ?? null,
-        produto.PisCofinsCSTEntrada ?? null,
-        produto.CEST ?? null,
-        produto.CodigoBeneficio ?? null,
-        produto.EstoqueAtual ?? 0,
-        produto.PrecoVenda ??0,
-        produto.CodigoProduto
-      ]);
+    // 🔎 Buscar estoque atual no BD
+    const [[antes]]: any = await pool.query(
+      "SELECT EstoqueAtual, PrecoVenda FROM produto WHERE CodigoProduto = ?",
+      [produto.CodigoProduto]
+    );
 
-      console.log("✅ Produto atualizado com sucesso!");
-    } else {
-      // 🧩 INSERT - Novo produto
-      const sql = `
-        INSERT INTO produto (
-          CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante,
-          DataCadastro, UnidadeEmbalagem, FracaoVenda, NCM, Eliminado, IPI,
-          ReducaoIPI, PisCofinsCST, PisCofinsNatureza, PisCofinsCSTEntrada,
-          CEST, CodigoBeneficio, EstoqueAtual,PrecoVenda
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `;
+    // 🧾 UPDATE sem alterar estoque
+    const sql = `
+      UPDATE produto SET
+        CodigoBarra=?, NomeProduto=?, CodigoGrupo=?, CodigoSubGrupo=?, CodigoFabricante=?,
+        UnidadeEmbalagem=?, FracaoVenda=?, NCM=?, Eliminado=?, IPI=?, ReducaoIPI=?, 
+        PisCofinsCST=?, PisCofinsNatureza=?, PisCofinsCSTEntrada=?, CEST=?, CodigoBeneficio=?,
+        PrecoVenda=?
+      WHERE CodigoProduto=?
+    `;
 
-      await pool.execute(sql, [
-        produto.CodigoBarra ?? null,
-        produto.NomeProduto ?? null,
-        produto.CodigoGrupo ?? null,
-        produto.CodigoSubGrupo ?? null,
-        produto.CodigoFabricante ?? null,
-        new Date(),
-        produto.UnidadeEmbalagem ?? null,
-        produto.FracaoVenda ?? 1,
-        produto.NCM ?? null,
-        produto.Eliminado ?? 0,
-        produto.IPI ?? 0,
-        produto.ReducaoIPI ?? 0,
-        produto.PisCofinsCST ?? null,
-        produto.PisCofinsNatureza ?? null,
-        produto.PisCofinsCSTEntrada ?? null,
-        produto.CEST ?? null,
-        produto.CodigoBeneficio ?? null,
-        produto.EstoqueAtual ?? 0,
-        produto.PrecoVenda ?? 0
-      ]);
+    await pool.execute(sql, [
+      produto.CodigoBarra ?? null,
+      produto.NomeProduto ?? null,
+      produto.CodigoGrupo ?? null,
+      produto.CodigoSubGrupo ?? null,
+      produto.CodigoFabricante ?? null,
+      produto.UnidadeEmbalagem ?? null,
+      produto.FracaoVenda ?? 1,
+      produto.NCM ?? null,
+      produto.Eliminado ?? 0,
+      produto.IPI ?? 0,
+      produto.ReducaoIPI ?? 0,
+      produto.PisCofinsCST ?? null,
+      produto.PisCofinsNatureza ?? null,
+      produto.PisCofinsCSTEntrada ?? null,
+      produto.CEST ?? null,
+      produto.CodigoBeneficio ?? null,
+      produto.PrecoVenda ?? 0,
+      produto.CodigoProduto
+    ]);
 
-      console.log("✅ Produto criado com sucesso!");
+    console.log("📝 Produto atualizado. Verificando estoque...");
+
+    if (produto.EstoqueAtual != null && antes) {
+      const delta = produto.EstoqueAtual - antes.EstoqueAtual;
+
+      if (delta > 0) {
+        await entradaEstoque({
+          produto_id: produto.CodigoProduto,
+          origem: "ajuste",
+          quantidade: delta,
+          custo_unitario: antes.PrecoVenda ?? 1,
+          observacao: "Ajuste positivo via edição de produto"
+        });
+      } else if (delta < 0) {
+        await saidaEstoque({
+          produto_id: produto.CodigoProduto,
+          origem: "ajuste",
+          quantidade: Math.abs(delta),
+          observacao: "Ajuste negativo via edição de produto"
+        });
+      }
     }
+
+    console.log("✨ Estoque ajustado automaticamente!");
   } catch (error: any) {
     console.error("❌ Erro ao salvar produto:", error);
     throw new Error(error.sqlMessage || "Erro ao salvar produto");

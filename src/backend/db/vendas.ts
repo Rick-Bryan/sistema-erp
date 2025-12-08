@@ -1,5 +1,6 @@
 import pool from './connection.js';
 import { abrirCaixa } from './caixa.js';
+import { saidaEstoque } from "./estoque_movimento.js";
 /** Lista todas as vendas */
 export async function listarVendas() {
   const [rows] = await pool.query(`
@@ -21,6 +22,46 @@ export async function listarVendas() {
   `);
   return rows;
 }
+export async function salvarVendaCompleta(dados) {
+  try {
+    const venda = await criarVenda({
+      cliente_id: dados.cliente_id,
+      usuario_id: dados.usuario_id,
+      valor_total: dados.valor_total,
+      forma_pagamento: dados.forma_pagamento,
+      status: dados.status,
+      observacoes: dados.observacoes
+    })
+    // 2) Insere itens + movimenta estoque
+    await criarItensVenda(venda.id, dados.itens);
+
+    return { sucesso: true, id: venda.id };
+  }
+  catch (err) {
+    console.error("❌ Erro ao salvar venda completa:", err);
+    throw err;
+  }
+
+}
+
+export async function criarItensVenda(vendaId, itens) {
+  for (const item of itens) {
+    await pool.query(
+      `INSERT INTO itens_venda (venda_id, produto_id, quantidade, valor_unitario)
+       VALUES (?, ?, ?, ?)`,
+      [vendaId, item.produto_id, item.quantidade, item.valor_unitario]
+    );
+  
+
+    // 2) Registro automático de saída no estoque
+    await saidaEstoque({
+      produto_id: item.produto_id,
+      quantidade: item.quantidade,
+      documento_id: vendaId,
+      observacao: `Saída por venda #${vendaId}`
+    });
+  }
+}
 
 /** Cria uma nova venda */
 export async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes }) {
@@ -29,7 +70,9 @@ export async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pa
      VALUES (?, ?, ?, ?, ?, ?)`,
     [cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
   );
+
   return { id: result.insertId };
+
 }
 
 /** Atualiza uma venda existente */

@@ -3,31 +3,45 @@ import { Search } from "lucide-react";
 
 interface SearchBarProps {
     placeholder?: string;
-    canal: string; // nome do canal IPC (ex: 'buscar-produtos')
-    onResults: (dados: any[]) => void; // retorna os resultados
+    canal?: string;              // opcional quando buscarNoBanco = false
+    buscarNoBanco?: boolean;     // TRUE = padrão para compatibilidade
+    onResults: (dados: any) => void;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ placeholder = "Pesquisar...", canal, onResults }) => {
+const SearchBar: React.FC<SearchBarProps> = ({
+    placeholder = "Pesquisar...",
+    canal,
+    buscarNoBanco = true,       // 👈 PADRÃO (não quebra telas antigas)
+    onResults
+}) => {
     const [query, setQuery] = useState("");
     const [loading, setLoading] = useState(false);
 
-    // 🔁 Debounce: espera o usuário parar de digitar
     useEffect(() => {
-       
-
         const timeout = setTimeout(async () => {
+            
+            // 📌 Caso 1: Filtro local (não busca no banco)
+            if (!buscarNoBanco) {
+                onResults({ search: query }); // 👈 manda só o texto
+                return;
+            }
+
+            // 📌 Caso 2: Busca no banco via IPC (modo padrão)
+            if (!canal) return; // segurança
+
             setLoading(true);
+
             try {
-                // se o campo estiver vazio, busca tudo
                 const termo = query.trim() === "" ? "*" : query.trim();
-                const resultados = await window.electronAPI.buscar(canal,termo);
-                onResults(resultados);
+                const resultados = await window.electronAPI.buscar(canal, termo);
+                onResults(resultados);         // 👈 manda array (compatível com telas antigas)
             } catch (err) {
                 console.error("Erro ao buscar:", err);
             } finally {
                 setLoading(false);
             }
         }, 500);
+
         return () => clearTimeout(timeout);
     }, [query]);
 
@@ -57,7 +71,9 @@ const SearchBar: React.FC<SearchBarProps> = ({ placeholder = "Pesquisar...", can
                     background: "transparent",
                 }}
             />
-            {loading && <span style={{ fontSize: 12, color: "#6b7280" }}>Carregando...</span>}
+            {loading && buscarNoBanco && (
+                <span style={{ fontSize: 12, color: "#6b7280" }}>Carregando...</span>
+            )}
         </div>
     );
 };
