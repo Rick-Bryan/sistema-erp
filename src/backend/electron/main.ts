@@ -13,6 +13,7 @@ import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornec
 import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda,salvarVendaCompleta } from '../db/vendas';
 import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoesCaixa, registrarCancelamentoVenda, resumoCaixa, fecharCaixa, resumoMovimentosCaixa } from '../db/caixa';
 import { entradaEstoque , saidaEstoque, registrarMovimentoEstoque,atualizarEstoqueECusto,atualizarEstoque, listarMovimentosEstoque} from '../db/estoque_movimento';
+import {listarCompras, criarCompra, criarItensCompra, criarContasPagar, salvarCompraCompleta } from '../db/compras';
 
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
@@ -470,8 +471,29 @@ ipcMain.handle('estoque:listar-movimentos', async (event, payload) => {
 //COMPRAS 
 
 ipcMain.handle('compras:listar', async (event,payload )=>{
-  return await 
+  return await listarCompras();
 })
+
+ipcMain.handle('compras:criar', async (event,payload )=>{
+  return await criarCompra(payload);
+})
+ipcMain.handle('compras:criar-itens', async (event,payload )=>{
+  return await criarItensCompra(payload);
+})
+ipcMain.handle('compras:criar-contas-pagar', async (event,payload )=>{
+  return await criarContasPagar(payload);
+})
+
+
+ipcMain.handle("compras:salvar-compra-completa", async (event, dados) => {
+  try {
+    return await salvarCompraCompleta(dados);
+  } catch (err) {
+    console.error("Erro ao salvar compra:", err);
+    throw err;
+  }
+});
+
 app.whenReady().then(createWindow)
 
 // Exemplo de comunicação entre processos

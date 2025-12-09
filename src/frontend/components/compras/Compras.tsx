@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from "react";
 import SearchBar from "../../components/ui/SearchBar";
-import { listarCompras } from "../../services/compras";
 
-import CompraDetalhesModal from "./CompraDetalhes";
+
+import CompraDetalhesModal from "./ComprasDetalhes";
 import NovaCompraModal from "./NovaCompraModal";
+
 
 export default function Compras({ setPage }: { setPage: (p: string) => void }) {
   const [compras, setCompras] = useState<any[]>([]);
@@ -20,7 +21,8 @@ export default function Compras({ setPage }: { setPage: (p: string) => void }) {
 
   useEffect(() => {
     async function carregar() {
-      const dados = await listarCompras();
+      const dados = await window.ipcRenderer.invoke('compras:listar');
+     
       setCompras(dados);
     }
     carregar();

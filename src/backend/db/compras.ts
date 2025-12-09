@@ -122,46 +122,84 @@ export async function salvarCompraCompleta(dados: {
   }[];
   vencimento: string;
 }) {
+
   const conn = await pool.getConnection();
 
   try {
     await conn.beginTransaction();
 
-    // 1️⃣ Criar compra
-    const compra_id = await criarCompra({
-      fornecedor_id: dados.fornecedor_id,
-      usuario_id: dados.usuario_id,
-      valor_total: dados.valor_total,
-      forma_pagamento: dados.forma_pagamento,
-      status: dados.status || 'aberta',
-      observacoes: dados.observacoes,
-    });
-
-    // 2️⃣ Criar itens e registrar estoque
-    for (const item of dados.itens || []) {
-      await criarItensCompra({ compra_id, ...item });
-
-      await registrarMovimentoEstoque(
-        item.produto_id,
-        item.quantidade,
-        item.custo_unitario,
-        'compra',
-        compra_id,
-        `Entrada por compra #${compra_id}`
-      );
+    // 🔎 VALIDAR ITENS ANTES DE QUALQUER INSERT
+    if (!dados.itens || dados.itens.length === 0) {
+      throw new Error("Nenhum item informado na compra.");
     }
 
-    // 3️⃣ Criar contas a pagar
-    await criarContasPagar({
-      compra_id,
-      fornecedor_id: dados.fornecedor_id,
-      valor: dados.valor_total,
-      vencimento: dados.vencimento,
-      forma_pagamento: dados.forma_pagamento,
-    });
+    for (const item of dados.itens) {
+      if (!item.produto_id || item.produto_id === 0) {
+        throw new Error("Item de compra inválido: produto não selecionado.");
+      }
+      if (!item.quantidade || item.quantidade <= 0) {
+        throw new Error("Item de compra inválido: quantidade inválida.");
+      }
+      if (!item.custo_unitario || item.custo_unitario <= 0) {
+        throw new Error("Item de compra inválido: custo unitário inválido.");
+      }
+    }
+
+    // 1️⃣ Criar compra (agora usando conn)
+    const [compra] = await conn.query(
+      `INSERT INTO compras (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        dados.fornecedor_id,
+        dados.usuario_id,
+        dados.valor_total,
+        dados.forma_pagamento,
+        dados.status || "aberta",
+        dados.observacoes || null,
+      ]
+    );
+
+    const compra_id = (compra as any).insertId;
+
+    // 2️⃣ Criar itens + registrar estoque
+    for (const item of dados.itens) {
+      await conn.query(
+        `INSERT INTO itens_compra (compra_id, produto_id, quantidade, custo_unitario)
+         VALUES (?, ?, ?, ?)`,
+        [compra_id, item.produto_id, item.quantidade, item.custo_unitario]
+      );
+
+      // 💾 Registrar estoque
+      await registrarMovimentoEstoque({
+        produto_id: item.produto_id,
+        quantidade: item.quantidade,
+        custo_unitario: item.custo_unitario,
+        documento_id: compra_id,
+        observacao: `Entrada por compra #${compra_id}`,
+        tipo: 'entrada',
+        origem: 'compra'
+      });
+
+
+    }
+
+    // 3️⃣ Criar contas a pagar (com correção)
+    await conn.query(
+      `INSERT INTO contas_pagar (compra_id, fornecedor_id, valor, vencimento, forma_pagamento, status)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        compra_id,
+        dados.fornecedor_id,
+        dados.valor_total,
+        dados.vencimento,
+        dados.forma_pagamento,
+        "pendente",
+      ]
+    );
 
     await conn.commit();
     return { sucesso: true, id: compra_id };
+
   } catch (err) {
     await conn.rollback();
     throw err;

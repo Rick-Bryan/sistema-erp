@@ -64,6 +64,18 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
   getMovimentosEstoque: () => electron.ipcRenderer.invoke("estoque:listar-movimentos"),
   addEntradaEstoque: () => electron.ipcRenderer.invoke("estoque:entrada", payload),
   addSaidaEstoque: () => electron.ipcRenderer.invoke("estoque:saida", payload),
+  // Compras
+  getCompras: () => electron.ipcRenderer.invoke("compras:listar"),
+  addCompra: (payload2) => electron.ipcRenderer.invoke("compras:criar", payload2),
+  addItensCompra: (payload2) => electron.ipcRenderer.invoke("compras:criar-itens", payload2),
+  addContasPagar: (payload2) => electron.ipcRenderer.invoke("compras:criar-contas-pagar", payload2),
+  addCompraCompleta: (dados) => {
+    const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
+    return electron.ipcRenderer.invoke("compras:salvar-compra-completa", {
+      ...dados,
+      usuario_id: usuario.id
+    });
+  },
   buscar: (canal, termo) => electron.ipcRenderer.invoke(canal, termo),
   login: (dados) => electron.ipcRenderer.invoke("login", dados)
 });

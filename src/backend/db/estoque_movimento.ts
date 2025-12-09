@@ -6,30 +6,28 @@ function toNumberSafe(v, decimals = 4) {
     return Number(n.toFixed(decimals));
 }
 
-export async function registrarMovimentoEstoque({
-    produto_id,
-    tipo,
-    origem,
-    quantidade,
-    custo_unitario = null,
-    documento_id = null,
-    observacao = null
-}: {
-    produto_id: number;
-    tipo: string;
-    origem: string;
-    quantidade: number;
-    custo_unitario?: number | null;
-    documento_id?: number | null;
-    observacao?: string | null;
-}) {
-    const [result] = await pool.query(
-        'INSERT INTO estoque_movimento(produto_id, tipo, origem,quantidade,custo_unitario,documento_id,observacao) VALUES (?,?,?,?,?,?,?)',
-        [produto_id, tipo, origem, quantidade, custo_unitario, documento_id, observacao])
+export async function registrarMovimentoEstoque(
+  produto_id: number,
+  quantidade: number,
+  custo_unitario: number | null,
+  tipo: string,
+  documento_id: number | null,
+  observacao: string | null = null,
+  conn?: any  // 👈 conexão OPCIONAL
+) {
+  // 👇 Se veio conexão via transação, usa ela. Senão, usa o pool normal.
+  const executor = conn || pool;
 
-    return { id: result.insertId }
+  const [result] = await executor.query(
+    `INSERT INTO estoque_movimento 
+      (produto_id, quantidade, custo_unitario, tipo, documento_id, observacao)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+    [produto_id, quantidade, custo_unitario, tipo, documento_id, observacao]
+  );
 
+  return { id: (result as any).insertId };
 }
+
 
 export async function listarMovimentosEstoque() {
     const [rows] = await pool.query(`

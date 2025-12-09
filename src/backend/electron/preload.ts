@@ -68,7 +68,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   resumoCaixa: (caixa_id) => ipcRenderer.invoke('caixa:resumo', caixa_id),
   fecharCaixa: (payload) => ipcRenderer.invoke('caixa:fechar', payload),
   pagarVenda: (payload) => ipcRenderer.invoke('pagar-venda', payload),
-  salvarVendaCompleta:(payload) => ipcRenderer.invoke('salvar-venda-completa',payload),
+  salvarVendaCompleta: (payload) => ipcRenderer.invoke('salvar-venda-completa', payload),
   resumoMovimentosCaixa: (caixa_id) => ipcRenderer.invoke('caixa:resumo-movimentos', caixa_id),
   // 🔍 Busca e login
 
@@ -78,8 +78,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMovimentosEstoque: () => ipcRenderer.invoke("estoque:listar-movimentos"),
 
 
-  addEntradaEstoque:() => ipcRenderer.invoke('estoque:entrada',payload),
-  addSaidaEstoque:() => ipcRenderer.invoke('estoque:saida',payload),
+  addEntradaEstoque: () => ipcRenderer.invoke('estoque:entrada', payload),
+  addSaidaEstoque: () => ipcRenderer.invoke('estoque:saida', payload),
+
+  // Compras
+  getCompras: () => ipcRenderer.invoke('compras:listar'),
+  addCompra: (payload) => ipcRenderer.invoke('compras:criar', payload),
+  addItensCompra: (payload) => ipcRenderer.invoke('compras:criar-itens', payload),
+  addContasPagar: (payload) => ipcRenderer.invoke('compras:criar-contas-pagar', payload),
+  
+
+
+
+  addCompraCompleta: (dados) => {
+    const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
+    return ipcRenderer.invoke("compras:salvar-compra-completa", {
+      ...dados,
+      usuario_id: usuario.id,
+    });
+  },
 
 
   buscar: (canal, termo) => ipcRenderer.invoke(canal, termo),

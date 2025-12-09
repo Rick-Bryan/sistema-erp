@@ -20025,21 +20025,27 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-field_flags.NOT_NULL = 1;
-field_flags.PRI_KEY = 2;
-field_flags.UNIQUE_KEY = 4;
-field_flags.MULTIPLE_KEY = 8;
-field_flags.BLOB = 16;
-field_flags.UNSIGNED = 32;
-field_flags.ZEROFILL = 64;
-field_flags.BINARY = 128;
-field_flags.ENUM = 256;
-field_flags.AUTO_INCREMENT = 512;
-field_flags.TIMESTAMP = 1024;
-field_flags.SET = 2048;
-field_flags.NO_DEFAULT_VALUE = 4096;
-field_flags.ON_UPDATE_NOW = 8192;
-field_flags.NUM = 32768;
+var hasRequiredField_flags;
+function requireField_flags() {
+  if (hasRequiredField_flags) return field_flags;
+  hasRequiredField_flags = 1;
+  field_flags.NOT_NULL = 1;
+  field_flags.PRI_KEY = 2;
+  field_flags.UNIQUE_KEY = 4;
+  field_flags.MULTIPLE_KEY = 8;
+  field_flags.BLOB = 16;
+  field_flags.UNSIGNED = 32;
+  field_flags.ZEROFILL = 64;
+  field_flags.BINARY = 128;
+  field_flags.ENUM = 256;
+  field_flags.AUTO_INCREMENT = 512;
+  field_flags.TIMESTAMP = 1024;
+  field_flags.SET = 2048;
+  field_flags.NO_DEFAULT_VALUE = 4096;
+  field_flags.ON_UPDATE_NOW = 8192;
+  field_flags.NUM = 32768;
+  return field_flags;
+}
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20103,7 +20109,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = field_flags;
+    const fiedFlags = requireField_flags();
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23159,7 +23165,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = field_flags;
+const FieldFlags$1 = requireField_flags();
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23348,7 +23354,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = field_flags;
+const FieldFlags = requireField_flags();
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -27639,18 +27645,13 @@ function toNumberSafe(v, decimals = 4) {
   if (Number.isNaN(n)) return 0;
   return Number(n.toFixed(decimals));
 }
-async function registrarMovimentoEstoque({
-  produto_id,
-  tipo,
-  origem,
-  quantidade,
-  custo_unitario = null,
-  documento_id = null,
-  observacao = null
-}) {
-  const [result] = await pool.query(
-    "INSERT INTO estoque_movimento(produto_id, tipo, origem,quantidade,custo_unitario,documento_id,observacao) VALUES (?,?,?,?,?,?,?)",
-    [produto_id, tipo, origem, quantidade, custo_unitario, documento_id, observacao]
+async function registrarMovimentoEstoque(produto_id, quantidade, custo_unitario, tipo, documento_id, observacao = null, conn) {
+  const executor = pool;
+  const [result] = await executor.query(
+    `INSERT INTO estoque_movimento 
+      (produto_id, quantidade, custo_unitario, tipo, documento_id, observacao)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+    [produto_id, quantidade, custo_unitario, tipo, documento_id, observacao]
   );
   return { id: result.insertId };
 }
@@ -28392,6 +28393,139 @@ async function pagarVenda(id, forma_pagamento, usuarioId) {
   `, [caixaId, usuarioId, id]);
   return { sucesso: true, caixaId };
 }
+async function listarCompras({ fornecedor_id, status, dataInicio, dataFim } = {}) {
+  let sql = "SELECT * FROM compras WHERE 1=1";
+  const params = [];
+  if (fornecedor_id) {
+    sql += " AND fornecedor_id = ?";
+    params.push(fornecedor_id);
+  }
+  if (status) {
+    sql += " AND status = ?";
+    params.push(status);
+  }
+  if (dataInicio) {
+    sql += " AND criado_em >= ?";
+    params.push(dataInicio);
+  }
+  if (dataFim) {
+    sql += " AND criado_em <= ?";
+    params.push(dataFim);
+  }
+  sql += " ORDER BY id DESC";
+  const [rows] = await pool.query(sql, params);
+  return rows;
+}
+async function criarCompra({
+  fornecedor_id,
+  usuario_id,
+  valor_total,
+  forma_pagamento,
+  status = "aberta",
+  observacoes
+}) {
+  const [result] = await pool.query(
+    `INSERT INTO compras
+      (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
+      VALUES (?, ?, ?, ?, ?, ?)`,
+    [fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
+  );
+  return result.insertId;
+}
+async function criarItensCompra({
+  compra_id,
+  produto_id,
+  quantidade,
+  custo_unitario
+}) {
+  const [result] = await pool.query(
+    "INSERT INTO itens_compra (compra_id, produto_id, quantidade, custo_unitario) VALUES (?,?,?,?)",
+    [compra_id, produto_id, quantidade, custo_unitario]
+  );
+  return result.insertId;
+}
+async function criarContasPagar({
+  compra_id,
+  fornecedor_id,
+  valor,
+  vencimento,
+  pago = 0,
+  forma_pagamento
+}) {
+  const [result] = await pool.query(
+    "INSERT INTO contas_pagar (compra_id, fornecedor_id, valor, vencimento, pago, forma_pagamento) VALUES (?,?,?,?,?,?)",
+    [compra_id, fornecedor_id, valor, vencimento, pago, forma_pagamento]
+  );
+  return result.insertId;
+}
+async function salvarCompraCompleta(dados) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    if (!dados.itens || dados.itens.length === 0) {
+      throw new Error("Nenhum item informado na compra.");
+    }
+    for (const item of dados.itens) {
+      if (!item.produto_id || item.produto_id === 0) {
+        throw new Error("Item de compra inválido: produto não selecionado.");
+      }
+      if (!item.quantidade || item.quantidade <= 0) {
+        throw new Error("Item de compra inválido: quantidade inválida.");
+      }
+      if (!item.custo_unitario || item.custo_unitario <= 0) {
+        throw new Error("Item de compra inválido: custo unitário inválido.");
+      }
+    }
+    const [compra] = await conn.query(
+      `INSERT INTO compras (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        dados.fornecedor_id,
+        dados.usuario_id,
+        dados.valor_total,
+        dados.forma_pagamento,
+        dados.status || "aberta",
+        dados.observacoes || null
+      ]
+    );
+    const compra_id = compra.insertId;
+    for (const item of dados.itens) {
+      await conn.query(
+        `INSERT INTO itens_compra (compra_id, produto_id, quantidade, custo_unitario)
+         VALUES (?, ?, ?, ?)`,
+        [compra_id, item.produto_id, item.quantidade, item.custo_unitario]
+      );
+      await registrarMovimentoEstoque({
+        produto_id: item.produto_id,
+        quantidade: item.quantidade,
+        custo_unitario: item.custo_unitario,
+        documento_id: compra_id,
+        observacao: `Entrada por compra #${compra_id}`,
+        tipo: "entrada",
+        origem: "compra"
+      });
+    }
+    await conn.query(
+      `INSERT INTO contas_pagar (compra_id, fornecedor_id, valor, vencimento, forma_pagamento, status)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        compra_id,
+        dados.fornecedor_id,
+        dados.valor_total,
+        dados.vencimento,
+        dados.forma_pagamento,
+        "pendente"
+      ]
+    );
+    await conn.commit();
+    return { sucesso: true, id: compra_id };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.join(__dirname, "..", "..", "..");
@@ -28742,5 +28876,25 @@ ipcMain.handle("estoque:atualizarEstoque", async (event, payload) => {
 });
 ipcMain.handle("estoque:listar-movimentos", async (event, payload) => {
   return await listarMovimentosEstoque();
+});
+ipcMain.handle("compras:listar", async (event, payload) => {
+  return await listarCompras();
+});
+ipcMain.handle("compras:criar", async (event, payload) => {
+  return await criarCompra(payload);
+});
+ipcMain.handle("compras:criar-itens", async (event, payload) => {
+  return await criarItensCompra(payload);
+});
+ipcMain.handle("compras:criar-contas-pagar", async (event, payload) => {
+  return await criarContasPagar(payload);
+});
+ipcMain.handle("compras:salvar-compra-completa", async (event, dados) => {
+  try {
+    return await salvarCompraCompleta(dados);
+  } catch (err) {
+    console.error("Erro ao salvar compra:", err);
+    throw err;
+  }
 });
 app.whenReady().then(createWindow);

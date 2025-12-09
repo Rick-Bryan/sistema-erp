@@ -18,6 +18,7 @@ import Caixa from './components/caixa/Caixa';
 import CaixaDetalhes from './components/caixa/CaixaDetalhes';
 
 import EstoqueMovimentos from './components/estoque/EstoqueMovimentos';
+import Compras from './components/compras/Compras';
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
@@ -62,6 +63,8 @@ export default function App() {
         return <Fornecedores setPage={setPage} />;
       case 'cadastros':
         return <CadastrosPage setPage={setPage} />;
+      case 'compras':
+        return <Compras setPage={setPage} />
       case 'vendas': return <Vendas setPage={setPage} />;
       case 'cadastrosauxiliares':
         return <CadastrosAuxiliares setPage={setPage} />
