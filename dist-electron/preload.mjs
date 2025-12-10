@@ -76,6 +76,10 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
       usuario_id: usuario.id
     });
   },
+  getGrupos: () => electron.ipcRenderer.invoke("getGrupos"),
+  getSubGrupos: () => electron.ipcRenderer.invoke("getSubGrupos"),
+  finalizarCompra: (id) => electron.ipcRenderer.invoke("compras:finalizar", id),
+  getCompraById: (id) => electron.ipcRenderer.invoke("compras:get-compra-by-id", id),
   buscar: (canal, termo) => electron.ipcRenderer.invoke(canal, termo),
   login: (dados) => electron.ipcRenderer.invoke("login", dados)
 });

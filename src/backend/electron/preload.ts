@@ -86,7 +86,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addCompra: (payload) => ipcRenderer.invoke('compras:criar', payload),
   addItensCompra: (payload) => ipcRenderer.invoke('compras:criar-itens', payload),
   addContasPagar: (payload) => ipcRenderer.invoke('compras:criar-contas-pagar', payload),
-  
+
 
 
 
@@ -98,7 +98,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
     });
   },
 
-
+  getGrupos: () => ipcRenderer.invoke("getGrupos"),
+  getSubGrupos: () => ipcRenderer.invoke("getSubGrupos"),
+  finalizarCompra: (id) => ipcRenderer.invoke("compras:finalizar", id),
+  getCompraById: (id: number) => ipcRenderer.invoke("compras:get-compra-by-id", id),
   buscar: (canal, termo) => ipcRenderer.invoke(canal, termo),
   login: (dados) => ipcRenderer.invoke('login', dados),
 });

@@ -20025,27 +20025,21 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-var hasRequiredField_flags;
-function requireField_flags() {
-  if (hasRequiredField_flags) return field_flags;
-  hasRequiredField_flags = 1;
-  field_flags.NOT_NULL = 1;
-  field_flags.PRI_KEY = 2;
-  field_flags.UNIQUE_KEY = 4;
-  field_flags.MULTIPLE_KEY = 8;
-  field_flags.BLOB = 16;
-  field_flags.UNSIGNED = 32;
-  field_flags.ZEROFILL = 64;
-  field_flags.BINARY = 128;
-  field_flags.ENUM = 256;
-  field_flags.AUTO_INCREMENT = 512;
-  field_flags.TIMESTAMP = 1024;
-  field_flags.SET = 2048;
-  field_flags.NO_DEFAULT_VALUE = 4096;
-  field_flags.ON_UPDATE_NOW = 8192;
-  field_flags.NUM = 32768;
-  return field_flags;
-}
+field_flags.NOT_NULL = 1;
+field_flags.PRI_KEY = 2;
+field_flags.UNIQUE_KEY = 4;
+field_flags.MULTIPLE_KEY = 8;
+field_flags.BLOB = 16;
+field_flags.UNSIGNED = 32;
+field_flags.ZEROFILL = 64;
+field_flags.BINARY = 128;
+field_flags.ENUM = 256;
+field_flags.AUTO_INCREMENT = 512;
+field_flags.TIMESTAMP = 1024;
+field_flags.SET = 2048;
+field_flags.NO_DEFAULT_VALUE = 4096;
+field_flags.ON_UPDATE_NOW = 8192;
+field_flags.NUM = 32768;
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20109,7 +20103,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = requireField_flags();
+    const fiedFlags = field_flags;
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23165,7 +23159,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = requireField_flags();
+const FieldFlags$1 = field_flags;
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23354,7 +23348,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = requireField_flags();
+const FieldFlags = field_flags;
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -27645,13 +27639,20 @@ function toNumberSafe(v, decimals = 4) {
   if (Number.isNaN(n)) return 0;
   return Number(n.toFixed(decimals));
 }
-async function registrarMovimentoEstoque(produto_id, quantidade, custo_unitario, tipo, documento_id, observacao = null, conn) {
-  const executor = pool;
-  const [result] = await executor.query(
+async function registrarMovimentoEstoque({
+  produto_id,
+  quantidade,
+  custo_unitario = 0,
+  documento_id = null,
+  observacao = null,
+  tipo = "entrada",
+  origem = "compra"
+}) {
+  const [result] = await pool.query(
     `INSERT INTO estoque_movimento 
-      (produto_id, quantidade, custo_unitario, tipo, documento_id, observacao)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-    [produto_id, quantidade, custo_unitario, tipo, documento_id, observacao]
+      (produto_id, tipo, origem, quantidade, custo_unitario, documento_id, observacao)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [produto_id, tipo, origem, quantidade, custo_unitario, documento_id, observacao]
   );
   return { id: result.insertId };
 }
@@ -28421,25 +28422,20 @@ async function criarCompra({
   usuario_id,
   valor_total,
   forma_pagamento,
-  status = "aberta",
+  status,
   observacoes
 }) {
   const [result] = await pool.query(
-    `INSERT INTO compras
-      (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
-      VALUES (?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO compras 
+      (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes) 
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
   );
   return result.insertId;
 }
-async function criarItensCompra({
-  compra_id,
-  produto_id,
-  quantidade,
-  custo_unitario
-}) {
+async function criarItensCompra({ compra_id, produto_id, quantidade, custo_unitario }) {
   const [result] = await pool.query(
-    "INSERT INTO itens_compra (compra_id, produto_id, quantidade, custo_unitario) VALUES (?,?,?,?)",
+    "INSERT INTO itens_compra (compra_id, produto_id, quantidade, custo_unitario) VALUES (?, ?, ?, ?)",
     [compra_id, produto_id, quantidade, custo_unitario]
   );
   return result.insertId;
@@ -28457,6 +28453,46 @@ async function criarContasPagar({
     [compra_id, fornecedor_id, valor, vencimento, pago, forma_pagamento]
   );
   return result.insertId;
+}
+async function getCompraById(id) {
+  console.log("📌 Buscar compra ID:", id);
+  const [rows] = await pool.query(
+    `SELECT c.*, 
+            f.CodigoFornecedor AS fornecedor_id,
+            f.Nome AS fornecedor_nome
+     FROM compras c
+     LEFT JOIN fornecedores f ON f.CodigoFornecedor = c.fornecedor_id
+     WHERE c.id = ?`,
+    [id]
+  );
+  console.log("📦 Compra encontrada:", rows);
+  const [itens] = await pool.query(
+    `SELECT ic.*, 
+            p.CodigoProduto AS produto_id,
+            p.NomeProduto AS produto_nome
+     FROM itens_compra ic
+     LEFT JOIN produto p ON p.CodigoProduto = ic.produto_id
+     WHERE ic.compra_id = ?`,
+    [id]
+  );
+  console.log("📦 Itens encontrados:", itens);
+  const compra = rows[0];
+  if (!compra) {
+    console.log("⚠️ Nenhuma compra encontrada!");
+    return { compra: null, itens: [] };
+  }
+  compra.fornecedor = {
+    id: compra.fornecedor_id,
+    Nome: compra.fornecedor_nome
+  };
+  const itensMapeados = itens.map((item) => ({
+    ...item,
+    produto: {
+      id: item.produto_id,
+      nome: item.produto_nome
+    }
+  }));
+  return { compra, itens: itensMapeados };
 }
 async function salvarCompraCompleta(dados) {
   const conn = await pool.getConnection();
@@ -28526,6 +28562,45 @@ async function salvarCompraCompleta(dados) {
     conn.release();
   }
 }
+async function finalizarCompra(compraId) {
+  const [itens] = await pool.query(
+    "SELECT produto_id, quantidade, custo_unitario FROM itens_compra WHERE compra_id = ?",
+    [compraId]
+  );
+  for (const item of itens) {
+    await pool.query(
+      `UPDATE produto 
+       SET 
+        EstoqueAtual = COALESCE(EstoqueAtual,0) + ?,
+        CustoUltimaCompra = ?,
+        CustoMedio = (
+          ( (COALESCE(EstoqueAtual,0) * COALESCE(CustoMedio,0)) + (? * ?) )
+          / (COALESCE(EstoqueAtual,0) + ?)
+        )
+      WHERE CodigoProduto = ?
+      `,
+      [
+        item.quantidade,
+        // + quantidade
+        item.custo_unitario,
+        // custo última compra
+        item.quantidade,
+        // para custo médio: quantidade
+        item.custo_unitario,
+        // valor unitário
+        item.quantidade,
+        // nova quantidade total
+        item.produto_id
+        // produto
+      ]
+    );
+  }
+  await pool.query(
+    "UPDATE compras SET status = 'paga', atualizado_em = NOW() WHERE id = ?",
+    [compraId]
+  );
+  return { success: true };
+}
 createRequire(import.meta.url);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_ROOT = path.join(__dirname, "..", "..", "..");
@@ -28559,9 +28634,7 @@ app.on("activate", () => {
 });
 ipcMain.handle("get-produtos", async () => {
   try {
-    console.log("📡 Requisição recebida: get-produtos");
     const produtos = await listarProdutos();
-    console.log("📦 Produtos retornados:", produtos);
     return produtos;
   } catch (err) {
     console.error(err);
@@ -28569,13 +28642,11 @@ ipcMain.handle("get-produtos", async () => {
   }
 });
 ipcMain.handle("add-produto", async (_, produto) => {
-  console.log("📩 Inserindo produto:", produto);
   await criarProduto(produto);
   const produtos = await listarProdutos();
   return produtos;
 });
 ipcMain.handle("salvar-produto", async (_, produto) => {
-  console.log("📩 salvando produto:", produto);
   await salvarProduto(produto);
   const produtos = await listarProdutos();
   return produtos;
@@ -28896,5 +28967,30 @@ ipcMain.handle("compras:salvar-compra-completa", async (event, dados) => {
     console.error("Erro ao salvar compra:", err);
     throw err;
   }
+});
+ipcMain.handle("compras:get-compra-by-id", async (event, id) => {
+  return await getCompraById(id);
+});
+ipcMain.handle("compras:finalizar", async (event, id) => {
+  console.log("Finalizando compra ID:", id);
+  return await finalizarCompra(id);
+});
+ipcMain.handle("getFabricantes", async () => {
+  const [rows] = await pool.query(
+    "SELECT CodigoFabricante AS id, NomeFabricante AS nome FROM produto_fabricante WHERE Ativo = 1"
+  );
+  return rows;
+});
+ipcMain.handle("getGrupos", async () => {
+  const [rows] = await pool.query(
+    "SELECT CodigoGrupo AS id, NomeGrupo AS nome FROM produto_grupo WHERE Ativo = 1"
+  );
+  return rows;
+});
+ipcMain.handle("getSubGrupos", async () => {
+  const [rows] = await pool.query(
+    "SELECT CodigoSubGrupo AS id, NomeSubGrupo AS nome FROM produto_sub_grupo WHERE Ativo = 1"
+  );
+  return rows;
 });
 app.whenReady().then(createWindow);

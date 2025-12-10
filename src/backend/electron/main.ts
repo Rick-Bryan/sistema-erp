@@ -13,7 +13,7 @@ import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornec
 import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda,salvarVendaCompleta } from '../db/vendas';
 import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoesCaixa, registrarCancelamentoVenda, resumoCaixa, fecharCaixa, resumoMovimentosCaixa } from '../db/caixa';
 import { entradaEstoque , saidaEstoque, registrarMovimentoEstoque,atualizarEstoqueECusto,atualizarEstoque, listarMovimentosEstoque} from '../db/estoque_movimento';
-import {listarCompras, criarCompra, criarItensCompra, criarContasPagar, salvarCompraCompleta } from '../db/compras';
+import {listarCompras, criarCompra, criarItensCompra, criarContasPagar, salvarCompraCompleta,getCompraById, finalizarCompra} from '../db/compras';
 
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
@@ -61,9 +61,9 @@ app.on('activate', () => {
 //Cadastro de produtos
 ipcMain.handle('get-produtos', async () => {
   try {
-    console.log("📡 Requisição recebida: get-produtos"); // debug
+ 
     const produtos = await listarProdutos();
-    console.log("📦 Produtos retornados:", produtos); // debug
+
     return produtos;
   }
   catch (err) {
@@ -73,13 +73,13 @@ ipcMain.handle('get-produtos', async () => {
 });
 
 ipcMain.handle('add-produto', async (_, produto) => {
-  console.log("📩 Inserindo produto:", produto); // debug
+
   await criarProduto(produto);
   const produtos = await listarProdutos();
   return produtos;
 });
 ipcMain.handle('salvar-produto', async (_, produto) => {
-  console.log("📩 salvando produto:", produto); // debug
+ 
   await salvarProduto(produto);
   const produtos = await listarProdutos();
   return produtos;
@@ -492,6 +492,33 @@ ipcMain.handle("compras:salvar-compra-completa", async (event, dados) => {
     console.error("Erro ao salvar compra:", err);
     throw err;
   }
+});
+ipcMain.handle("compras:get-compra-by-id", async (event, id) => {
+  return await getCompraById(id);
+});
+ipcMain.handle("compras:finalizar", async (event, id) => {
+  console.log("Finalizando compra ID:", id);
+  return await finalizarCompra(id);
+});
+ipcMain.handle("getFabricantes", async () => {
+  const [rows] = await pool.query(
+    "SELECT CodigoFabricante AS id, NomeFabricante AS nome FROM produto_fabricante WHERE Ativo = 1"
+  );
+  return rows;
+});
+
+ipcMain.handle("getGrupos", async () => {
+  const [rows] = await pool.query(
+    "SELECT CodigoGrupo AS id, NomeGrupo AS nome FROM produto_grupo WHERE Ativo = 1"
+  );
+  return rows;
+});
+
+ipcMain.handle("getSubGrupos", async () => {
+  const [rows] = await pool.query(
+    "SELECT CodigoSubGrupo AS id, NomeSubGrupo AS nome FROM produto_sub_grupo WHERE Ativo = 1"
+  );
+  return rows;
 });
 
 app.whenReady().then(createWindow)

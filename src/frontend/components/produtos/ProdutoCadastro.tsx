@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
-import toast from 'react-hot-toast';
+import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+
 declare global {
     interface Window {
         electronAPI: {
             addProduto: (produto: any) => Promise<void>;
+            getFabricantes: () => Promise<any[]>;
+            getGrupos: () => Promise<any[]>;
+            getSubGrupos: () => Promise<any[]>;
         };
     }
 }
@@ -26,26 +30,43 @@ interface Produto {
     PisCofinsCSTEntrada?: string;
     CEST?: string;
     CodigoBeneficio?: string;
-    EstoqueAtual?: number; // ✅ Novo campo
+    EstoqueAtual?: number;
 }
+
 const maxLength: Record<string, number> = {
-  CodigoBarra: 15,
-  NomeProduto: 15,
-  UnidadeEmbalagem: 5,
-  NCM: 10,
-  PisCofinsCST: 2,
-  PisCofinsNatureza: 3,
-  PisCofinsCSTEntrada: 2,
-  CEST: 7,
-  CodigoBeneficio: 8,
+    CodigoBarra: 15,
+    NomeProduto: 150,
+    UnidadeEmbalagem: 5,
+    NCM: 10,
+    PisCofinsCST: 2,
+    PisCofinsNatureza: 3,
+    PisCofinsCSTEntrada: 2,
+    CEST: 7,
+    CodigoBeneficio: 8,
 };
 
 export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
     const [produto, setProduto] = useState<Produto>({
-        DataCadastro: new Date().toISOString().split('T')[0], // valor padrão de hoje
+        DataCadastro: new Date().toISOString().split("T")[0],
     });
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const [fabricantes, setFabricantes] = useState<any[]>([]);
+    const [grupos, setGrupos] = useState<any[]>([]);
+    const [subGrupos, setSubGrupos] = useState<any[]>([]);
+
+    // 📌 Buscar dados do banco ao abrir o formulário
+    useEffect(() => {
+        const carregarSelects = async () => {
+            setFabricantes(await window.electronAPI.getFabricantes());
+            setGrupos(await window.electronAPI.getGrupos());
+            setSubGrupos(await window.electronAPI.getSubGrupos());
+        };
+        carregarSelects();
+    }, []);
+
+    const handleChange = (
+        e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    ) => {
         const { name, value } = e.target;
         setProduto((prev) => ({ ...prev, [name]: value }));
     };
@@ -53,11 +74,11 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
     const handleSalvar = async () => {
         try {
             await window.electronAPI.addProduto(produto);
-            toast.success('✅ Produto cadastrado com sucesso!');
+            toast.success("✅ Produto cadastrado com sucesso!");
             voltar();
         } catch (err) {
             console.error(err);
-            toast.error('❌ Erro ao cadastrar produto.');
+            toast.error("❌ Erro ao cadastrar produto.");
         }
     };
 
@@ -67,38 +88,90 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
 
             <div style={formContainer}>
                 {Object.keys({
-                    CodigoBarra: '',
-                    NomeProduto: '',
-                    EstoqueAtual: '', // ✅ Campo adicionado
-                    CodigoGrupo: '',
-                    CodigoSubGrupo: '',
-                    CodigoFabricante: '',
-                    DataCadastro: '',
-                    UnidadeEmbalagem: '',
-                    FracaoVenda: '',
-                    NCM: '',
-                    Eliminado: '',
-                    IPI: '',
-                    ReducaoIPI: '',
-                    PisCofinsCST: '',
-                    PisCofinsNatureza: '',
-                    PisCofinsCSTEntrada: '',
-                    CEST: '',
-                    CodigoBeneficio: '',
-
+                    CodigoBarra: "",
+                    NomeProduto: "",
+                    EstoqueAtual: "",
+                    CodigoGrupo: "",
+                    CodigoSubGrupo: "",
+                    CodigoFabricante: "",
+                    DataCadastro: "",
+                    UnidadeEmbalagem: "",
+                    FracaoVenda: "",
+                    NCM: "",
+                    Eliminado: "",
+                    IPI: "",
+                    ReducaoIPI: "",
+                    PisCofinsCST: "",
+                    PisCofinsNatureza: "",
+                    PisCofinsCSTEntrada: "",
+                    CEST: "",
+                    CodigoBeneficio: "",
                 }).map((key) => (
                     <div key={key} style={inputGroup}>
                         <label style={labelStyle}>{key}</label>
-                        <input
-                            style={inputStyle}
-                            name={key}
-                            value={(produto as any)[key]?.slice(0, maxLength[key]) ?? ''}
-                            onChange={handleChange}
-                            type={key === 'DataCadastro' ? 'date' : key === 'EstoqueAtual' ? 'number' : 'text'}
-                            min={key === 'EstoqueAtual' ? 0 : undefined}
-                            step={key === 'EstoqueAtual' ? 0 : undefined}
-                        />
 
+                        {/* 🔽 SELECTs para os 3 campos */}
+                        {key === "CodigoFabricante" ? (
+                            <select
+                                style={inputStyle}
+                                name={key}
+                                value={produto[key] ?? ""}
+                                onChange={handleChange}
+                            >
+                                <option value="">Selecione...</option>
+                                {fabricantes.map((f) => (
+                                    <option key={f.CodigoFabricante} value={f.CodigoFabricante}>
+                                        {f.NomeFabricante}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : key === "CodigoGrupo" ? (
+                            <select
+                                style={inputStyle}
+                                name={key}
+                                value={produto[key] ?? ""}
+                                onChange={handleChange}
+                            >
+                                <option value="">Selecione...</option>
+                                {grupos.map((g) => (
+                                    <option key={g.id} value={g.id}>
+                                        {g.nome}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : key === "CodigoSubGrupo" ? (
+                            <select
+                                style={inputStyle}
+                                name={key}
+                                value={produto[key] ?? ""}
+                                onChange={handleChange}
+                            >
+                                <option value="">Selecione...</option>
+                                {subGrupos.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                        {s.nome}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : (
+                            // 🔁 Inputs normais
+                            <input
+                                style={inputStyle}
+                                name={key}
+                                value={maxLength[key]
+                                    ? (produto as any)[key]?.toString().slice(0, maxLength[key]) ?? ""
+                                    : (produto as any)[key] ?? ""}
+                                onChange={handleChange}
+                                type={
+                                    key === "DataCadastro"
+                                        ? "date"
+                                        : key === "EstoqueAtual"
+                                        ? "number"
+                                        : "text"
+                                }
+                                min={key === "EstoqueAtual" ? 0 : undefined}
+                            />
+                        )}
                     </div>
                 ))}
 
@@ -114,6 +187,9 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
         </div>
     );
 }
+
+/* ======== ESTILOS (mantidos) ======== */
+
 
 /* ======== ESTILOS ======== */
 

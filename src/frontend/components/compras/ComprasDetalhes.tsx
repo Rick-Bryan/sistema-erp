@@ -24,7 +24,18 @@ export default function CompraDetalhes({ compraId, onClose, refresh }: CompraDet
     async function carregarCompra() {
       try {
         const c = await window.electronAPI.getCompraById(compraId);
-        setCompra(c);
+
+        const itensNormalizados = c.itens.map((item: any) => ({
+          ...item,
+          quantidade: Number(item.quantidade),
+          custo_unitario: Number(item.custo_unitario),
+        }));
+
+        setCompra({ ...c.compra, itens: itensNormalizados });
+
+
+
+        console.log("Compra detalhada", c)
       } catch (e) {
         console.error("Erro ao carregar compra", e);
       }
@@ -38,7 +49,7 @@ export default function CompraDetalhes({ compraId, onClose, refresh }: CompraDet
       await window.electronAPI.finalizarCompra(compra.id);
       toast.success("Compra finalizada com sucesso!");
       onClose();
-      refresh();
+      refresh()
     } catch (e) {
       console.error(e);
       toast.error("Erro ao finalizar compra.");
@@ -60,7 +71,7 @@ export default function CompraDetalhes({ compraId, onClose, refresh }: CompraDet
         <h2 style={{ color: "#1e3a8a", marginBottom: 20 }}>Compra #{compra.id}</h2>
 
         <div style={{ marginBottom: 10 }}>
-          <strong>Fornecedor:</strong> {compra.fornecedor?.nome || "—"}
+          <strong>Fornecedor:</strong> {compra.fornecedor?.Nome || "—"}
         </div>
         <div style={{ marginBottom: 10 }}>
           <strong>Forma de pagamento:</strong> {compra.forma_pagamento}

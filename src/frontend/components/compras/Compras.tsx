@@ -18,13 +18,13 @@ export default function Compras({ setPage }: { setPage: (p: string) => void }) {
       || c.fornecedor_nome?.toLowerCase().includes(textoBusca)
       || c.status.toLowerCase().includes(textoBusca);
   });
+  async function carregar() {
+    const dados = await window.ipcRenderer.invoke('compras:listar');
 
+    setCompras(dados);
+  }
   useEffect(() => {
-    async function carregar() {
-      const dados = await window.ipcRenderer.invoke('compras:listar');
-     
-      setCompras(dados);
-    }
+
     carregar();
   }, []);
 
@@ -62,7 +62,7 @@ export default function Compras({ setPage }: { setPage: (p: string) => void }) {
                 <td style={td}>R$ {Number(c.valor_total).toFixed(2)}</td>
                 <td style={{ ...td, color: c.status === 'aberta' ? 'green' : 'red' }}>{c.status}</td>
                 <td style={td}>
-                  <button style={btnVoltar} onClick={() => setSelecionada(c)}>Detalhes</button>
+                  <button style={btnVoltar} onClick={() => setSelecionada(c.id)}>Detalhes</button>
                 </td>
               </tr>
             ))}
@@ -71,11 +71,11 @@ export default function Compras({ setPage }: { setPage: (p: string) => void }) {
       </div>
 
       {selecionada && (
-        <CompraDetalhesModal compra={selecionada} onClose={() => setSelecionada(null)} />
+        <CompraDetalhesModal compraId={selecionada} onClose={() => setSelecionada(null)}  refresh={carregar}/>
       )}
 
       {abrirNovaCompra && (
-        <NovaCompraModal onClose={() => setAbrirNovaCompra(false)} refresh={() => {}} />
+        <NovaCompraModal onClose={() => setAbrirNovaCompra(false)} refresh={carregar} />
       )}
     </div>
   );

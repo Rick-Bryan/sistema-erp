@@ -90,8 +90,9 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
     try {
       await window.electronAPI.addCompraCompleta(compra);
       toast.success("Compra registrada com sucesso!");
-      onClose();
       refresh();
+      onClose();
+      
     } catch (e) {
       console.error(e);
       toast.error("Erro ao salvar compra.");

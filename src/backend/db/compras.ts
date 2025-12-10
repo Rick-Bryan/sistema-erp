@@ -40,43 +40,28 @@ export async function criarCompra({
   usuario_id,
   valor_total,
   forma_pagamento,
-  status = 'aberta',
-  observacoes,
-}: {
-  fornecedor_id: number;
-  usuario_id: number;
-  valor_total: number;
-  forma_pagamento: string;
-  status?: string;
-  observacoes?: string;
+  status,
+  observacoes
 }) {
-  const [result]: any = await pool.query(
-    `INSERT INTO compras
-      (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
-      VALUES (?, ?, ?, ?, ?, ?)`,
+  const [result] = await pool.query(
+    `INSERT INTO compras 
+      (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes) 
+     VALUES (?, ?, ?, ?, ?, ?)`,
     [fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
   );
+
   return result.insertId;
 }
 
 // ------------------------
 // CRIAR ITENS DE COMPRA
 // ------------------------
-export async function criarItensCompra({
-  compra_id,
-  produto_id,
-  quantidade,
-  custo_unitario,
-}: {
-  compra_id: number;
-  produto_id: number;
-  quantidade: number;
-  custo_unitario: number;
-}) {
-  const [result]: any = await pool.query(
-    'INSERT INTO itens_compra (compra_id, produto_id, quantidade, custo_unitario) VALUES (?,?,?,?)',
+export async function criarItensCompra({ compra_id, produto_id, quantidade, custo_unitario }) {
+  const [result] = await pool.query(
+    'INSERT INTO itens_compra (compra_id, produto_id, quantidade, custo_unitario) VALUES (?, ?, ?, ?)',
     [compra_id, produto_id, quantidade, custo_unitario]
   );
+
   return result.insertId;
 }
 
@@ -104,6 +89,57 @@ export async function criarContasPagar({
   );
   return result.insertId;
 }
+export async function getCompraById(id: number) {
+  console.log("📌 Buscar compra ID:", id);  // <--- LOG
+
+  const [rows]: any = await pool.query(
+    `SELECT c.*, 
+            f.CodigoFornecedor AS fornecedor_id,
+            f.Nome AS fornecedor_nome
+     FROM compras c
+     LEFT JOIN fornecedores f ON f.CodigoFornecedor = c.fornecedor_id
+     WHERE c.id = ?`,
+    [id]
+  );
+
+  console.log("📦 Compra encontrada:", rows); // <--- LOG
+
+  const [itens]: any = await pool.query(
+    `SELECT ic.*, 
+            p.CodigoProduto AS produto_id,
+            p.NomeProduto AS produto_nome
+     FROM itens_compra ic
+     LEFT JOIN produto p ON p.CodigoProduto = ic.produto_id
+     WHERE ic.compra_id = ?`,
+    [id]
+  );
+
+  console.log("📦 Itens encontrados:", itens); // <--- LOG
+
+  const compra = rows[0];
+
+  if (!compra) {
+    console.log("⚠️ Nenhuma compra encontrada!");
+    return { compra: null, itens: [] };
+  }
+
+  compra.fornecedor = {
+    id: compra.fornecedor_id,
+    Nome: compra.fornecedor_nome,
+  };
+
+  const itensMapeados = itens.map((item: any) => ({
+    ...item,
+    produto: {
+      id: item.produto_id,
+      nome: item.produto_nome,
+    },
+  }));
+
+  return { compra, itens: itensMapeados };
+}
+
+
 
 // ------------------------
 // SALVAR COMPRA COMPLETA
@@ -181,6 +217,7 @@ export async function salvarCompraCompleta(dados: {
       });
 
 
+
     }
 
     // 3️⃣ Criar contas a pagar (com correção)
@@ -206,4 +243,43 @@ export async function salvarCompraCompleta(dados: {
   } finally {
     conn.release();
   }
+}
+export async function finalizarCompra(compraId: number) {
+  // 1️⃣ Buscar itens da compra
+  const [itens]: any = await pool.query(
+    "SELECT produto_id, quantidade, custo_unitario FROM itens_compra WHERE compra_id = ?",
+    [compraId]
+  );
+
+  // 2️⃣ Atualizar estoque e custo
+  for (const item of itens) {
+    await pool.query(
+      `UPDATE produto 
+       SET 
+        EstoqueAtual = COALESCE(EstoqueAtual,0) + ?,
+        CustoUltimaCompra = ?,
+        CustoMedio = (
+          ( (COALESCE(EstoqueAtual,0) * COALESCE(CustoMedio,0)) + (? * ?) )
+          / (COALESCE(EstoqueAtual,0) + ?)
+        )
+      WHERE CodigoProduto = ?
+      `,
+      [
+        item.quantidade,             // + quantidade
+        item.custo_unitario,         // custo última compra
+        item.quantidade,             // para custo médio: quantidade
+        item.custo_unitario,         // valor unitário
+        item.quantidade,             // nova quantidade total
+        item.produto_id              // produto
+      ]
+    );
+  }
+
+  // 3️⃣ Finalizar compra
+  await pool.query(
+    "UPDATE compras SET status = 'paga', atualizado_em = NOW() WHERE id = ?",
+    [compraId]
+  );
+
+  return { success: true };
 }

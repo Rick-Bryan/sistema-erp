@@ -6,26 +6,23 @@ function toNumberSafe(v, decimals = 4) {
     return Number(n.toFixed(decimals));
 }
 
-export async function registrarMovimentoEstoque(
-  produto_id: number,
-  quantidade: number,
-  custo_unitario: number | null,
-  tipo: string,
-  documento_id: number | null,
-  observacao: string | null = null,
-  conn?: any  // 👈 conexão OPCIONAL
-) {
-  // 👇 Se veio conexão via transação, usa ela. Senão, usa o pool normal.
-  const executor = conn || pool;
-
-  const [result] = await executor.query(
+export async function registrarMovimentoEstoque({
+  produto_id,
+  quantidade,
+  custo_unitario = 0,
+  documento_id = null,
+  observacao = null,
+  tipo = 'entrada',
+  origem = 'compra'
+}) {
+  const [result] = await pool.query(
     `INSERT INTO estoque_movimento 
-      (produto_id, quantidade, custo_unitario, tipo, documento_id, observacao)
-      VALUES (?, ?, ?, ?, ?, ?)`,
-    [produto_id, quantidade, custo_unitario, tipo, documento_id, observacao]
+      (produto_id, tipo, origem, quantidade, custo_unitario, documento_id, observacao)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [produto_id, tipo, origem, quantidade, custo_unitario, documento_id, observacao]
   );
 
-  return { id: (result as any).insertId };
+  return { id: result.insertId };
 }
 
 
