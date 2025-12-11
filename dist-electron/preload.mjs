@@ -76,6 +76,8 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
       usuario_id: usuario.id
     });
   },
+  addSubGrupo: (nome) => electron.ipcRenderer.invoke("addSubGrupo", nome),
+  addGrupo: (nome, comissao) => electron.ipcRenderer.invoke("addGrupo", nome, comissao),
   getGrupos: () => electron.ipcRenderer.invoke("getGrupos"),
   getSubGrupos: () => electron.ipcRenderer.invoke("getSubGrupos"),
   finalizarCompra: (id) => electron.ipcRenderer.invoke("compras:finalizar", id),

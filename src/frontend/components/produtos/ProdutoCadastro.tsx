@@ -81,7 +81,7 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
             toast.error("❌ Erro ao cadastrar produto.");
         }
     };
-
+    console.log(grupos)
     return (
         <div style={pageContainer}>
             <h2 style={titulo}>🆕 Cadastrar Produto</h2>

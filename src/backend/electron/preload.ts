@@ -97,7 +97,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
       usuario_id: usuario.id,
     });
   },
-
+  addSubGrupo: (nome) => ipcRenderer.invoke('addSubGrupo', nome),
+  addGrupo: (nome,comissao) => ipcRenderer.invoke('addGrupo', nome,comissao),
   getGrupos: () => ipcRenderer.invoke("getGrupos"),
   getSubGrupos: () => ipcRenderer.invoke("getSubGrupos"),
   finalizarCompra: (id) => ipcRenderer.invoke("compras:finalizar", id),

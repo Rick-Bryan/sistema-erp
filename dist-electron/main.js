@@ -28993,4 +28993,28 @@ ipcMain.handle("getSubGrupos", async () => {
   );
   return rows;
 });
+ipcMain.handle("addGrupo", async (_, nome, comissao) => {
+  try {
+    await pool.query(`
+            INSERT INTO produto_grupo (NomeGrupo,Comissao, Ativo)
+            VALUES (?,?, 1)
+        `, [nome, comissao]);
+    return { success: true };
+  } catch (error) {
+    console.error("Erro addGrupo:", error);
+    return { success: false, error };
+  }
+});
+ipcMain.handle("addSubGrupo", async (_, nome) => {
+  try {
+    await pool.query(`
+            INSERT INTO produto_sub_grupo (NomeSubGrupo, Ativo)
+            VALUES (?, 1)
+        `, [nome]);
+    return { success: true };
+  } catch (error) {
+    console.error("Erro addSubGrupo:", error);
+    return { success: false, error };
+  }
+});
 app.whenReady().then(createWindow);
