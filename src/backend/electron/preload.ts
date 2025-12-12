@@ -97,12 +97,20 @@ contextBridge.exposeInMainWorld('electronAPI', {
       usuario_id: usuario.id,
     });
   },
-  addSubGrupo: (nome) => ipcRenderer.invoke('addSubGrupo', nome),
-  addGrupo: (nome,comissao) => ipcRenderer.invoke('addGrupo', nome,comissao),
+  addSubGrupo: (nome, codigoGrupo) => ipcRenderer.invoke('addSubGrupo', nome, codigoGrupo),
+  addGrupo: (nome, comissao) => ipcRenderer.invoke('addGrupo', nome, comissao),
   getGrupos: () => ipcRenderer.invoke("getGrupos"),
   getSubGrupos: () => ipcRenderer.invoke("getSubGrupos"),
+  getSubGruposByGrupo: (codigoGrupo) => ipcRenderer.invoke('getSubGruposByGrupo', codigoGrupo),
   finalizarCompra: (id) => ipcRenderer.invoke("compras:finalizar", id),
   getCompraById: (id: number) => ipcRenderer.invoke("compras:get-compra-by-id", id),
   buscar: (canal, termo) => ipcRenderer.invoke(canal, termo),
   login: (dados) => ipcRenderer.invoke('login', dados),
+
+
+  atualizarGrupo: (id, nome, comissao, ativo) => ipcRenderer.invoke("atualizarGrupo", { id, nome, comissao, ativo }),
+  excluirGrupo: (id) => ipcRenderer.invoke("excluirGrupo", id),
+  atualizarSubGrupo: (id, nome, CodigoGrupo) => ipcRenderer.invoke("atualizarSubGrupo", { id, nome, CodigoGrupo }),
+  excluirSubGrupo: (id) => ipcRenderer.invoke("excluirSubGrupo", id),
+
 });

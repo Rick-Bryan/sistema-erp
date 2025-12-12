@@ -11,6 +11,8 @@ declare global {
       addGrupo: (nome: string) => Promise<void>;
       getSubGrupos: () => Promise<any[]>;
       addSubGrupo: (nome: string) => Promise<void>;
+      getSubGruposByGrupo: (codigoGrupo: number) => Promise<any[]>;
+      atualizarGrupo: () => Promise<any[]>;
     };
   }
 }
@@ -19,6 +21,8 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
   const [produtos, setProdutos] = useState<any[]>([]);
   const [produtoSelecionado, setProdutoSelecionado] = useState<any | null>(null);
   const [modoCadastro, setModoCadastro] = useState(false);
+  const [grupoEditando, setGrupoEditando] = useState(null);
+  const [subGrupoEditando, setSubGrupoEditando] = useState(null);
 
   // MODAIS
   const [modalGrupo, setModalGrupo] = useState(false);
@@ -27,7 +31,9 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
 
   // DADOS INTERNOS
   const [grupos, setGrupos] = useState<any[]>([]);
+  const [grupoSelecionado, setGrupoSelecionado] = useState<number | "">("");
   const [subgrupos, setSubGrupos] = useState<any[]>([]);
+
   const [novoGrupo, setNovoGrupo] = useState("");
   const [novoSubGrupo, setNovoSubGrupo] = useState("");
 
@@ -43,9 +49,9 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
     setSubGrupos(await window.electronAPI.getSubGrupos());
   };
 
-  const adicionarGrupo = async (novoGrupo,comissaoGrupo) => {
+  const adicionarGrupo = async (novoGrupo, comissaoGrupo) => {
     try {
-      const result = await window.electronAPI.addGrupo(novoGrupo,comissaoGrupo);
+      const result = await window.electronAPI.addGrupo(novoGrupo, comissaoGrupo);
       setNovoGrupo("");
       setComissaoGrupo("");
       carregarGrupos();
@@ -58,19 +64,116 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
 
 
   }
-  const adicionarSubGrupo = async (novoSubGrupo) => {
+  const editarGrupo = (grupo) => {
+    setGrupoEditando(grupo);
+    setNovoGrupo(grupo.nome);
+    setComissaoGrupo(grupo.comissao || "");
+    setModalGrupo(true);
+  };
+
+
+  const atualizarGrupo = async () => {
     try {
-      const result = await window.electronAPI.addSubGrupo(novoSubGrupo);
+      await window.electronAPI.atualizarGrupo(
+        grupoEditando.id,
+        novoGrupo,
+        comissaoGrupo
+      );
+
+      toast.success("Grupo atualizado com sucesso!");
+
+      setGrupoEditando(null);
+      setNovoGrupo("");
+      setComissaoGrupo("");
+
+      carregarGrupos();
+    } catch (err) {
+      toast.error("Erro ao atualizar grupo");
+    }
+  };
+  const excluirGrupo = async (id) => {
+    if (!confirm("Tem certeza que deseja excluir este grupo?"))
+      return;
+
+    try {
+      await window.electronAPI.excluirGrupo(id);
+      toast.success("Grupo excluído!");
+      carregarGrupos();
+    } catch (err) {
+      toast.error("Erro ao excluir grupo");
+    }
+  };
+
+  const adicionarSubGrupo = async () => {
+    try {
+      if (!novoSubGrupo.trim()) {
+        toast.error("Informe o nome do subgrupo");
+        return;
+      }
+
+      if (!grupoSelecionado) {
+        toast.error("Selecione um grupo antes de cadastrar um subgrupo");
+        return;
+      }
+
+      await window.electronAPI.addSubGrupo(novoSubGrupo, Number(grupoSelecionado));
+
       setNovoSubGrupo("");
       carregarSubGrupos();
-      toast.success("Subgrupo foi cadastrado com sucesso")
+
+      toast.success("Subgrupo cadastrado com sucesso!");
+    } catch (err) {
+      toast.error("Erro ao cadastrar subgrupo");
     }
-    catch (err) {
-      toast.error("erro ao cadastrar subgrupo")
+  };
+  const atualizarSubGrupo = async () => {
+    try {
+      await window.electronAPI.atualizarSubGrupo(
+        subGrupoEditando.id,
+        novoSubGrupo,
+        grupoSelecionado
+      );
+
+      toast.success("Subgrupo atualizado!");
+
+      setSubGrupoEditando(null);
+      setNovoSubGrupo("");
+      setGrupoSelecionado("");
+
+      carregarSubGrupos();
+    } catch (err) {
+      toast.error("Erro ao atualizar subgrupo");
     }
+  };
+
+  const excluirSubgrupo = async (id) => {
+    if (!confirm("Deseja realmente excluir este subgrupo?"))
+      return;
+
+    try {
+      await window.electronAPI.excluirSubGrupo(id);
+      toast.success("Subgrupo excluído!");
+      carregarSubGrupos();
+    } catch (err) {
+      toast.error("Erro ao excluir subgrupo");
+    }
+  };
+
+  useEffect(() => {
+    const carregarSubPorGrupo = async () => {
+      if (!grupoSelecionado) {
+        setSubGrupos([]);
+        return;
+      }
+
+      const lista = await window.electronAPI.getSubGruposByGrupo(Number(grupoSelecionado));
+      setSubGrupos(lista);
+    };
+
+    carregarSubPorGrupo();
+  }, [grupoSelecionado]);
 
 
-  }
   useEffect(() => {
     carregarProdutos();
     carregarGrupos();
@@ -170,20 +273,35 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
           />
           <button
             style={btnSalvar}
-            onClick={() => adicionarGrupo(novoGrupo,comissaoGrupo)}
-          >Salvar</button>
+            onClick={() =>
+              grupoEditando
+                ? atualizarGrupo()
+                : adicionarGrupo(novoGrupo, comissaoGrupo)
+            }
+          >
+            {grupoEditando ? "Atualizar" : "Salvar"}
+          </button>
+
 
           <h4>Grupos cadastrados:</h4>
 
-          <table style={tabela}>
-            <tbody>
-              {grupos.map((g) => (
-                <tr key={g.id}>
-                  <td>{g.nome}</td>
+          <div style={boxTabelaModal}>
+            <table style={tabelaModal}>
+              <thead>
+                <tr>
+                  <th style={thModal}>Nome</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {grupos.map((g, index) => (
+                  <tr key={g.id} style={index % 2 === 0 ? linhaPar : linhaImpar}>
+                    <td style={tdModal}>{g.nome}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
 
           <button onClick={() => setModalGrupo(false)} style={btnFechar}>Fechar</button>
         </Modal>
@@ -201,24 +319,50 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
             onChange={(e) => setNovoSubGrupo(e.target.value)}
           />
 
-        
+          <select
+            style={inputStyle}
+            value={grupoSelecionado}
+            onChange={(e) => setGrupoSelecionado(e.target.value)}
+          >
+            <option value="">Selecione...</option>
+            {grupos.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.nome}
+              </option>
+            ))}
+          </select>
           <button
             style={btnSalvar}
-            onClick={() => { adicionarSubGrupo(novoSubGrupo) }}
-          >Salvar</button>
+            onClick={() =>
+              subGrupoEditando
+                ? atualizarSubGrupo()
+                : adicionarSubGrupo(novoSubGrupo, grupoSelecionado)
+            }
+          >
+            {subGrupoEditando ? "Atualizar" : "Salvar"}
+          </button>
 
-          <h4>Subgrupos cadastrados:</h4>
+          {grupoSelecionado && (
+            <>
+              <h4>SubGrupos cadastrados:</h4>
 
-          <table style={tabela}>
-            <tbody>
-              {subgrupos.map((s) => (
-                <tr key={s.id}>
-                  <td>{s.nome}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
+              <div style={boxTabelaModal}>
+                <table style={tabelaModal}>
+                  <thead>
+                    <tr>
+                      <th style={thModal}>Nome</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subgrupos.map((g, index) => (
+                      <tr key={g.id} style={index % 2 === 0 ? linhaPar : linhaImpar}>
+                        <td style={tdModal}>{g.nome}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>)}
           <button onClick={() => setModalSubGrupo(false)} style={btnFechar}>Fechar</button>
         </Modal>
       )}
@@ -299,7 +443,25 @@ function Modal({ children }: { children: any }) {
 }
 
 /* ------------ ESTILOS ------------- */
+const btnEditar: React.CSSProperties = {
+  backgroundColor: "#3b82f6",
+  color: "white",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontSize: "14px",
+};
 
+const btnExcluir: React.CSSProperties = {
+  backgroundColor: "#dc2626",
+  color: "white",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: "6px",
+  cursor: "pointer",
+  fontSize: "14px",
+};
 const btnAzul: React.CSSProperties = {
   backgroundColor: '#1e3a8a',
   color: '#fff',
@@ -377,4 +539,54 @@ const btnVer = {
   padding: "6px 12px",
   borderRadius: "4px",
   cursor: "pointer"
+};
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '10px 14px',
+  borderRadius: '8px',
+  border: '1px solid #d1d5db',
+  marginBottom: '10px',
+  outline: 'none',
+  transition: '0.2s border-color',
+  fontSize: '15px',
+  boxSizing: 'border-box',
+};
+/* -------- MELHOR ESTILO DAS TABELAS DO MODAL -------- */
+
+const boxTabelaModal: React.CSSProperties = {
+  maxHeight: "200px",
+  overflowY: "auto",
+  backgroundColor: "#f9fafb",
+  borderRadius: "8px",
+  border: "1px solid #e5e7eb",
+  marginTop: "10px",
+  marginBottom: "10px"
+};
+
+const tabelaModal: React.CSSProperties = {
+  width: "100%",
+  borderCollapse: "collapse",
+};
+
+const thModal: React.CSSProperties = {
+  backgroundColor: "#1e3a8a",
+  color: "white",
+  padding: "10px",
+  textAlign: "left",
+  fontWeight: 600,
+  position: "sticky",
+  top: 0,
+};
+
+const tdModal: React.CSSProperties = {
+  padding: "10px",
+  borderBottom: "1px solid #e5e7eb",
+};
+
+const linhaPar: React.CSSProperties = {
+  backgroundColor: "#ffffff",
+};
+
+const linhaImpar: React.CSSProperties = {
+  backgroundColor: "#f3f4f6",
 };

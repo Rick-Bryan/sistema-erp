@@ -4,16 +4,16 @@ import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import bcrypt from "bcryptjs";
 import pool from "../db/connection"; // sua conexão MySQL
-import { listarProdutos, criarProduto, salvarProduto } from '../db/produtos';
+import { listarProdutos, criarProduto, salvarProduto, atualizarGrupo, excluirGrupo, atualizarSubGrupo, excluirSubGrupo } from '../db/produtos';
 import { listarFabricantes, criarFabricante, salvarFabricante } from '../db/fabricantes'
-import { listarColaboradores, criarColaborador, atualizarColaborador, deletarColaborador ,getColaboradorById} from '../db/colaboradores';
+import { listarColaboradores, criarColaborador, atualizarColaborador, deletarColaborador, getColaboradorById } from '../db/colaboradores';
 import { listarClientes, criarCliente, atualizarCliente, deletarCliente } from '../db/clientes';
 import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornecedor } from '../db/fornecedores';
 //Falta fazer
-import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda,salvarVendaCompleta } from '../db/vendas';
+import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda, salvarVendaCompleta } from '../db/vendas';
 import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoesCaixa, registrarCancelamentoVenda, resumoCaixa, fecharCaixa, resumoMovimentosCaixa } from '../db/caixa';
-import { entradaEstoque , saidaEstoque, registrarMovimentoEstoque,atualizarEstoqueECusto,atualizarEstoque, listarMovimentosEstoque} from '../db/estoque_movimento';
-import {listarCompras, criarCompra, criarItensCompra, criarContasPagar, salvarCompraCompleta,getCompraById, finalizarCompra} from '../db/compras';
+import { entradaEstoque, saidaEstoque, registrarMovimentoEstoque, atualizarEstoqueECusto, atualizarEstoque, listarMovimentosEstoque } from '../db/estoque_movimento';
+import { listarCompras, criarCompra, criarItensCompra, criarContasPagar, salvarCompraCompleta, getCompraById, finalizarCompra } from '../db/compras';
 
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
@@ -61,7 +61,7 @@ app.on('activate', () => {
 //Cadastro de produtos
 ipcMain.handle('get-produtos', async () => {
   try {
- 
+
     const produtos = await listarProdutos();
 
     return produtos;
@@ -79,7 +79,7 @@ ipcMain.handle('add-produto', async (_, produto) => {
   return produtos;
 });
 ipcMain.handle('salvar-produto', async (_, produto) => {
- 
+
   await salvarProduto(produto);
   const produtos = await listarProdutos();
   return produtos;
@@ -397,20 +397,20 @@ ipcMain.handle('delete-venda', async (_event, { id, usuario }) => {
 
 //CAIXA
 
-ipcMain.handle('get-sessoes-caixa', async ()=>{
+ipcMain.handle('get-sessoes-caixa', async () => {
   return await listarSessoesCaixa();
 });
 ipcMain.handle('add-sessoes-caixa', async (_event, dados) => {
   return await abrirCaixa(dados);
 });
 
-ipcMain.handle('get-movimentos-caixa', async ()=>{
+ipcMain.handle('get-movimentos-caixa', async () => {
   return await listarMovimentosCaixa();
 });
-ipcMain.handle('caixa:resumo-movimentos',async (_, caixa_id)=>{
+ipcMain.handle('caixa:resumo-movimentos', async (_, caixa_id) => {
   return await resumoMovimentosCaixa(caixa_id)
 })
-ipcMain.handle('add-movimentos-caixa', async (_event,dados)=>{
+ipcMain.handle('add-movimentos-caixa', async (_event, dados) => {
   return await inserirMovimentoCaixa(dados);
 });
 ipcMain.handle('caixa:registrar-venda', async (_, payload) => {
@@ -470,17 +470,17 @@ ipcMain.handle('estoque:listar-movimentos', async (event, payload) => {
 // Handler para salvar um colaborador
 //COMPRAS 
 
-ipcMain.handle('compras:listar', async (event,payload )=>{
+ipcMain.handle('compras:listar', async (event, payload) => {
   return await listarCompras();
 })
 
-ipcMain.handle('compras:criar', async (event,payload )=>{
+ipcMain.handle('compras:criar', async (event, payload) => {
   return await criarCompra(payload);
 })
-ipcMain.handle('compras:criar-itens', async (event,payload )=>{
+ipcMain.handle('compras:criar-itens', async (event, payload) => {
   return await criarItensCompra(payload);
 })
-ipcMain.handle('compras:criar-contas-pagar', async (event,payload )=>{
+ipcMain.handle('compras:criar-contas-pagar', async (event, payload) => {
   return await criarContasPagar(payload);
 })
 
@@ -520,31 +520,54 @@ ipcMain.handle("getSubGrupos", async () => {
   );
   return rows;
 });
-ipcMain.handle("addGrupo", async (_, nome,comissao) => {
-    try {
-        await pool.query(`
+ipcMain.handle("addGrupo", async (_, nome, comissao) => {
+  try {
+    await pool.query(`
             INSERT INTO produto_grupo (NomeGrupo,Comissao, Ativo)
             VALUES (?,?, 1)
-        `, [nome,comissao]);
+        `, [nome, comissao]);
 
-        return { success: true };
-    } catch (error) {
-        console.error("Erro addGrupo:", error);
-        return { success: false, error };
-    }
+    return { success: true };
+  } catch (error) {
+    console.error("Erro addGrupo:", error);
+    return { success: false, error };
+  }
 });
-ipcMain.handle("addSubGrupo", async (_, nome) => {
-    try {
-        await pool.query(`
-            INSERT INTO produto_sub_grupo (NomeSubGrupo, Ativo)
-            VALUES (?, 1)
-        `, [nome]);
+ipcMain.handle("addSubGrupo", async (_, nome, codigoGrupo) => {
 
-        return { success: true };
-    } catch (error) {
-        console.error("Erro addSubGrupo:", error);
-        return { success: false, error };
-    }
+  try {
+    await pool.query(`
+            INSERT INTO produto_sub_grupo (NomeSubGrupo,CodigoGrupo, Ativo)
+            VALUES (?,?, 1)
+        `, [nome, codigoGrupo]);
+
+    return { success: true };
+  } catch (error) {
+    console.error("Erro addSubGrupo:", error);
+    return { success: false, error };
+  }
+});
+ipcMain.handle("getSubGruposByGrupo", async (event, codigoGrupo) => {
+  const [rows] = await pool.query(
+    "SELECT CodigoSubGrupo AS id, NomeSubGrupo AS nome FROM produto_sub_grupo WHERE Ativo = 1 AND CodigoGrupo = ?",
+    [codigoGrupo]
+  );
+  return rows;
+});
+ipcMain.handle("atualizarGrupo", async (event, dados) => {
+  return await atualizarGrupo(dados);
+});
+
+ipcMain.handle("atualizarSubGrupo", async (event, dados) => {
+  return await atualizarSubGrupo(dados);
+});
+
+ipcMain.handle("excluirGrupo", async (event, id) => {
+  return await excluirGrupo(id);
+});
+
+ipcMain.handle("excluirSubGrupo", async (event, id) => {
+  return await excluirSubGrupo(id);
 });
 
 app.whenReady().then(createWindow)

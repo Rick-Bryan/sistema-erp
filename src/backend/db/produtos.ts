@@ -1,5 +1,5 @@
 import pool from './connection';
-import { entradaEstoque, saidaEstoque } from "./estoque_movimento"; 
+import { entradaEstoque, saidaEstoque } from "./estoque_movimento";
 export interface Produto {
   CodigoProduto?: number;
   CodigoBarra?: string;
@@ -178,4 +178,44 @@ export async function salvarProduto(produto: Produto) {
     console.error("❌ Erro ao salvar produto:", error);
     throw new Error(error.sqlMessage || "Erro ao salvar produto");
   }
+}
+
+export async function atualizarGrupo({ id, nome, comissao, ativo }) {
+  const sql = `
+    UPDATE produto_grupo SET
+      nome = ?,
+      comissao = ?,
+      ativo = ?
+    WHERE id = ?
+  `;
+
+  await pool.execute(sql, [
+    nome ?? null,
+    comissao ?? null,
+    ativo ?? 1,
+    id
+  ]);
+}
+export async function excluirGrupo(id) {
+  const sql = `DELETE FROM produto_grupo WHERE id = ?`;
+  await pool.execute(sql, [id]);
+}
+export async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
+  const sql = `
+    UPDATE produto_sub_grupo SET
+      nome = ?,
+      CodigoGrupo = ?
+    WHERE id = ?
+  `;
+
+  await pool.execute(sql, [
+    nome ?? null,
+    CodigoGrupo ?? null,
+    id
+  ]);
+}
+
+export async function excluirSubGrupo(id) {
+  const sql = `DELETE FROM produto_sub_grupo WHERE id = ?`;
+  await pool.execute(sql, [id]);
 }

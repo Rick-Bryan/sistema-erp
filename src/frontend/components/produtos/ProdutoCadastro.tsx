@@ -8,6 +8,8 @@ declare global {
             getFabricantes: () => Promise<any[]>;
             getGrupos: () => Promise<any[]>;
             getSubGrupos: () => Promise<any[]>;
+            getSubGruposByGrupo: (codigoGrupo: number) => Promise<any[]>;
+
         };
     }
 }
@@ -63,6 +65,19 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
         };
         carregarSelects();
     }, []);
+    useEffect(() => {
+        const carregarSubPorGrupo = async () => {
+            if (!produto.CodigoGrupo) {
+                setSubGrupos([]);
+                return;
+            }
+
+            const lista = await window.electronAPI.getSubGruposByGrupo(Number(produto.CodigoGrupo));
+            setSubGrupos(lista);
+        };
+
+        carregarSubPorGrupo();
+    }, [produto.CodigoGrupo]);
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -145,8 +160,11 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
                                 name={key}
                                 value={produto[key] ?? ""}
                                 onChange={handleChange}
+                                disabled={!produto.CodigoGrupo} // evita subgrupo sem grupo
                             >
-                                <option value="">Selecione...</option>
+                                <option value="">
+                                    {produto.CodigoGrupo ? "Selecione..." : "Selecione um grupo primeiro"}
+                                </option>
                                 {subGrupos.map((s) => (
                                     <option key={s.id} value={s.id}>
                                         {s.nome}
@@ -154,6 +172,7 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
                                 ))}
                             </select>
                         ) : (
+
                             // 🔁 Inputs normais
                             <input
                                 style={inputStyle}
@@ -166,8 +185,8 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
                                     key === "DataCadastro"
                                         ? "date"
                                         : key === "EstoqueAtual"
-                                        ? "number"
-                                        : "text"
+                                            ? "number"
+                                            : "text"
                                 }
                                 min={key === "EstoqueAtual" ? 0 : undefined}
                             />

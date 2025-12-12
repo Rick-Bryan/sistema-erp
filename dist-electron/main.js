@@ -20025,21 +20025,27 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-field_flags.NOT_NULL = 1;
-field_flags.PRI_KEY = 2;
-field_flags.UNIQUE_KEY = 4;
-field_flags.MULTIPLE_KEY = 8;
-field_flags.BLOB = 16;
-field_flags.UNSIGNED = 32;
-field_flags.ZEROFILL = 64;
-field_flags.BINARY = 128;
-field_flags.ENUM = 256;
-field_flags.AUTO_INCREMENT = 512;
-field_flags.TIMESTAMP = 1024;
-field_flags.SET = 2048;
-field_flags.NO_DEFAULT_VALUE = 4096;
-field_flags.ON_UPDATE_NOW = 8192;
-field_flags.NUM = 32768;
+var hasRequiredField_flags;
+function requireField_flags() {
+  if (hasRequiredField_flags) return field_flags;
+  hasRequiredField_flags = 1;
+  field_flags.NOT_NULL = 1;
+  field_flags.PRI_KEY = 2;
+  field_flags.UNIQUE_KEY = 4;
+  field_flags.MULTIPLE_KEY = 8;
+  field_flags.BLOB = 16;
+  field_flags.UNSIGNED = 32;
+  field_flags.ZEROFILL = 64;
+  field_flags.BINARY = 128;
+  field_flags.ENUM = 256;
+  field_flags.AUTO_INCREMENT = 512;
+  field_flags.TIMESTAMP = 1024;
+  field_flags.SET = 2048;
+  field_flags.NO_DEFAULT_VALUE = 4096;
+  field_flags.ON_UPDATE_NOW = 8192;
+  field_flags.NUM = 32768;
+  return field_flags;
+}
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20103,7 +20109,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = field_flags;
+    const fiedFlags = requireField_flags();
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23159,7 +23165,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = field_flags;
+const FieldFlags$1 = requireField_flags();
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23348,7 +23354,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = field_flags;
+const FieldFlags = requireField_flags();
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -27902,6 +27908,42 @@ async function salvarProduto(produto) {
     throw new Error(error.sqlMessage || "Erro ao salvar produto");
   }
 }
+async function atualizarGrupo({ id, nome, comissao, ativo }) {
+  const sql = `
+    UPDATE produto_grupo SET
+      nome = ?,
+      comissao = ?,
+      ativo = ?
+    WHERE id = ?
+  `;
+  await pool.execute(sql, [
+    nome ?? null,
+    comissao ?? null,
+    ativo ?? 1,
+    id
+  ]);
+}
+async function excluirGrupo(id) {
+  const sql = `DELETE FROM produto_grupo WHERE id = ?`;
+  await pool.execute(sql, [id]);
+}
+async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
+  const sql = `
+    UPDATE produto_sub_grupo SET
+      nome = ?,
+      CodigoGrupo = ?
+    WHERE id = ?
+  `;
+  await pool.execute(sql, [
+    nome ?? null,
+    CodigoGrupo ?? null,
+    id
+  ]);
+}
+async function excluirSubGrupo(id) {
+  const sql = `DELETE FROM produto_sub_grupo WHERE id = ?`;
+  await pool.execute(sql, [id]);
+}
 async function listarFabricantes() {
   const [rows] = await pool.query("SELECT * FROM produto_fabricante ORDER BY CodigoFabricante");
   return rows;
@@ -29005,16 +29047,35 @@ ipcMain.handle("addGrupo", async (_, nome, comissao) => {
     return { success: false, error };
   }
 });
-ipcMain.handle("addSubGrupo", async (_, nome) => {
+ipcMain.handle("addSubGrupo", async (_, nome, codigoGrupo) => {
   try {
     await pool.query(`
-            INSERT INTO produto_sub_grupo (NomeSubGrupo, Ativo)
-            VALUES (?, 1)
-        `, [nome]);
+            INSERT INTO produto_sub_grupo (NomeSubGrupo,CodigoGrupo, Ativo)
+            VALUES (?,?, 1)
+        `, [nome, codigoGrupo]);
     return { success: true };
   } catch (error) {
     console.error("Erro addSubGrupo:", error);
     return { success: false, error };
   }
+});
+ipcMain.handle("getSubGruposByGrupo", async (event, codigoGrupo) => {
+  const [rows] = await pool.query(
+    "SELECT CodigoSubGrupo AS id, NomeSubGrupo AS nome FROM produto_sub_grupo WHERE Ativo = 1 AND CodigoGrupo = ?",
+    [codigoGrupo]
+  );
+  return rows;
+});
+ipcMain.handle("atualizarGrupo", async (event, dados) => {
+  return await atualizarGrupo(dados);
+});
+ipcMain.handle("atualizarSubGrupo", async (event, dados) => {
+  return await atualizarSubGrupo(dados);
+});
+ipcMain.handle("excluirGrupo", async (event, id) => {
+  return await excluirGrupo(id);
+});
+ipcMain.handle("excluirSubGrupo", async (event, id) => {
+  return await excluirSubGrupo(id);
 });
 app.whenReady().then(createWindow);
