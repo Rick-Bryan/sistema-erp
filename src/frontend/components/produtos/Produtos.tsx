@@ -24,6 +24,7 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
   const [grupoEditando, setGrupoEditando] = useState(null);
   const [subGrupoEditando, setSubGrupoEditando] = useState(null);
 
+
   // MODAIS
   const [modalGrupo, setModalGrupo] = useState(false);
   const [modalSubGrupo, setModalSubGrupo] = useState(false);
@@ -36,7 +37,8 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
 
   const [novoGrupo, setNovoGrupo] = useState("");
   const [novoSubGrupo, setNovoSubGrupo] = useState("");
-
+  console.log("Grupos", grupos)
+  console.log("SubGrupos", subgrupos)
   const carregarProdutos = async () => {
     setProdutos(await window.electronAPI.getProdutos());
   };
@@ -64,36 +66,25 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
 
 
   }
-  const editarGrupo = (grupo) => {
-    setGrupoEditando(grupo);
-    setNovoGrupo(grupo.nome);
-    setComissaoGrupo(grupo.comissao || "");
-    setModalGrupo(true);
-  };
+
 
 
   const atualizarGrupo = async () => {
-    try {
-      await window.electronAPI.atualizarGrupo(
-        grupoEditando.id,
-        novoGrupo,
-        comissaoGrupo
-      );
+    await window.electronAPI.atualizarGrupo(
+      grupoEditando.id,
+      novoGrupo,
+      comissaoGrupo
+    );
 
-      toast.success("Grupo atualizado com sucesso!");
-
-      setGrupoEditando(null);
-      setNovoGrupo("");
-      setComissaoGrupo("");
-
-      carregarGrupos();
-    } catch (err) {
-      toast.error("Erro ao atualizar grupo");
-    }
+    toast.success("Grupo atualizado com sucesso!");
+    setGrupoEditando(null);
+    setNovoGrupo("");
+    setComissaoGrupo("");
+    setModalGrupo(false);
+    carregarGrupos();
   };
+
   const excluirGrupo = async (id) => {
-    if (!confirm("Tem certeza que deseja excluir este grupo?"))
-      return;
 
     try {
       await window.electronAPI.excluirGrupo(id);
@@ -147,8 +138,6 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
   };
 
   const excluirSubgrupo = async (id) => {
-    if (!confirm("Deseja realmente excluir este subgrupo?"))
-      return;
 
     try {
       await window.electronAPI.excluirSubGrupo(id);
@@ -271,6 +260,44 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
             value={comissaoGrupo}
             onChange={(e) => setComissaoGrupo(e.target.value)}
           />
+
+
+
+          <h4>Grupos cadastrados:</h4>
+
+          <div style={boxTabelaModal}>
+            <table style={tabelaModal}>
+              <thead>
+                <tr>
+                  <th style={thModal}>Nome</th>
+                  <th style={thModal}>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {grupos.map((g, index) => (
+                  <tr key={g.id} style={index % 2 === 0 ? linhaPar : linhaImpar}>
+                    <td style={tdModal}>{g.nome}</td>
+                    <td style={tdModal}>
+                      <button
+                        onClick={() => {
+                          setGrupoEditando(g);
+                          setNovoGrupo(g.nome);
+                          setComissaoGrupo(g.Comissao || "");
+                        }}
+                      >
+                        Editar
+                      </button>
+                      <button onClick={() => excluirGrupo(g.id)}>
+                        Excluir
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+
+            </table>
+          </div>
+
           <button
             style={btnSalvar}
             onClick={() =>
@@ -281,29 +308,12 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
           >
             {grupoEditando ? "Atualizar" : "Salvar"}
           </button>
-
-
-          <h4>Grupos cadastrados:</h4>
-
-          <div style={boxTabelaModal}>
-            <table style={tabelaModal}>
-              <thead>
-                <tr>
-                  <th style={thModal}>Nome</th>
-                </tr>
-              </thead>
-              <tbody>
-                {grupos.map((g, index) => (
-                  <tr key={g.id} style={index % 2 === 0 ? linhaPar : linhaImpar}>
-                    <td style={tdModal}>{g.nome}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-
-          <button onClick={() => setModalGrupo(false)} style={btnFechar}>Fechar</button>
+          <button onClick={() => {
+            setModalGrupo(false)
+            setGrupoEditando(null);
+            setNovoGrupo("");
+            setComissaoGrupo("");
+          }} style={btnFechar}>Fechar</button>
         </Modal>
       )}
 
@@ -316,13 +326,31 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
             style={inputModal}
             placeholder="Nome do subgrupo"
             value={novoSubGrupo}
-            onChange={(e) => setNovoSubGrupo(e.target.value)}
+            onChange={(e) => {
+              const valor = e.target.value
+              setNovoSubGrupo(valor)
+              if (valor.trim() === '') {
+                setGrupoEditando(null)
+
+              }
+            }
+            }
           />
 
           <select
             style={inputStyle}
-            value={grupoSelecionado}
-            onChange={(e) => setGrupoSelecionado(e.target.value)}
+            value={grupoSelecionado ?? ""}
+            onChange={(e) => {
+              const valor = e.target.value;
+
+              setGrupoSelecionado(valor || null);
+
+              // Se voltou para "Selecione..."
+              if (!valor) {
+                setSubGrupoEditando(null);
+                setNovoSubGrupo("");
+              }
+            }}
           >
             <option value="">Selecione...</option>
             {grupos.map((g) => (
@@ -331,16 +359,8 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
               </option>
             ))}
           </select>
-          <button
-            style={btnSalvar}
-            onClick={() =>
-              subGrupoEditando
-                ? atualizarSubGrupo()
-                : adicionarSubGrupo(novoSubGrupo, grupoSelecionado)
-            }
-          >
-            {subGrupoEditando ? "Atualizar" : "Salvar"}
-          </button>
+
+
 
           {grupoSelecionado && (
             <>
@@ -351,21 +371,56 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
                   <thead>
                     <tr>
                       <th style={thModal}>Nome</th>
+                      <th style={thModal}>Ações</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {subgrupos.map((g, index) => (
-                      <tr key={g.id} style={index % 2 === 0 ? linhaPar : linhaImpar}>
-                        <td style={tdModal}>{g.nome}</td>
+                    {subgrupos.map((s, index) => (
+                      <tr key={s.id} style={index % 2 === 0 ? linhaPar : linhaImpar}>
+                        <td style={tdModal}>{s.nome}</td>
+                        <td style={tdModal}>
+                          <button
+                            onClick={() => {
+                              setSubGrupoEditando(s);
+                              setNovoSubGrupo(s.nome);
+                            }}
+                          >
+                            ✏️
+                          </button>
+                          <button onClick={() => excluirSubgrupo(s.id)}>
+                            🗑️
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
+
                 </table>
               </div>
             </>)}
-          <button onClick={() => setModalSubGrupo(false)} style={btnFechar}>Fechar</button>
+          <button
+            style={btnSalvar}
+            onClick={() =>
+              subGrupoEditando
+                ? atualizarSubGrupo()
+                : adicionarSubGrupo(novoSubGrupo, grupoSelecionado)
+            }
+          >
+            {subGrupoEditando ? "Atualizar" : "Salvar"}
+          </button>
+          <button onClick={() => {
+            setModalSubGrupo(false)
+            setSubGrupoEditando(null);
+            setNovoSubGrupo("");
+          }
+
+
+
+
+          } style={btnFechar}>Fechar</button>
         </Modal>
-      )}
+      )
+      }
 
       {/* ------------------- TABELA PRODUTOS ------------------- */}
       <div
@@ -418,7 +473,7 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
           </tbody>
         </table>
       </div>
-    </div>
+    </div >
   );
 }
 

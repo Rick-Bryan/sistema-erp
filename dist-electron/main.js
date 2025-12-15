@@ -27911,10 +27911,10 @@ async function salvarProduto(produto) {
 async function atualizarGrupo({ id, nome, comissao, ativo }) {
   const sql = `
     UPDATE produto_grupo SET
-      nome = ?,
-      comissao = ?,
-      ativo = ?
-    WHERE id = ?
+      NomeGrupo = ?,
+      Comissao = ?,
+      Ativo = ?
+    WHERE CodigoGrupo = ?
   `;
   await pool.execute(sql, [
     nome ?? null,
@@ -27924,15 +27924,15 @@ async function atualizarGrupo({ id, nome, comissao, ativo }) {
   ]);
 }
 async function excluirGrupo(id) {
-  const sql = `DELETE FROM produto_grupo WHERE id = ?`;
+  const sql = `DELETE FROM produto_grupo WHERE CodigoGrupo = ?`;
   await pool.execute(sql, [id]);
 }
 async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
   const sql = `
     UPDATE produto_sub_grupo SET
-      nome = ?,
+      NomeSubGrupo = ?,
       CodigoGrupo = ?
-    WHERE id = ?
+    WHERE CodigoSubGrupo = ?
   `;
   await pool.execute(sql, [
     nome ?? null,
@@ -27941,7 +27941,7 @@ async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
   ]);
 }
 async function excluirSubGrupo(id) {
-  const sql = `DELETE FROM produto_sub_grupo WHERE id = ?`;
+  const sql = `DELETE FROM produto_sub_grupo WHERE CodigoSubGrupo = ?`;
   await pool.execute(sql, [id]);
 }
 async function listarFabricantes() {
@@ -29025,7 +29025,7 @@ ipcMain.handle("getFabricantes", async () => {
 });
 ipcMain.handle("getGrupos", async () => {
   const [rows] = await pool.query(
-    "SELECT CodigoGrupo AS id, NomeGrupo AS nome FROM produto_grupo WHERE Ativo = 1"
+    "SELECT CodigoGrupo AS id, NomeGrupo AS nome , Comissao FROM produto_grupo WHERE Ativo = 1"
   );
   return rows;
 });

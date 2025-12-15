@@ -509,7 +509,7 @@ ipcMain.handle("getFabricantes", async () => {
 
 ipcMain.handle("getGrupos", async () => {
   const [rows] = await pool.query(
-    "SELECT CodigoGrupo AS id, NomeGrupo AS nome FROM produto_grupo WHERE Ativo = 1"
+    "SELECT CodigoGrupo AS id, NomeGrupo AS nome , Comissao FROM produto_grupo WHERE Ativo = 1"
   );
   return rows;
 });

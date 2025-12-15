@@ -183,10 +183,10 @@ export async function salvarProduto(produto: Produto) {
 export async function atualizarGrupo({ id, nome, comissao, ativo }) {
   const sql = `
     UPDATE produto_grupo SET
-      nome = ?,
-      comissao = ?,
-      ativo = ?
-    WHERE id = ?
+      NomeGrupo = ?,
+      Comissao = ?,
+      Ativo = ?
+    WHERE CodigoGrupo = ?
   `;
 
   await pool.execute(sql, [
@@ -197,15 +197,15 @@ export async function atualizarGrupo({ id, nome, comissao, ativo }) {
   ]);
 }
 export async function excluirGrupo(id) {
-  const sql = `DELETE FROM produto_grupo WHERE id = ?`;
+  const sql = `DELETE FROM produto_grupo WHERE CodigoGrupo = ?`;
   await pool.execute(sql, [id]);
 }
 export async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
   const sql = `
     UPDATE produto_sub_grupo SET
-      nome = ?,
+      NomeSubGrupo = ?,
       CodigoGrupo = ?
-    WHERE id = ?
+    WHERE CodigoSubGrupo = ?
   `;
 
   await pool.execute(sql, [
@@ -216,6 +216,6 @@ export async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
 }
 
 export async function excluirSubGrupo(id) {
-  const sql = `DELETE FROM produto_sub_grupo WHERE id = ?`;
+  const sql = `DELETE FROM produto_sub_grupo WHERE CodigoSubGrupo = ?`;
   await pool.execute(sql, [id]);
 }
