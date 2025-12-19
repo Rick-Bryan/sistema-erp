@@ -9,6 +9,7 @@ declare global {
             getGrupos: () => Promise<any[]>;
             getSubGrupos: () => Promise<any[]>;
             getSubGruposByGrupo: (codigoGrupo: number) => Promise<any[]>;
+            getFabricanteById: (CodigoFabricante: number) => Promise<any[]>
 
         };
     }
@@ -55,6 +56,7 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
     const [fabricantes, setFabricantes] = useState<any[]>([]);
     const [grupos, setGrupos] = useState<any[]>([]);
     const [subGrupos, setSubGrupos] = useState<any[]>([]);
+    const [fabricanteSelecionado, setFabricanteSelecionado] = useState(null)
 
     // 📌 Buscar dados do banco ao abrir o formulário
     useEffect(() => {
@@ -78,7 +80,34 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
 
         carregarSubPorGrupo();
     }, [produto.CodigoGrupo]);
+    /*
+    useEffect(() => {
+        const carregarFabricanteId = async () => {
+            try {
+                const fabricante = await getFabricanteById(produto.CodigoFabricante);
 
+                setFabricanteSelecionado(fabricante)
+            }
+            catch (err) {
+                console.error("Erro ao carregar fabricante", err)
+            }
+        }
+        carregarFabricanteId();
+    }, [produto.CodigoFabricante]);*/
+
+    useEffect(() => {
+        const carregarSubPorGrupo = async () => {
+            if (!produto.CodigoGrupo) {
+                setSubGrupos([]);
+                return;
+            }
+
+            const lista = await window.electronAPI.getSubGruposByGrupo(Number(produto.CodigoGrupo));
+            setSubGrupos(lista);
+        };
+
+        carregarSubPorGrupo();
+    }, [produto.CodigoGrupo]);
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
     ) => {
@@ -96,9 +125,47 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
             toast.error("❌ Erro ao cadastrar produto.");
         }
     };
-    console.log(grupos)
+
+
+    const labels: Record<string, string> = {
+        CodigoBarra: "Código de Barras",
+        NomeProduto: "Nome do Produto",
+        EstoqueAtual: "Estoque Atual",
+        CodigoGrupo: "Grupo",
+        CodigoSubGrupo: "Subgrupo",
+        CodigoFabricante: "Fabricante",
+        DataCadastro: "Data de Cadastro",
+        UnidadeEmbalagem: "Unidade",
+        FracaoVenda: "Fração de Venda",
+        NCM: "NCM",
+        Eliminado: "Eliminado",
+        IPI: "IPI",
+        ReducaoIPI: "Redução IPI",
+        PisCofinsCST: "CST PIS/COFINS",
+        PisCofinsNatureza: "Natureza PIS/COFINS",
+        PisCofinsCSTEntrada: "CST Entrada",
+        CEST: "CEST",
+        CodigoBeneficio: "Código Benefício",
+    };
+
+
     return (
         <div style={pageContainer}>
+            <button
+                onClick={() => voltar()}
+                style={{
+                    backgroundColor: '#e5e7eb',
+                    color: '#1e3a8a',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    marginBottom: '20px'
+                }}
+            >
+                ← Voltar
+            </button>
             <h2 style={titulo}>🆕 Cadastrar Produto</h2>
 
             <div style={formContainer}>
@@ -123,7 +190,8 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
                     CodigoBeneficio: "",
                 }).map((key) => (
                     <div key={key} style={inputGroup}>
-                        <label style={labelStyle}>{key}</label>
+                        <label style={labelStyle}>{labels[key] ?? key}</label>
+
 
                         {/* 🔽 SELECTs para os 3 campos */}
                         {key === "CodigoFabricante" ? (

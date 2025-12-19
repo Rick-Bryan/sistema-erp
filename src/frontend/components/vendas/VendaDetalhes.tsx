@@ -1,6 +1,7 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Button, Typography, Box, Paper, Divider, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import toast from "react-hot-toast";
+
 interface VendaDetalhesProps {
   venda: any;
   voltar: () => void;
@@ -8,41 +9,62 @@ interface VendaDetalhesProps {
 
 const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
   if (!venda) return null;
-  console.log(venda);
-  const itens = venda.itens || [];
+  
+  const [itens, setItens] = useState<any[]>([]);
+  
+  const listarItensVenda = async () => {
 
-
- const finalizarVenda = async () => {
-  const usuario = JSON.parse(localStorage.getItem("usuarioLogado"));
-  const usuarioId = usuario?.id;
-
-  const caixaId = localStorage.getItem("caixa_id");
-
-  if (!usuarioId) {
-    toast.error("Usuário não encontrado");
-    return;
-  }
-
-
-  try {
-    const resposta = await window.ipcRenderer.invoke("pagar-venda", {
-      venda_id: venda.id,
-      forma_pagamento: venda.forma_pagamento,
-      usuario_id: usuarioId,
-      caixa_id: Number(caixaId)
-    });
-
-    if (resposta.sucesso) {
-      toast.success("Venda finalizada!");
-      voltar();
-    } else {
-      toast.error(resposta.mensagem || "Erro ao finalizar a venda");
+    try {
+      const result = await window.ipcRenderer.invoke("listar-itens-venda", venda.id)
+      if (Array.isArray(result)) {
+        setItens(result);
+      } else {
+        console.warn("Resposta inesperada:", result);
+        setItens([]);
+      }
+      
+    } catch (error) {
+      console.log(error)
     }
-  } catch (e) {
-    console.error(e);
-    toast.error("Erro ao finalizar a venda");
+
   }
-};
+
+  useEffect(() => {
+    listarItensVenda()
+  }, []);
+
+
+  
+  const finalizarVenda = async () => {
+    const usuario = JSON.parse(localStorage.getItem("usuarioLogado"));
+    const usuarioId = usuario?.id;
+
+    const caixaId = localStorage.getItem("caixa_id");
+
+    if (!usuarioId) {
+      toast.error("Usuário não encontrado");
+      return;
+    }
+
+    try {
+      const resposta = await window.ipcRenderer.invoke("pagar-venda", {
+        venda_id: venda.id,
+        forma_pagamento: venda.forma_pagamento,
+        usuario_id: usuarioId,
+        caixa_id: Number(caixaId)
+      });
+
+      if (resposta.sucesso) {
+        toast.success("Venda finalizada!");
+        voltar();
+      } else {
+        toast.error(resposta.mensagem || "Erro ao finalizar a venda");
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao finalizar a venda");
+    }
+  };
 
 
 
@@ -50,6 +72,21 @@ const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
   return (
     <Box sx={{ p: { xs: 2, sm: 3 }, maxWidth: 800, mx: "auto" }}>
       {/* Cabeçalho */}
+      <button
+        onClick={() => voltar()}
+        style={{
+          backgroundColor: '#e5e7eb',
+          color: '#1e3a8a',
+          border: 'none',
+          borderRadius: '6px',
+          padding: '8px 16px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          marginBottom: '20px'
+        }}
+      >
+        ← Voltar
+      </button>
       <Typography variant="h5" sx={{ mb: 3, fontWeight: 600, color: "#2c3e50" }}>
         🧾 Detalhes da Venda #{venda.id}
       </Typography>
@@ -147,11 +184,11 @@ const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
             </TableHead>
             <TableBody>
               {itens.map((item: any, index: number) => (
-                <TableRow key={index}>
-                  <TableCell>{item.nome}</TableCell>
+                <TableRow key={item.id}>
+                  <TableCell>{item.nome_item}</TableCell>
                   <TableCell align="center">{item.quantidade}</TableCell>
-                  <TableCell align="right">{item.valor_unitario.toFixed(2)}</TableCell>
-                  <TableCell align="right">{item.subtotal.toFixed(2)}</TableCell>
+                  <TableCell align="right">{item.valor_unitario}</TableCell>
+                  <TableCell align="right">{item.subtotal}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

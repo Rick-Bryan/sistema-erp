@@ -280,6 +280,10 @@ export async function finalizarCompra(compraId: number) {
     "UPDATE compras SET status = 'paga', atualizado_em = NOW() WHERE id = ?",
     [compraId]
   );
+  await pool.query(
+    "UPDATE contas_pagar SET status = 'paga',pago='sim' WHERE compra_id = ?",
+    [compraId]
+  );
 
   return { success: true };
 }

@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 🏭 Fabricantes
   getFabricantes: () => ipcRenderer.invoke('get-fabricantes'),
+  getFabricanteById: (CodigoFabricante) => ipcRenderer.invoke('buscar-fabricante-id',CodigoFabricante),
   salvarFabricante: (fabricante) => ipcRenderer.invoke('salvar-fabricante', fabricante),
 
   // 🚚 Fornecedores
@@ -55,7 +56,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   addVenda: (dados) => ipcRenderer.invoke('add-venda', dados),
   updateVenda: (dados) => ipcRenderer.invoke('update-venda', dados),
   deleteVenda: (id) => ipcRenderer.invoke('delete-venda', id),
-
+  listarItensVenda:(venda_id) => ipcRenderer.invoke('listar-itens-venda',venda_id),
   //Caixa
 
   getSessoesCaixa: () => ipcRenderer.invoke('get-sessoes-caixa'),

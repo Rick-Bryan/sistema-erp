@@ -32,8 +32,17 @@ export async function salvarVendaCompleta(dados) {
       status: dados.status,
       observacoes: dados.observacoes
     })
+
+      const itensNormalizados = dados.itens.map(item => ({
+      ...item,
+      nome_item:
+        item.nome_item && String(item.nome_item).trim() !== ""
+          ? item.nome_item
+          : "Item"
+    }));
+
     // 2) Insere itens + movimenta estoque
-    await criarItensVenda(venda.id, dados.itens);
+    await criarItensVenda(venda.id, itensNormalizados);
 
     return { sucesso: true, id: venda.id };
   }
@@ -45,11 +54,12 @@ export async function salvarVendaCompleta(dados) {
 }
 
 export async function criarItensVenda(vendaId, itens) {
+  
   for (const item of itens) {
     await pool.query(
-      `INSERT INTO itens_venda (venda_id, produto_id, quantidade, valor_unitario)
-       VALUES (?, ?, ?, ?)`,
-      [vendaId, item.produto_id, item.quantidade, item.valor_unitario]
+      `INSERT INTO itens_venda (nome_item,venda_id, produto_id,quantidade, valor_unitario)
+       VALUES (?,?, ?, ?, ?)`,
+      [item.nome_item,vendaId, item.produto_id, item.quantidade, item.valor_unitario]
     );
   
 
@@ -62,7 +72,11 @@ export async function criarItensVenda(vendaId, itens) {
     });
   }
 }
-
+export async function listarItensVenda(venda_id) {
+  
+    const [rows] = await pool.query(`SELECT * FROM itens_venda WHERE venda_id = ?`,[venda_id])
+    return rows;
+}
 /** Cria uma nova venda */
 export async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes }) {
   const [result] = await pool.query(

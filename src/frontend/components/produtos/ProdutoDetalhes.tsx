@@ -63,6 +63,21 @@ export default function ProdutoDetalhes({ produtoSelecionado, voltar }: Props) {
         overflowY: 'auto', // scroll vertical se necessário
       }}
     >
+        <button
+        onClick={() => voltar()}
+        style={{
+          backgroundColor: '#e5e7eb',
+          color: '#1e3a8a',
+          border: 'none',
+          borderRadius: '6px',
+          padding: '8px 16px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          marginBottom: '20px'
+        }}
+      >
+        ← Voltar
+      </button>
       <h2 style={{ color: '#1e3a8a', marginBottom: '20px' }}>📋 Detalhes do Produto</h2>
 
       <div

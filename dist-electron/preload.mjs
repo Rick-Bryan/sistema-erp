@@ -25,6 +25,7 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
   salvarProduto: (produto) => electron.ipcRenderer.invoke("salvar-produto", produto),
   // 🏭 Fabricantes
   getFabricantes: () => electron.ipcRenderer.invoke("get-fabricantes"),
+  getFabricanteById: (CodigoFabricante) => electron.ipcRenderer.invoke("buscar-fabricante-id", CodigoFabricante),
   salvarFabricante: (fabricante) => electron.ipcRenderer.invoke("salvar-fabricante", fabricante),
   // 🚚 Fornecedores
   getFornecedores: () => electron.ipcRenderer.invoke("get-fornecedores"),
@@ -47,6 +48,7 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
   addVenda: (dados) => electron.ipcRenderer.invoke("add-venda", dados),
   updateVenda: (dados) => electron.ipcRenderer.invoke("update-venda", dados),
   deleteVenda: (id) => electron.ipcRenderer.invoke("delete-venda", id),
+  listarItensVenda: (venda_id) => electron.ipcRenderer.invoke("listar-itens-venda", venda_id),
   //Caixa
   getSessoesCaixa: () => electron.ipcRenderer.invoke("get-sessoes-caixa"),
   addSessoesCaixa: (dados) => electron.ipcRenderer.invoke("add-sessoes-caixa", dados),

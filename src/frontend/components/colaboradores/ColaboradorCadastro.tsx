@@ -49,6 +49,21 @@ export default function ColaboradorCadastro({ voltar }: { voltar: () => void }) 
 
   return (
     <div style={pageContainer}>
+      <button
+        onClick={() => voltar()}
+        style={{
+          backgroundColor: '#e5e7eb',
+          color: '#1e3a8a',
+          border: 'none',
+          borderRadius: '6px',
+          padding: '8px 16px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          marginBottom: '20px'
+        }}
+      >
+        ← Voltar
+      </button>
       <h2 style={titulo}>Cadastrar Colaborador</h2>
 
       <div style={formContainer}>

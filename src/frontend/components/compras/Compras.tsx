@@ -30,7 +30,7 @@ export default function Compras({ setPage }: { setPage: (p: string) => void }) {
 
   return (
     <div style={{ padding: '20px', background: '#f5f7fa', minHeight: '100vh' }}>
-      <button style={btnVoltar} onClick={() => setPage('dashboard')}>← Voltar</button>
+      <button style={btnVoltar} onClick={() => setPage('movimentacao')}>← Voltar</button>
 
       <div style={header}>
         <h2 style={{ color: '#1e3a8a' }}>Compras</h2>

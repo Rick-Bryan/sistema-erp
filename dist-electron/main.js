@@ -27960,6 +27960,13 @@ async function criarFabricante(fabricante) {
     // ou null, se quiser
   ]);
 }
+async function getFabricanteById(CodigoFabricante) {
+  if (CodigoFabricante === null || "") {
+    console.log("FABRICANTE INVALIDO");
+  }
+  const sql = await pool.query(`SELECT * FROM fabricantes  WHERE CodigoFabricante ?`, [CodigoFabricante]);
+  return sql;
+}
 async function salvarFabricante(fabricante) {
   if (fabricante.CodigoFabricante) {
     const sql = `
@@ -28352,7 +28359,11 @@ async function salvarVendaCompleta(dados) {
       status: dados.status,
       observacoes: dados.observacoes
     });
-    await criarItensVenda(venda.id, dados.itens);
+    const itensNormalizados = dados.itens.map((item) => ({
+      ...item,
+      nome_item: item.nome_item && String(item.nome_item).trim() !== "" ? item.nome_item : "Item"
+    }));
+    await criarItensVenda(venda.id, itensNormalizados);
     return { sucesso: true, id: venda.id };
   } catch (err) {
     console.error("❌ Erro ao salvar venda completa:", err);
@@ -28362,9 +28373,9 @@ async function salvarVendaCompleta(dados) {
 async function criarItensVenda(vendaId, itens) {
   for (const item of itens) {
     await pool.query(
-      `INSERT INTO itens_venda (venda_id, produto_id, quantidade, valor_unitario)
-       VALUES (?, ?, ?, ?)`,
-      [vendaId, item.produto_id, item.quantidade, item.valor_unitario]
+      `INSERT INTO itens_venda (nome_item,venda_id, produto_id,quantidade, valor_unitario)
+       VALUES (?,?, ?, ?, ?)`,
+      [item.nome_item, vendaId, item.produto_id, item.quantidade, item.valor_unitario]
     );
     await saidaEstoque({
       produto_id: item.produto_id,
@@ -28373,6 +28384,10 @@ async function criarItensVenda(vendaId, itens) {
       observacao: `Saída por venda #${vendaId}`
     });
   }
+}
+async function listarItensVenda(venda_id) {
+  const [rows] = await pool.query(`SELECT * FROM itens_venda WHERE venda_id = ?`, [venda_id]);
+  return rows;
 }
 async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes }) {
   const [result] = await pool.query(
@@ -28641,6 +28656,10 @@ async function finalizarCompra(compraId) {
     "UPDATE compras SET status = 'paga', atualizado_em = NOW() WHERE id = ?",
     [compraId]
   );
+  await pool.query(
+    "UPDATE contas_pagar SET status = 'paga',pago='sim' WHERE compra_id = ?",
+    [compraId]
+  );
   return { success: true };
 }
 createRequire(import.meta.url);
@@ -28786,6 +28805,9 @@ ipcMain.handle("buscar-fabricantes", async (event, termo) => {
   sql += " ORDER BY CodigoFabricante LIMIT 100";
   const [rows] = await pool.query(sql, params);
   return rows;
+});
+ipcMain.handle("buscar-fabricante-id", async (event, CodigoFabricante) => {
+  await getFabricanteById(CodigoFabricante);
 });
 ipcMain.handle("add-colaborador", async (_event, colaborador) => {
   try {
@@ -29022,6 +29044,14 @@ ipcMain.handle("getFabricantes", async () => {
     "SELECT CodigoFabricante AS id, NomeFabricante AS nome FROM produto_fabricante WHERE Ativo = 1"
   );
   return rows;
+});
+ipcMain.handle("listar-itens-venda", async (event, venda_id) => {
+  try {
+    return await listarItensVenda(venda_id);
+  } catch (err) {
+    console.log("erro ao listar itens da venda", err);
+    throw err;
+  }
 });
 ipcMain.handle("getGrupos", async () => {
   const [rows] = await pool.query(

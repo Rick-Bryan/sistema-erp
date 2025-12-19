@@ -5,12 +5,12 @@ import path from 'node:path'
 import bcrypt from "bcryptjs";
 import pool from "../db/connection"; // sua conexão MySQL
 import { listarProdutos, criarProduto, salvarProduto, atualizarGrupo, excluirGrupo, atualizarSubGrupo, excluirSubGrupo } from '../db/produtos';
-import { listarFabricantes, criarFabricante, salvarFabricante } from '../db/fabricantes'
+import { listarFabricantes, criarFabricante, salvarFabricante, getFabricanteById } from '../db/fabricantes'
 import { listarColaboradores, criarColaborador, atualizarColaborador, deletarColaborador, getColaboradorById } from '../db/colaboradores';
 import { listarClientes, criarCliente, atualizarCliente, deletarCliente } from '../db/clientes';
 import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornecedor } from '../db/fornecedores';
 //Falta fazer
-import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda, salvarVendaCompleta } from '../db/vendas';
+import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda, salvarVendaCompleta, listarItensVenda } from '../db/vendas';
 import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoesCaixa, registrarCancelamentoVenda, resumoCaixa, fecharCaixa, resumoMovimentosCaixa } from '../db/caixa';
 import { entradaEstoque, saidaEstoque, registrarMovimentoEstoque, atualizarEstoqueECusto, atualizarEstoque, listarMovimentosEstoque } from '../db/estoque_movimento';
 import { listarCompras, criarCompra, criarItensCompra, criarContasPagar, salvarCompraCompleta, getCompraById, finalizarCompra } from '../db/compras';
@@ -208,6 +208,9 @@ ipcMain.handle("buscar-fabricantes", async (event, termo) => {
 
   const [rows] = await pool.query(sql, params);
   return rows;
+});
+ipcMain.handle("buscar-fabricante-id", async (event, CodigoFabricante) => {
+    await getFabricanteById(CodigoFabricante);
 });
 
 
@@ -506,7 +509,15 @@ ipcMain.handle("getFabricantes", async () => {
   );
   return rows;
 });
-
+ipcMain.handle('listar-itens-venda', async (event,venda_id)=>{
+  try{
+    return await listarItensVenda(venda_id);
+  }
+  catch (err){ 
+    console.log("erro ao listar itens da venda", err)
+    throw err;
+  }
+});
 ipcMain.handle("getGrupos", async () => {
   const [rows] = await pool.query(
     "SELECT CodigoGrupo AS id, NomeGrupo AS nome , Comissao FROM produto_grupo WHERE Ativo = 1"

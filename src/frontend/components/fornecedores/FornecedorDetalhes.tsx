@@ -58,6 +58,21 @@ export default function FornecedorDetalhes({ fornecedorSelecionado, voltar }: Pr
         boxSizing: 'border-box',
       }}
     >
+        <button
+        onClick={() => voltar()}
+        style={{
+          backgroundColor: '#e5e7eb',
+          color: '#1e3a8a',
+          border: 'none',
+          borderRadius: '6px',
+          padding: '8px 16px',
+          cursor: 'pointer',
+          fontWeight: 600,
+          marginBottom: '20px'
+        }}
+      >
+        ← Voltar
+      </button>
       <h2 style={{ color: '#1e3a8a', marginBottom: '20px' }}>Detalhes do Fornecedor</h2>
 
       <div

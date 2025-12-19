@@ -76,7 +76,7 @@ export default function Vendas({ setPage }: VendasProps) {
             />
         );
     }
-
+    console.log("Venda Selecionada",vendaSelecionada)
     // 🔁 Tela de detalhes
     if (vendaSelecionada) {
         return (
@@ -162,7 +162,7 @@ export default function Vendas({ setPage }: VendasProps) {
                         {vendas.map((v) => (
                             <tr key={v.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
                                 <td style={tdStyle}>{v.id}</td>
-                                <td style={tdStyle}>{v.cliente_nome || `Cliente ${v.cliente_id}`}</td>
+                                <td style={tdStyle}>{v.cliente_nome || `Sem registro`}</td>
                                 <td style={tdStyle}>
                                     {new Date(v.data_venda).toLocaleDateString("pt-BR")}
                                 </td>

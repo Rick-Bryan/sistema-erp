@@ -34,7 +34,7 @@ type Produto = {
 
 type ItemVenda = {
     produto_id: number;
-    nome: string;
+    nome_item: string;
     quantidade: number;
     valor_unitario: number;
     subtotal: number;
@@ -61,6 +61,7 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
     const [buscaProduto, setBuscaProduto] = useState("");
     const [itens, setItens] = useState<ItemVenda[]>([]);
     const [quantidade, setQuantidade] = useState<number>(1);
+    const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null);
 
     // Carrega dados iniciais
     useEffect(() => {
@@ -123,9 +124,20 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
 
     // Adiciona produto à lista (usa a quantidade atual)
     const handleAdicionarItem = (produto: Produto) => {
+
+        const produtoId = Number(produto.CodigoProduto)
+
+        const verifyProduct = itens.some(
+            (item) => item.produto_id === produtoId
+        )
+
+        if (verifyProduct) {
+            toast.error("Produto ja adicionado")
+            return
+        }
         const novoItem = {
-            produto_id: produto.CodigoProduto,
-            nome: produto.NomeProduto,
+            produto_id: produtoId,
+            nome_item: produto.NomeProduto,
             quantidade,
             valor_unitario: Number(produto.PrecoVenda ?? 0),
             subtotal: Number(produto.PrecoVenda ?? 0) * quantidade,
@@ -137,6 +149,7 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
         // 🔄 Atualiza o valor total da venda
         const total = novosItens.reduce((acc, item) => acc + item.subtotal, 0);
         setVenda((prev) => ({ ...prev, valor_total: total }));
+
     };
 
     // Atualiza quantidade de um item na tabela (input)
@@ -195,10 +208,24 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
             toast.error("Erro ao cadastrar venda.");
         }
     };
-    console.log(venda)
     /* ========== RENDERS ========== */
     return (
         <div style={pageContainer}>
+            <button
+                onClick={() => voltar()}
+                style={{
+                    backgroundColor: '#e5e7eb',
+                    color: '#1e3a8a',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    marginBottom: '20px'
+                }}
+            >
+                ← Voltar
+            </button>
             <h2 style={titulo}>Cadastrar Venda</h2>
 
             <div style={formContainer}>
@@ -237,13 +264,19 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
                                             produtosFiltrados.map((p) => (
                                                 <div
                                                     key={p.CodigoProduto}
-                                                    onClick={() => handleAdicionarItem(p)}
+                                                    onClick={() => {
+                                                        handleAdicionarItem(p)
+                                                        setProdutoSelecionado(p);
+                                                        setBuscaProduto('');
+
+                                                    }}
                                                     style={dropdownItem}
                                                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f7faff")}
                                                     onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
                                                 >
                                                     <div>{p.NomeProduto}</div>
                                                     <div style={{ fontWeight: 700 }}>R$ {Number(p.PrecoVenda ?? 0).toFixed(2)}</div>
+                                                    <div style={{ fontWeight: 700 }}>Estoque({Number(p.EstoqueAtual ?? 0)})</div>
                                                 </div>
                                             ))
                                         ) : (
@@ -267,8 +300,14 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
                             <div>
                                 <button
                                     onClick={() => {
-                                        const p = produtosFiltrados[0];
-                                        if (p) handleAdicionarItem(p);
+                                        if (!produtoSelecionado) {
+                                            toast.error("Selecione um produto");
+                                            return;
+                                        }
+
+                                        handleAdicionarItem(produtoSelecionado);
+                                        setProdutoSelecionado(null);
+                                        setBuscaProduto('');
                                     }}
                                     style={buttonPrimary}
                                 >
@@ -302,7 +341,7 @@ export default function VendaCadastro({ voltar }: { voltar: () => void }) {
                                 )}
                                 {itens.map((item) => (
                                     <tr key={item.produto_id} style={{ borderBottom: "1px solid #eee" }}>
-                                        <td style={td}>{item.nome}</td>
+                                        <td style={td}>{item.nome_item}</td>
                                         <td style={tdCenter}>
                                             <input
                                                 type="number"
