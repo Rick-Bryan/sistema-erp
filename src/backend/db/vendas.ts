@@ -1,6 +1,7 @@
 import pool from './connection.js';
 import { abrirCaixa } from './caixa.js';
 import { saidaEstoque } from "./estoque_movimento.js";
+import { criarContasReceberVenda } from './financeiro.js';
 /** Lista todas as vendas */
 export async function listarVendas() {
   const [rows] = await pool.query(`
@@ -33,7 +34,7 @@ export async function salvarVendaCompleta(dados) {
       observacoes: dados.observacoes
     })
 
-      const itensNormalizados = dados.itens.map(item => ({
+    const itensNormalizados = dados.itens.map(item => ({
       ...item,
       nome_item:
         item.nome_item && String(item.nome_item).trim() !== ""
@@ -43,6 +44,24 @@ export async function salvarVendaCompleta(dados) {
 
     // 2) Insere itens + movimenta estoque
     await criarItensVenda(venda.id, itensNormalizados);
+    const formaPrazo = ['boleto'];
+
+    if (formaPrazo.includes(dados.forma_pagamento)) {
+
+      if (!dados.cliente_id) {
+        throw new Error(
+          'Venda a prazo exige um cliente vinculado'
+        );
+      }
+
+      await criarContasReceberVenda({
+        empresa_id: dados.empresa_id,
+        cliente_id: dados.cliente_id,
+        venda_id: venda.id,
+        valor_total: dados.valor_total,
+        parcelas: dados.parcelas
+      });
+    }
 
     return { sucesso: true, id: venda.id };
   }
@@ -54,14 +73,14 @@ export async function salvarVendaCompleta(dados) {
 }
 
 export async function criarItensVenda(vendaId, itens) {
-  
+
   for (const item of itens) {
     await pool.query(
       `INSERT INTO itens_venda (nome_item,venda_id, produto_id,quantidade, valor_unitario)
        VALUES (?,?, ?, ?, ?)`,
-      [item.nome_item,vendaId, item.produto_id, item.quantidade, item.valor_unitario]
+      [item.nome_item, vendaId, item.produto_id, item.quantidade, item.valor_unitario]
     );
-  
+
 
     // 2) Registro automático de saída no estoque
     await saidaEstoque({
@@ -73,9 +92,9 @@ export async function criarItensVenda(vendaId, itens) {
   }
 }
 export async function listarItensVenda(venda_id) {
-  
-    const [rows] = await pool.query(`SELECT * FROM itens_venda WHERE venda_id = ?`,[venda_id])
-    return rows;
+
+  const [rows] = await pool.query(`SELECT * FROM itens_venda WHERE venda_id = ?`, [venda_id])
+  return rows;
 }
 /** Cria uma nova venda */
 export async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes }) {

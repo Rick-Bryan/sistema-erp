@@ -20025,27 +20025,21 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-var hasRequiredField_flags;
-function requireField_flags() {
-  if (hasRequiredField_flags) return field_flags;
-  hasRequiredField_flags = 1;
-  field_flags.NOT_NULL = 1;
-  field_flags.PRI_KEY = 2;
-  field_flags.UNIQUE_KEY = 4;
-  field_flags.MULTIPLE_KEY = 8;
-  field_flags.BLOB = 16;
-  field_flags.UNSIGNED = 32;
-  field_flags.ZEROFILL = 64;
-  field_flags.BINARY = 128;
-  field_flags.ENUM = 256;
-  field_flags.AUTO_INCREMENT = 512;
-  field_flags.TIMESTAMP = 1024;
-  field_flags.SET = 2048;
-  field_flags.NO_DEFAULT_VALUE = 4096;
-  field_flags.ON_UPDATE_NOW = 8192;
-  field_flags.NUM = 32768;
-  return field_flags;
-}
+field_flags.NOT_NULL = 1;
+field_flags.PRI_KEY = 2;
+field_flags.UNIQUE_KEY = 4;
+field_flags.MULTIPLE_KEY = 8;
+field_flags.BLOB = 16;
+field_flags.UNSIGNED = 32;
+field_flags.ZEROFILL = 64;
+field_flags.BINARY = 128;
+field_flags.ENUM = 256;
+field_flags.AUTO_INCREMENT = 512;
+field_flags.TIMESTAMP = 1024;
+field_flags.SET = 2048;
+field_flags.NO_DEFAULT_VALUE = 4096;
+field_flags.ON_UPDATE_NOW = 8192;
+field_flags.NUM = 32768;
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20109,7 +20103,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = requireField_flags();
+    const fiedFlags = field_flags;
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23165,7 +23159,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = requireField_flags();
+const FieldFlags$1 = field_flags;
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23354,7 +23348,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = requireField_flags();
+const FieldFlags = field_flags;
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -28329,6 +28323,135 @@ async function fecharCaixa({
     motivo_diferenca
   };
 }
+async function criarContasReceberVenda({ empresa_id, cliente_id, venda_id, valor_total, parcelas }) {
+  const status = "aberto";
+  const [conta] = await pool.query(
+    `INSERT INTO contas_receber(empresa_id,cliente_id,venda_id,descricao,valor_total,status) VALUES (?,?,?,?,?,?)`,
+    [empresa_id, cliente_id, venda_id, `Venda #${venda_id}`, valor_total, status]
+  );
+  const contaId = conta.insertId;
+  const parcelasGeradas = Array.isArray(parcelas) && parcelas.length > 0 ? parcelas : [{
+    numero: 1,
+    valor: valor_total,
+    vencimento: /* @__PURE__ */ new Date()
+  }];
+  for (const p of parcelasGeradas) {
+    await pool.query(
+      `INSERT INTO parcelas_receber
+       (conta_receber_id, numero_parcela, valor, data_vencimento)
+       VALUES (?, ?, ?, ?)`,
+      [
+        contaId,
+        p.numero,
+        p.valor,
+        p.vencimento
+      ]
+    );
+  }
+  return contaId;
+}
+async function baixarParcelaReceber({
+  parcela_id,
+  valor_pago,
+  forma_pagamento_id,
+  usuario_id,
+  caixa_id
+}) {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+  try {
+    const [[parcela]] = await conn.query(
+      `SELECT * FROM parcelas_receber WHERE id = ?`,
+      [parcela_id]
+    );
+    if (!parcela) throw new Error("Parcela não encontrada");
+    const novoValorPago = Number(parcela.valor_pago) + Number(valor_pago);
+    let status = "parcial";
+    if (novoValorPago >= parcela.valor) status = "pago";
+    await conn.query(
+      `UPDATE parcelas_receber
+     SET valor_pago = ?, status = ?
+     WHERE id = ?`,
+      [novoValorPago, status, parcela_id]
+    );
+    await conn.query(
+      `INSERT INTO caixa_movimentos
+     (caixa_id, tipo, origem, descricao, valor, forma_pagamento_id, usuario_id)
+     VALUES (?, 'entrada', 'conta_receber', ?, ?, ?, ?)`,
+      [
+        caixa_id,
+        `Recebimento parcela ${parcela.numero_parcela}`,
+        valor_pago,
+        forma_pagamento_id,
+        usuario_id
+      ]
+    );
+    await atualizarStatusContaReceber(parcela.conta_receber_id, conn);
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+async function atualizarStatusContaReceber(contaId, conn = pool) {
+  const [[res]] = await conn.query(
+    `SELECT 
+       SUM(valor) total,
+       SUM(valor_pago) pago
+     FROM parcelas_receber
+     WHERE conta_receber_id = ?`,
+    [contaId]
+  );
+  let status = "aberto";
+  if (res.pago >= res.total) status = "pago";
+  else if (res.pago > 0) status = "parcial";
+  await conn.query(
+    `UPDATE contas_receber SET status = ? WHERE id = ?`,
+    [status, contaId]
+  );
+}
+async function listarContasReceber(filtros = {}) {
+  const { cliente_id, status } = filtros;
+  let sql = `
+    SELECT cr.*, c.nome AS cliente_nome
+    FROM contas_receber cr
+    LEFT JOIN clientes c ON c.id = cr.cliente_id
+    WHERE 1=1
+  `;
+  const params = [];
+  if (cliente_id) {
+    sql += " AND cr.cliente_id = ?";
+    params.push(cliente_id);
+  }
+  if (status) {
+    sql += " AND cr.status = ?";
+    params.push(status);
+  }
+  sql += " ORDER BY cr.id DESC";
+  const [rows] = await pool.query(sql, params);
+  return rows;
+}
+async function listarParcelasReceber(conta_id) {
+  const [rows] = await pool.query(
+    `SELECT *
+     FROM parcelas_receber
+     WHERE conta_receber_id = ?
+     ORDER BY numero_parcela`,
+    [conta_id]
+  );
+  return rows;
+}
+async function listarContasPagar() {
+  const [rows] = await pool.query(`
+    SELECT cp.*, f.nome AS fornecedor_nome
+    FROM contas_pagar cp
+    LEFT JOIN fornecedores f ON f.id = cp.fornecedor_id
+    ORDER BY cp.id DESC
+  `);
+  return rows;
+}
 async function listarVendas() {
   const [rows] = await pool.query(`
     SELECT 
@@ -28364,6 +28487,21 @@ async function salvarVendaCompleta(dados) {
       nome_item: item.nome_item && String(item.nome_item).trim() !== "" ? item.nome_item : "Item"
     }));
     await criarItensVenda(venda.id, itensNormalizados);
+    const formaPrazo = ["boleto"];
+    if (formaPrazo.includes(dados.forma_pagamento)) {
+      if (!dados.cliente_id) {
+        throw new Error(
+          "Venda a prazo exige um cliente vinculado"
+        );
+      }
+      await criarContasReceberVenda({
+        empresa_id: dados.empresa_id,
+        cliente_id: dados.cliente_id,
+        venda_id: venda.id,
+        valor_total: dados.valor_total,
+        parcelas: dados.parcelas
+      });
+    }
     return { sucesso: true, id: venda.id };
   } catch (err) {
     console.error("❌ Erro ao salvar venda completa:", err);
@@ -29107,5 +29245,18 @@ ipcMain.handle("excluirGrupo", async (event, id) => {
 });
 ipcMain.handle("excluirSubGrupo", async (event, id) => {
   return await excluirSubGrupo(id);
+});
+ipcMain.handle("financeiro:listar-contas-receber", async (_e, filtros) => {
+  return listarContasReceber(filtros);
+});
+ipcMain.handle("financeiro:listar-parcelas-receber", async (_e, conta_id) => {
+  return listarParcelasReceber(conta_id);
+});
+ipcMain.handle("financeiro:baixar-parcela", async (_e, dados) => {
+  await baixarParcelaReceber(dados);
+  return { sucesso: true };
+});
+ipcMain.handle("financeiro:listar-contas-pagar", async () => {
+  return listarContasPagar();
 });
 app.whenReady().then(createWindow);

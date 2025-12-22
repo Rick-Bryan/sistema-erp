@@ -19,6 +19,9 @@ import CaixaDetalhes from './components/caixa/CaixaDetalhes';
 
 import EstoqueMovimentos from './components/estoque/EstoqueMovimentos';
 import Compras from './components/compras/Compras';
+import Financeiro from './components/financeiro/Financeiro';
+import ContasReceber from './components/financeiro/ContasReceber';
+import ParcelasReceber from './components/financeiro/ParcelasReceber';
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
@@ -47,6 +50,39 @@ export default function App() {
     );
   }
   const renderPage = () => {
+
+
+
+    if (page.startsWith("financeiro")) {
+      const parts = page.split("/");
+
+      // financeiro
+      if (parts.length === 1) {
+        return <Financeiro setPage={setPage} />;
+      }
+
+      // financeiro/receber
+      if (parts[1] === "receber" && parts.length === 2) {
+        return <ContasReceber setPage={setPage} />;
+      }
+
+      // financeiro/receber/parcelas/:id
+      if (parts[1] === "receber" && parts[2] === "parcelas") {
+        const contaId = Number(parts[3]);
+        return (
+          <ParcelasReceber
+            contaId={contaId}
+            setPage={setPage}
+          />
+        );
+      }
+
+      // financeiro/pagar
+      if (parts[1] === "pagar") {
+        return <ContasPagar setPage={setPage} />;
+      }
+    }
+
     switch (page) {
       case 'dashboard': return <Dashboard setPage={setPage} />
       case 'clientes': return <Clientes setPage={setPage} />;
@@ -81,6 +117,7 @@ export default function App() {
           />
         );
 
+     
 
       default: return <Dashboard />;
 

@@ -9,11 +9,12 @@ import { listarFabricantes, criarFabricante, salvarFabricante, getFabricanteById
 import { listarColaboradores, criarColaborador, atualizarColaborador, deletarColaborador, getColaboradorById } from '../db/colaboradores';
 import { listarClientes, criarCliente, atualizarCliente, deletarCliente } from '../db/clientes';
 import { listarFornecedores, criarFornecedor, atualizarFornecedor, deletarFornecedor } from '../db/fornecedores';
-//Falta fazer
+
 import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda, salvarVendaCompleta, listarItensVenda } from '../db/vendas';
 import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoesCaixa, registrarCancelamentoVenda, resumoCaixa, fecharCaixa, resumoMovimentosCaixa } from '../db/caixa';
 import { entradaEstoque, saidaEstoque, registrarMovimentoEstoque, atualizarEstoqueECusto, atualizarEstoque, listarMovimentosEstoque } from '../db/estoque_movimento';
 import { listarCompras, criarCompra, criarItensCompra, criarContasPagar, salvarCompraCompleta, getCompraById, finalizarCompra } from '../db/compras';
+import { baixarParcelaReceber, listarContasReceber, obterContasReceber,listarParcelasReceber,listarContasPagar } from "../db/financeiro";
 
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
@@ -581,6 +582,26 @@ ipcMain.handle("excluirSubGrupo", async (event, id) => {
   return await excluirSubGrupo(id);
 });
 
+
+//Financeiro
+
+
+ipcMain.handle("financeiro:listar-contas-receber", async (_e, filtros) => {
+  return listarContasReceber(filtros);
+});
+
+ipcMain.handle("financeiro:listar-parcelas-receber", async (_e, conta_id) => {
+  return listarParcelasReceber(conta_id);
+});
+
+ipcMain.handle("financeiro:baixar-parcela", async (_e, dados) => {
+  await baixarParcelaReceber(dados);
+  return { sucesso: true };
+});
+
+ipcMain.handle("financeiro:listar-contas-pagar", async () => {
+  return listarContasPagar();
+});
 app.whenReady().then(createWindow)
 
 // Exemplo de comunicação entre processos
