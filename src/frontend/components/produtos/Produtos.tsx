@@ -546,7 +546,8 @@ const inputModal: React.CSSProperties = {
   padding: '10px',
   marginBottom: '10px',
   borderRadius: '6px',
-  border: '1px solid #ccc'
+  border: '1px solid #ccc',
+  boxSizing: 'border-box'
 };
 
 const btnSalvar: React.CSSProperties = {

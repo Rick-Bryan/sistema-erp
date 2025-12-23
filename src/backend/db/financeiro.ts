@@ -13,7 +13,7 @@ export async function criarContasReceberVenda({ empresa_id, cliente_id, venda_id
         : [{
             numero: 1,
             valor: valor_total,
-            vencimento:  new Date()
+            vencimento: new Date()
         }];
 
     for (const p of parcelasGeradas) {
@@ -35,17 +35,14 @@ export async function criarContasReceberVenda({ empresa_id, cliente_id, venda_id
 export async function baixarParcelaReceber({
     parcela_id,
     valor_pago,
-    forma_pagamento_id,
+    forma_pagamento,
     usuario_id,
     caixa_id
 }) {
-
-
     const conn = await pool.getConnection();
     await conn.beginTransaction();
-    try {
 
-        // 1️⃣ Busca parcela
+    try {
         const [[parcela]] = await conn.query(
             `SELECT * FROM parcelas_receber WHERE id = ?`,
             [parcela_id]
@@ -54,45 +51,67 @@ export async function baixarParcelaReceber({
         if (!parcela) throw new Error("Parcela não encontrada");
 
         const novoValorPago = Number(parcela.valor_pago) + Number(valor_pago);
+        const status = novoValorPago >= parcela.valor ? "pago" : "parcial";
 
-        // 2️⃣ Atualiza parcela
-        let status = "parcial";
-        if (novoValorPago >= parcela.valor) status = "pago";
-
+        // Atualiza parcela
         await conn.query(
             `UPDATE parcelas_receber
-     SET valor_pago = ?, status = ?
-     WHERE id = ?`,
+       SET valor_pago = ?, status = ?
+       WHERE id = ?`,
             [novoValorPago, status, parcela_id]
         );
 
-        // 3️⃣ Cria movimentação no caixa
+        // Atualiza conta (SOMANDO)
+        await conn.query(
+            `UPDATE contas_receber
+       SET valor_pago = valor_pago + ?, status = ?
+       WHERE id = ?`,
+            [valor_pago, status, parcela.conta_receber_id]
+        );
+
+        // Registra no caixa
         await conn.query(
             `INSERT INTO caixa_movimentos
-     (caixa_id, tipo, origem, descricao, valor, forma_pagamento_id, usuario_id)
-     VALUES (?, 'entrada', 'conta_receber', ?, ?, ?, ?)`,
+       (caixa_id, tipo, origem, descricao, valor, forma_pagamento, usuario_id, venda_id, criado_em)
+       VALUES (?, 'entrada', 'conta_receber', ?, ?, ?, ?, ?, NOW())`,
             [
                 caixa_id,
                 `Recebimento parcela ${parcela.numero_parcela}`,
                 valor_pago,
-                forma_pagamento_id,
-                usuario_id
+                forma_pagamento,
+                usuario_id,
+                parcela.venda_id ?? null
             ]
         );
 
-
-        await atualizarStatusContaReceber(parcela.conta_receber_id, conn);
         await conn.commit();
-    }
-    catch (err) {
+    } catch (err) {
         await conn.rollback();
         throw err;
     } finally {
         conn.release();
     }
-
-
 }
+
+export async function dashboardFinanceiro() {
+    const [rows] = await pool.query(`
+    SELECT
+      SUM(p.valor - p.valor_pago) AS total_receber,
+      SUM(
+        CASE
+          WHEN p.data_vencimento < CURDATE()
+           AND p.status <> 'pago'
+          THEN (p.valor - p.valor_pago)
+          ELSE 0
+        END
+      ) AS total_atraso
+    FROM parcelas_receber p
+  `);
+
+    return rows[0];
+}
+
+
 async function atualizarStatusContaReceber(contaId, conn = pool) {
     const [[res]] = await conn.query(
         `SELECT 

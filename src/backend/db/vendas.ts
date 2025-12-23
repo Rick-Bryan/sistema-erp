@@ -98,6 +98,9 @@ export async function listarItensVenda(venda_id) {
 }
 /** Cria uma nova venda */
 export async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes }) {
+
+
+
   const [result] = await pool.query(
     `INSERT INTO vendas (cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
      VALUES (?, ?, ?, ?, ?, ?)`,
@@ -135,6 +138,7 @@ export async function pagarVenda(id, forma_pagamento, usuarioId) {
     return { sucesso: false, mensagem: "Venda não encontrada" };
   }
 
+
   // 2. Buscar caixa aberto
   const [cx] = await pool.query(`
     SELECT id FROM caixa_sessoes
@@ -157,8 +161,9 @@ export async function pagarVenda(id, forma_pagamento, usuarioId) {
     caixaId = cx[0].id;
   }
 
-  // 3. Criar movimento no caixa
-  await pool.query(`
+  if (forma_pagamento !== 'prazo' && forma_pagamento !== 'boleto') {
+    // 3. Criar movimento no caixa
+    await pool.query(`
     INSERT INTO caixa_movimentos
       (caixa_id, venda_id, tipo, descricao, valor, origem, criado_em, usuario_id)
     SELECT 
@@ -173,6 +178,6 @@ export async function pagarVenda(id, forma_pagamento, usuarioId) {
     FROM vendas
     WHERE id = ?
   `, [caixaId, usuarioId, id]);
-
+  }
   return { sucesso: true, caixaId };
 }
