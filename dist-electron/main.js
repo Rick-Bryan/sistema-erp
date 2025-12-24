@@ -28366,25 +28366,40 @@ async function baixarParcelaReceber({
   const conn = await pool.getConnection();
   await conn.beginTransaction();
   try {
-    const [[parcela]] = await conn.query(
-      `SELECT * FROM parcelas_receber WHERE id = ?`,
-      [parcela_id]
-    );
+    const [[parcela]] = await conn.query(`
+  SELECT p.*, c.venda_id
+  FROM parcelas_receber p
+  JOIN contas_receber c ON c.id = p.conta_receber_id
+  WHERE p.id = ?
+`, [parcela_id]);
     if (!parcela) throw new Error("Parcela não encontrada");
+    if (parcela.status === "pago") {
+      throw new Error("Parcela já está quitada");
+    }
     const novoValorPago = Number(parcela.valor_pago) + Number(valor_pago);
+    if (novoValorPago > parcela.valor) {
+      throw new Error("Valor pago excede o valor da parcela");
+    }
     const status = novoValorPago >= parcela.valor ? "pago" : "parcial";
     await conn.query(
       `UPDATE parcelas_receber
-       SET valor_pago = ?, status = ?
-       WHERE id = ?`,
-      [novoValorPago, status, parcela_id]
+   SET valor_pago = ?,
+       status = ?,
+       data_pagamento = ?
+   WHERE id = ?`,
+      [
+        novoValorPago,
+        status,
+        status === "pago" ? /* @__PURE__ */ new Date() : null,
+        parcela_id
+      ]
     );
-    await conn.query(
-      `UPDATE contas_receber
-       SET valor_pago = valor_pago + ?, status = ?
-       WHERE id = ?`,
-      [valor_pago, status, parcela.conta_receber_id]
-    );
+    await conn.query(`
+  UPDATE contas_receber
+  SET valor_pago = valor_pago + ?
+  WHERE id = ?
+`, [valor_pago, parcela.conta_receber_id]);
+    await atualizarStatusContaReceber(parcela.conta_receber_id, conn);
     await conn.query(
       `INSERT INTO caixa_movimentos
        (caixa_id, tipo, origem, descricao, valor, forma_pagamento, usuario_id, venda_id, criado_em)
@@ -28421,6 +28436,23 @@ async function dashboardFinanceiro() {
     FROM parcelas_receber p
   `);
   return rows[0];
+}
+async function atualizarStatusContaReceber(contaId, conn = pool) {
+  const [[res]] = await conn.query(
+    `SELECT 
+       SUM(valor) total,
+       SUM(valor_pago) pago
+     FROM parcelas_receber
+     WHERE conta_receber_id = ?`,
+    [contaId]
+  );
+  let status = "aberto";
+  if (res.pago >= res.total) status = "pago";
+  else if (res.pago > 0) status = "parcial";
+  await conn.query(
+    `UPDATE contas_receber SET status = ? WHERE id = ?`,
+    [status, contaId]
+  );
 }
 async function listarContasReceber(filtros = {}) {
   const { cliente_id, status } = filtros;

@@ -43,31 +43,54 @@ export async function baixarParcelaReceber({
     await conn.beginTransaction();
 
     try {
-        const [[parcela]] = await conn.query(
-            `SELECT * FROM parcelas_receber WHERE id = ?`,
-            [parcela_id]
-        );
+        const [[parcela]] = await conn.query(`
+  SELECT p.*, c.venda_id
+  FROM parcelas_receber p
+  JOIN contas_receber c ON c.id = p.conta_receber_id
+  WHERE p.id = ?
+`, [parcela_id]);
+
 
         if (!parcela) throw new Error("Parcela não encontrada");
+        if (parcela.status === 'pago') {
+            throw new Error('Parcela já está quitada');
+        }
 
         const novoValorPago = Number(parcela.valor_pago) + Number(valor_pago);
+
+
+        if (novoValorPago > parcela.valor) {
+            throw new Error('Valor pago excede o valor da parcela');
+        }
+
         const status = novoValorPago >= parcela.valor ? "pago" : "parcial";
 
         // Atualiza parcela
+
         await conn.query(
             `UPDATE parcelas_receber
-       SET valor_pago = ?, status = ?
-       WHERE id = ?`,
-            [novoValorPago, status, parcela_id]
+   SET valor_pago = ?,
+       status = ?,
+       data_pagamento = ?
+   WHERE id = ?`,
+            [
+                novoValorPago,
+                status,
+                status === 'pago' ? new Date() : null,
+                parcela_id
+            ]
         );
 
         // Atualiza conta (SOMANDO)
-        await conn.query(
-            `UPDATE contas_receber
-       SET valor_pago = valor_pago + ?, status = ?
-       WHERE id = ?`,
-            [valor_pago, status, parcela.conta_receber_id]
-        );
+        // Atualiza apenas valor_pago
+        await conn.query(`
+  UPDATE contas_receber
+  SET valor_pago = valor_pago + ?
+  WHERE id = ?
+`, [valor_pago, parcela.conta_receber_id]);
+
+        await atualizarStatusContaReceber(parcela.conta_receber_id, conn);
+
 
         // Registra no caixa
         await conn.query(
