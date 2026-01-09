@@ -127,17 +127,25 @@ export async function deletarVenda(id) {
 }
 export async function pagarVenda(id, forma_pagamento, usuarioId) {
 
+  if (forma_pagamento === 'prazo' || forma_pagamento === 'boleto') {
+    return {
+      sucesso: false,
+      mensagem: 'Venda a prazo deve ser quitada pelo contas a receber'
+    };
+  }
+
   // 1. Atualizar venda
   const [result] = await pool.query(`
     UPDATE vendas
-    SET status = 'pago', forma_pagamento = ?, atualizado_em = NOW()
+    SET status = 'pago',
+        forma_pagamento = ?,
+        atualizado_em = NOW()
     WHERE id = ?
   `, [forma_pagamento, id]);
 
   if (result.affectedRows === 0) {
     return { sucesso: false, mensagem: "Venda não encontrada" };
   }
-
 
   // 2. Buscar caixa aberto
   const [cx] = await pool.query(`
@@ -150,7 +158,6 @@ export async function pagarVenda(id, forma_pagamento, usuarioId) {
   let caixaId;
 
   if (cx.length === 0) {
-    // Abre automaticamente
     const novo = await abrirCaixa({
       usuario_id: usuarioId,
       valor_abertura: 0,
@@ -161,9 +168,8 @@ export async function pagarVenda(id, forma_pagamento, usuarioId) {
     caixaId = cx[0].id;
   }
 
-  if (forma_pagamento !== 'prazo' && forma_pagamento !== 'boleto') {
-    // 3. Criar movimento no caixa
-    await pool.query(`
+  // 3. Movimento no caixa
+  await pool.query(`
     INSERT INTO caixa_movimentos
       (caixa_id, venda_id, tipo, descricao, valor, origem, criado_em, usuario_id)
     SELECT 
@@ -178,6 +184,6 @@ export async function pagarVenda(id, forma_pagamento, usuarioId) {
     FROM vendas
     WHERE id = ?
   `, [caixaId, usuarioId, id]);
-  }
+
   return { sucesso: true, caixaId };
 }

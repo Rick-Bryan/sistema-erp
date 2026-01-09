@@ -16,12 +16,13 @@ import Vendas from './components/vendas/Vendas';
 import CadastrosAuxiliares from './pages/cadastros/CadastrosAuxiliares';
 import Caixa from './components/caixa/Caixa';
 import CaixaDetalhes from './components/caixa/CaixaDetalhes';
-
+import ParcelasPagar from './components/financeiro/ParcelasPagar';
 import EstoqueMovimentos from './components/estoque/EstoqueMovimentos';
 import Compras from './components/compras/Compras';
 import Financeiro from './components/financeiro/Financeiro';
 import ContasReceber from './components/financeiro/ContasReceber';
 import ParcelasReceber from './components/financeiro/ParcelasReceber';
+import ContasPagar from './components/financeiro/ContasPagar';
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
@@ -78,8 +79,19 @@ export default function App() {
       }
 
       // financeiro/pagar
-      if (parts[1] === "pagar") {
+      if (parts[1] === "pagar" && parts.length === 2) {
         return <ContasPagar setPage={setPage} />;
+      }
+
+      // ✅ financeiro/pagar/parcelas/:id
+      if (parts[1] === "pagar" && parts[2] === "parcelas") {
+        const contaId = Number(parts[3]);
+        return (
+          <ParcelasPagar
+            contaId={contaId}
+            setPage={setPage}
+          />
+        );
       }
     }
 
@@ -117,7 +129,7 @@ export default function App() {
           />
         );
 
-     
+
 
       default: return <Dashboard />;
 

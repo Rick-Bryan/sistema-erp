@@ -20025,27 +20025,21 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-var hasRequiredField_flags;
-function requireField_flags() {
-  if (hasRequiredField_flags) return field_flags;
-  hasRequiredField_flags = 1;
-  field_flags.NOT_NULL = 1;
-  field_flags.PRI_KEY = 2;
-  field_flags.UNIQUE_KEY = 4;
-  field_flags.MULTIPLE_KEY = 8;
-  field_flags.BLOB = 16;
-  field_flags.UNSIGNED = 32;
-  field_flags.ZEROFILL = 64;
-  field_flags.BINARY = 128;
-  field_flags.ENUM = 256;
-  field_flags.AUTO_INCREMENT = 512;
-  field_flags.TIMESTAMP = 1024;
-  field_flags.SET = 2048;
-  field_flags.NO_DEFAULT_VALUE = 4096;
-  field_flags.ON_UPDATE_NOW = 8192;
-  field_flags.NUM = 32768;
-  return field_flags;
-}
+field_flags.NOT_NULL = 1;
+field_flags.PRI_KEY = 2;
+field_flags.UNIQUE_KEY = 4;
+field_flags.MULTIPLE_KEY = 8;
+field_flags.BLOB = 16;
+field_flags.UNSIGNED = 32;
+field_flags.ZEROFILL = 64;
+field_flags.BINARY = 128;
+field_flags.ENUM = 256;
+field_flags.AUTO_INCREMENT = 512;
+field_flags.TIMESTAMP = 1024;
+field_flags.SET = 2048;
+field_flags.NO_DEFAULT_VALUE = 4096;
+field_flags.ON_UPDATE_NOW = 8192;
+field_flags.NUM = 32768;
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20109,7 +20103,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = requireField_flags();
+    const fiedFlags = field_flags;
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23165,7 +23159,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = requireField_flags();
+const FieldFlags$1 = field_flags;
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23354,7 +23348,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = requireField_flags();
+const FieldFlags = field_flags;
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -28438,14 +28432,15 @@ async function dashboardFinanceiro() {
   return rows[0];
 }
 async function atualizarStatusContaReceber(contaId, conn = pool) {
-  const [[res]] = await conn.query(
-    `SELECT 
-       SUM(valor) total,
-       SUM(valor_pago) pago
-     FROM parcelas_receber
-     WHERE conta_receber_id = ?`,
-    [contaId]
-  );
+  const [[res]] = await conn.query(`
+    SELECT 
+      SUM(pr.valor) total,
+      SUM(pr.valor_pago) pago,
+      cr.venda_id
+    FROM parcelas_receber pr
+    JOIN contas_receber cr ON cr.id = pr.conta_receber_id
+    WHERE pr.conta_receber_id = ?
+  `, [contaId]);
   let status = "aberto";
   if (res.pago >= res.total) status = "pago";
   else if (res.pago > 0) status = "parcial";
@@ -28453,6 +28448,12 @@ async function atualizarStatusContaReceber(contaId, conn = pool) {
     `UPDATE contas_receber SET status = ? WHERE id = ?`,
     [status, contaId]
   );
+  if (status === "pago" && res.venda_id) {
+    await conn.query(
+      `UPDATE vendas SET status = 'pago' WHERE id = ?`,
+      [res.venda_id]
+    );
+  }
 }
 async function listarContasReceber(filtros = {}) {
   const { cliente_id, status } = filtros;
@@ -28487,11 +28488,54 @@ async function listarParcelasReceber(conta_id) {
 }
 async function listarContasPagar() {
   const [rows] = await pool.query(`
-    SELECT cp.*, f.nome AS fornecedor_nome
+    SELECT
+      cp.id,
+      cp.compra_id,
+      f.nome AS fornecedor_nome,
+
+      cp.valor_total,
+
+      COALESCE(SUM(pp.valor_pago), 0) AS valor_pago,
+
+      cp.valor_total - COALESCE(SUM(pp.valor_pago), 0) AS valor_restante,
+
+      cp.status
     FROM contas_pagar cp
-    LEFT JOIN fornecedores f ON f.id = cp.fornecedor_id
+    LEFT JOIN fornecedores f 
+      ON f.CodigoFornecedor = cp.fornecedor_id
+    LEFT JOIN parcelas_pagar pp 
+      ON pp.conta_pagar_id = cp.id
+    GROUP BY cp.id
     ORDER BY cp.id DESC
   `);
+  return rows;
+}
+async function dashboardPagar() {
+  const [[rows]] = await pool.query(`
+    SELECT
+      SUM(p.valor - IFNULL(p.valor_pago, 0)) AS total_pagar,
+      SUM(
+        CASE
+          WHEN p.data_vencimento < CURDATE()
+           AND p.status <> 'pago'
+          THEN (p.valor - IFNULL(p.valor_pago, 0))
+          ELSE 0
+        END
+      ) AS total_atraso
+    FROM parcelas_pagar p
+  `);
+  return {
+    total_pagar: rows.total_pagar || 0,
+    total_atraso: rows.total_atraso || 0
+  };
+}
+async function listarParcelasPagar(contaId, conn = pool) {
+  const [rows] = await conn.query(`
+      SELECT *
+      FROM parcelas_pagar
+      WHERE conta_pagar_id = ?
+      ORDER BY numero_parcela
+    `, [contaId]);
   return rows;
 }
 async function listarVendas() {
@@ -28589,9 +28633,17 @@ async function deletarVenda(id) {
   return true;
 }
 async function pagarVenda(id, forma_pagamento, usuarioId) {
+  if (forma_pagamento === "prazo" || forma_pagamento === "boleto") {
+    return {
+      sucesso: false,
+      mensagem: "Venda a prazo deve ser quitada pelo contas a receber"
+    };
+  }
   const [result] = await pool.query(`
     UPDATE vendas
-    SET status = 'pago', forma_pagamento = ?, atualizado_em = NOW()
+    SET status = 'pago',
+        forma_pagamento = ?,
+        atualizado_em = NOW()
     WHERE id = ?
   `, [forma_pagamento, id]);
   if (result.affectedRows === 0) {
@@ -28614,8 +28666,7 @@ async function pagarVenda(id, forma_pagamento, usuarioId) {
   } else {
     caixaId = cx[0].id;
   }
-  if (forma_pagamento !== "prazo" && forma_pagamento !== "boleto") {
-    await pool.query(`
+  await pool.query(`
     INSERT INTO caixa_movimentos
       (caixa_id, venda_id, tipo, descricao, valor, origem, criado_em, usuario_id)
     SELECT 
@@ -28630,7 +28681,6 @@ async function pagarVenda(id, forma_pagamento, usuarioId) {
     FROM vendas
     WHERE id = ?
   `, [caixaId, usuarioId, id]);
-  }
   return { sucesso: true, caixaId };
 }
 async function listarCompras({ fornecedor_id, status, dataInicio, dataFim } = {}) {
@@ -28781,15 +28831,18 @@ async function salvarCompraCompleta(dados) {
       });
     }
     await conn.query(
-      `INSERT INTO contas_pagar (compra_id, fornecedor_id, valor, vencimento, forma_pagamento, status)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `
+  INSERT INTO contas_pagar 
+    (empresa_id, compra_id, fornecedor_id, descricao, valor_total, criado_em, status)
+  VALUES (?, ?, ?, ?, ?, NOW(), ?)
+  `,
       [
+        dados.empresa_id,
         compra_id,
         dados.fornecedor_id,
+        `Compra #${compra_id}`,
         dados.valor_total,
-        dados.vencimento,
-        dados.forma_pagamento,
-        "pendente"
+        "aberto"
       ]
     );
     await conn.commit();
@@ -28835,13 +28888,28 @@ async function finalizarCompra(compraId) {
     );
   }
   await pool.query(
-    "UPDATE compras SET status = 'paga', atualizado_em = NOW() WHERE id = ?",
+    "UPDATE compras SET status = 'finalizada', atualizado_em = NOW() WHERE id = ?",
     [compraId]
   );
-  await pool.query(
-    "UPDATE contas_pagar SET status = 'paga',pago='sim' WHERE compra_id = ?",
-    [compraId]
-  );
+  await pool.query(`
+  UPDATE contas_pagar cp
+  SET status = CASE
+    WHEN (
+      SELECT COALESCE(SUM(valor_pago), 0)
+      FROM parcelas_pagar
+      WHERE conta_pagar_id = cp.id
+    ) = 0 THEN 'aberto'
+
+    WHEN (
+      SELECT COALESCE(SUM(valor_pago), 0)
+      FROM parcelas_pagar
+      WHERE conta_pagar_id = cp.id
+    ) < cp.valor_total THEN 'parcial'
+
+    ELSE 'pago'
+  END
+  WHERE cp.compra_id = ?
+`, [compraId]);
   return { success: true };
 }
 createRequire(import.meta.url);
@@ -29302,6 +29370,12 @@ ipcMain.handle("financeiro:baixar-parcela", async (_e, dados) => {
 });
 ipcMain.handle("financeiro:listar-contas-pagar", async () => {
   return listarContasPagar();
+});
+ipcMain.handle("financeiro:dashboard-pagar", async () => {
+  return dashboardPagar();
+});
+ipcMain.handle("financeiro:listar-parcelas-pagar", async (_e, contaId) => {
+  return listarParcelasPagar(contaId);
 });
 ipcMain.handle("financeiro:dashboard", async () => {
   return dashboardFinanceiro();

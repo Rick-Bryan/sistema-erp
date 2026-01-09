@@ -16,7 +16,6 @@ export default function ContasReceber({ setPage }: Props) {
     setContas(res);
     setLoading(false);
   }
-  console.log(contas)
   useEffect(() => {
     carregar();
     carregarDashboard();

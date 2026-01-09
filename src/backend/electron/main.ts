@@ -14,7 +14,7 @@ import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda, sal
 import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoesCaixa, registrarCancelamentoVenda, resumoCaixa, fecharCaixa, resumoMovimentosCaixa } from '../db/caixa';
 import { entradaEstoque, saidaEstoque, registrarMovimentoEstoque, atualizarEstoqueECusto, atualizarEstoque, listarMovimentosEstoque } from '../db/estoque_movimento';
 import { listarCompras, criarCompra, criarItensCompra, criarContasPagar, salvarCompraCompleta, getCompraById, finalizarCompra } from '../db/compras';
-import { baixarParcelaReceber, listarContasReceber, obterContasReceber,listarParcelasReceber,listarContasPagar, dashboardFinanceiro } from "../db/financeiro";
+import { baixarParcelaReceber, listarContasReceber, obterContasReceber,listarParcelasReceber,listarContasPagar, dashboardFinanceiro, dashboardPagar, listarParcelasPagar } from "../db/financeiro";
 
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
@@ -602,6 +602,13 @@ ipcMain.handle("financeiro:baixar-parcela", async (_e, dados) => {
 ipcMain.handle("financeiro:listar-contas-pagar", async () => {
   return listarContasPagar();
 });
+ipcMain.handle("financeiro:dashboard-pagar", async () => {
+  return dashboardPagar();
+})
+ipcMain.handle("financeiro:listar-parcelas-pagar", async (_e, contaId) => {
+  return listarParcelasPagar(contaId);
+});
+
 ipcMain.handle("financeiro:dashboard", async () => {
   return dashboardFinanceiro();
 });

@@ -221,18 +221,23 @@ export async function salvarCompraCompleta(dados: {
     }
 
     // 3️⃣ Criar contas a pagar (com correção)
+    // 3️⃣ Criar contas a pagar (CORRETO)
     await conn.query(
-      `INSERT INTO contas_pagar (compra_id, fornecedor_id, valor, vencimento, forma_pagamento, status)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `
+  INSERT INTO contas_pagar 
+    (empresa_id, compra_id, fornecedor_id, descricao, valor_total, criado_em, status)
+  VALUES (?, ?, ?, ?, ?, NOW(), ?)
+  `,
       [
+        dados.empresa_id,
         compra_id,
         dados.fornecedor_id,
+        `Compra #${compra_id}`,
         dados.valor_total,
-        dados.vencimento,
-        dados.forma_pagamento,
-        "pendente",
+        "aberto",
       ]
     );
+
 
     await conn.commit();
     return { sucesso: true, id: compra_id };
@@ -277,13 +282,29 @@ export async function finalizarCompra(compraId: number) {
 
   // 3️⃣ Finalizar compra
   await pool.query(
-    "UPDATE compras SET status = 'paga', atualizado_em = NOW() WHERE id = ?",
+    "UPDATE compras SET status = 'finalizada', atualizado_em = NOW() WHERE id = ?",
     [compraId]
   );
-  await pool.query(
-    "UPDATE contas_pagar SET status = 'paga',pago='sim' WHERE compra_id = ?",
-    [compraId]
-  );
+  await pool.query(`
+  UPDATE contas_pagar cp
+  SET status = CASE
+    WHEN (
+      SELECT COALESCE(SUM(valor_pago), 0)
+      FROM parcelas_pagar
+      WHERE conta_pagar_id = cp.id
+    ) = 0 THEN 'aberto'
+
+    WHEN (
+      SELECT COALESCE(SUM(valor_pago), 0)
+      FROM parcelas_pagar
+      WHERE conta_pagar_id = cp.id
+    ) < cp.valor_total THEN 'parcial'
+
+    ELSE 'pago'
+  END
+  WHERE cp.compra_id = ?
+`, [compraId]);
+
 
   return { success: true };
 }
