@@ -99,7 +99,7 @@ export default function App() {
       case 'dashboard': return <Dashboard setPage={setPage} />
       case 'clientes': return <Clientes setPage={setPage} />;
       case 'produtos':
-        return <Produtos setPage={setPage} setProdutoSelecionado={setProdutoSelecionado} />;
+        return <Produtos setPage={setPage} />;
       case 'produto-detalhes':
         return <ProdutoDetalhes produtoSelecionado={produtoSelecionado} voltar={() => setPage('produtos')} />;
       case 'movimentacao': return <Movimentacao setPage={setPage} />;

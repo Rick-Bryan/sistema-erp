@@ -28529,6 +28529,102 @@ async function dashboardPagar() {
     total_atraso: rows.total_atraso || 0
   };
 }
+async function baixarParcelaPagar({
+  parcela_id,
+  valor_pago,
+  forma_pagamento,
+  usuario_id,
+  caixa_id,
+  origemPagamento
+}) {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+  try {
+    const [[parcela]] = await conn.query(`
+      SELECT 
+        pp.*,
+        cp.id AS conta_pagar_id,
+        cp.compra_id
+      FROM parcelas_pagar pp
+      JOIN contas_pagar cp ON cp.id = pp.conta_pagar_id
+      WHERE pp.id = ?
+    `, [parcela_id]);
+    if (!parcela) {
+      throw new Error("Parcela não encontrada");
+    }
+    if (parcela.status === "pago") {
+      throw new Error("Parcela já está quitada");
+    }
+    const novoValorPago = Number(parcela.valor_pago || 0) + Number(valor_pago);
+    if (novoValorPago > parcela.valor) {
+      throw new Error("Valor pago excede o valor da parcela");
+    }
+    const novoStatus = novoValorPago >= parcela.valor ? "pago" : "aberto";
+    await conn.query(`
+      UPDATE parcelas_pagar
+      SET
+        valor_pago = ?,
+        status = ?,
+        data_pagamento = ?
+      WHERE id = ?
+    `, [
+      novoValorPago,
+      novoStatus,
+      novoStatus === "pago" ? /* @__PURE__ */ new Date() : null,
+      parcela_id
+    ]);
+    await atualizarStatusContaPagar(parcela.conta_pagar_id, conn);
+    if (caixa_id !== null) {
+      await conn.query(`
+      INSERT INTO caixa_movimentos
+        (caixa_id, tipo, origem, descricao, valor, forma_pagamento, usuario_id, compra_id, criado_em)
+      VALUES
+        (?, 'saida', 'conta_pagar', ?, ?, ?, ?, ?, NOW())
+    `, [
+        caixa_id,
+        `Pagamento parcela ${parcela.numero_parcela}`,
+        valor_pago,
+        forma_pagamento,
+        usuario_id,
+        parcela.compra_id ?? null
+      ]);
+    }
+    await conn.query(` INSERT INTO financeiro_movimentos (origem,tipo,descricao,valor,forma_pagamento,usuario_id, referencia_tipo)
+      VALUES
+      (?,?,?,?,?,?,?)`, [
+      origemPagamento,
+      "saida",
+      `Pagamento de parcela`,
+      valor_pago,
+      forma_pagamento,
+      usuario_id,
+      "Parcela pagar"
+    ]);
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+async function atualizarStatusContaPagar(contaId, conn = pool) {
+  const [[res]] = await conn.query(`
+    SELECT
+      SUM(valor) AS total,
+      SUM(valor_pago) AS pago
+    FROM parcelas_pagar
+    WHERE conta_pagar_id = ?
+  `, [contaId]);
+  let status = "aberto";
+  if (res.pago >= res.total) status = "pago";
+  else if (res.pago > 0) status = "parcial";
+  await conn.query(`
+    UPDATE contas_pagar
+    SET status = ?
+    WHERE id = ?
+  `, [status, contaId]);
+}
 async function listarParcelasPagar(contaId, conn = pool) {
   const [rows] = await conn.query(`
       SELECT *
@@ -28866,24 +28962,17 @@ async function finalizarCompra(compraId) {
         EstoqueAtual = COALESCE(EstoqueAtual,0) + ?,
         CustoUltimaCompra = ?,
         CustoMedio = (
-          ( (COALESCE(EstoqueAtual,0) * COALESCE(CustoMedio,0)) + (? * ?) )
+          ((COALESCE(EstoqueAtual,0) * COALESCE(CustoMedio,0)) + (? * ?))
           / (COALESCE(EstoqueAtual,0) + ?)
         )
-      WHERE CodigoProduto = ?
-      `,
+      WHERE CodigoProduto = ?`,
       [
         item.quantidade,
-        // + quantidade
         item.custo_unitario,
-        // custo última compra
         item.quantidade,
-        // para custo médio: quantidade
         item.custo_unitario,
-        // valor unitário
         item.quantidade,
-        // nova quantidade total
         item.produto_id
-        // produto
       ]
     );
   }
@@ -28891,25 +28980,51 @@ async function finalizarCompra(compraId) {
     "UPDATE compras SET status = 'finalizada', atualizado_em = NOW() WHERE id = ?",
     [compraId]
   );
-  await pool.query(`
-  UPDATE contas_pagar cp
-  SET status = CASE
-    WHEN (
-      SELECT COALESCE(SUM(valor_pago), 0)
-      FROM parcelas_pagar
-      WHERE conta_pagar_id = cp.id
-    ) = 0 THEN 'aberto'
+  const [[conta]] = await pool.query(
+    `SELECT id, valor_total 
+     FROM contas_pagar 
+     WHERE compra_id = ?`,
+    [compraId]
+  );
+  if (!conta) {
+    throw new Error("Conta a pagar não encontrada para a compra");
+  }
+  const [[{ total }]] = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM parcelas_pagar
+     WHERE conta_pagar_id = ?`,
+    [conta.id]
+  );
+  if (total === 0) {
+    await pool.query(
+      `INSERT INTO parcelas_pagar
+       (conta_pagar_id, numero_parcela, valor, valor_pago, data_vencimento, status)
+       VALUES (?, 1, ?, 0, CURDATE(), 'aberto')`,
+      [conta.id, conta.valor_total]
+    );
+  }
+  await pool.query(
+    `
+    UPDATE contas_pagar cp
+    SET status = CASE
+      WHEN (
+        SELECT COALESCE(SUM(valor_pago), 0)
+        FROM parcelas_pagar
+        WHERE conta_pagar_id = cp.id
+      ) = 0 THEN 'aberto'
 
-    WHEN (
-      SELECT COALESCE(SUM(valor_pago), 0)
-      FROM parcelas_pagar
-      WHERE conta_pagar_id = cp.id
-    ) < cp.valor_total THEN 'parcial'
+      WHEN (
+        SELECT COALESCE(SUM(valor_pago), 0)
+        FROM parcelas_pagar
+        WHERE conta_pagar_id = cp.id
+      ) < cp.valor_total THEN 'parcial'
 
-    ELSE 'pago'
-  END
-  WHERE cp.compra_id = ?
-`, [compraId]);
+      ELSE 'pago'
+    END
+    WHERE cp.id = ?
+    `,
+    [conta.id]
+  );
   return { success: true };
 }
 createRequire(import.meta.url);
@@ -29380,4 +29495,10 @@ ipcMain.handle("financeiro:listar-parcelas-pagar", async (_e, contaId) => {
 ipcMain.handle("financeiro:dashboard", async () => {
   return dashboardFinanceiro();
 });
+ipcMain.handle(
+  "financeiro:pagar-parcela-pagar",
+  async (_, dados) => {
+    return baixarParcelaPagar(dados);
+  }
+);
 app.whenReady().then(createWindow);

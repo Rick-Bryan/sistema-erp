@@ -14,7 +14,7 @@ import { listarVendas, criarVenda, atualizarVenda, deletarVenda, pagarVenda, sal
 import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoesCaixa, registrarCancelamentoVenda, resumoCaixa, fecharCaixa, resumoMovimentosCaixa } from '../db/caixa';
 import { entradaEstoque, saidaEstoque, registrarMovimentoEstoque, atualizarEstoqueECusto, atualizarEstoque, listarMovimentosEstoque } from '../db/estoque_movimento';
 import { listarCompras, criarCompra, criarItensCompra, criarContasPagar, salvarCompraCompleta, getCompraById, finalizarCompra } from '../db/compras';
-import { baixarParcelaReceber, listarContasReceber, obterContasReceber,listarParcelasReceber,listarContasPagar, dashboardFinanceiro, dashboardPagar, listarParcelasPagar } from "../db/financeiro";
+import { baixarParcelaReceber, listarContasReceber, obterContasReceber, listarParcelasReceber, listarContasPagar, dashboardFinanceiro, dashboardPagar, listarParcelasPagar, baixarParcelaPagar } from "../db/financeiro";
 
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
@@ -211,7 +211,7 @@ ipcMain.handle("buscar-fabricantes", async (event, termo) => {
   return rows;
 });
 ipcMain.handle("buscar-fabricante-id", async (event, CodigoFabricante) => {
-    await getFabricanteById(CodigoFabricante);
+  await getFabricanteById(CodigoFabricante);
 });
 
 
@@ -510,11 +510,11 @@ ipcMain.handle("getFabricantes", async () => {
   );
   return rows;
 });
-ipcMain.handle('listar-itens-venda', async (event,venda_id)=>{
-  try{
+ipcMain.handle('listar-itens-venda', async (event, venda_id) => {
+  try {
     return await listarItensVenda(venda_id);
   }
-  catch (err){ 
+  catch (err) {
     console.log("erro ao listar itens da venda", err)
     throw err;
   }
@@ -589,16 +589,13 @@ ipcMain.handle("excluirSubGrupo", async (event, id) => {
 ipcMain.handle("financeiro:listar-contas-receber", async (_e, filtros) => {
   return listarContasReceber(filtros);
 });
-
 ipcMain.handle("financeiro:listar-parcelas-receber", async (_e, conta_id) => {
   return listarParcelasReceber(conta_id);
 });
-
 ipcMain.handle("financeiro:baixar-parcela", async (_e, dados) => {
   await baixarParcelaReceber(dados);
   return { sucesso: true };
 });
-
 ipcMain.handle("financeiro:listar-contas-pagar", async () => {
   return listarContasPagar();
 });
@@ -608,10 +605,14 @@ ipcMain.handle("financeiro:dashboard-pagar", async () => {
 ipcMain.handle("financeiro:listar-parcelas-pagar", async (_e, contaId) => {
   return listarParcelasPagar(contaId);
 });
-
 ipcMain.handle("financeiro:dashboard", async () => {
   return dashboardFinanceiro();
 });
+ipcMain.handle("financeiro:pagar-parcela-pagar",async (_, dados) => {
+return baixarParcelaPagar(dados);
+  }
+);
+
 app.whenReady().then(createWindow)
 
 // Exemplo de comunicação entre processos

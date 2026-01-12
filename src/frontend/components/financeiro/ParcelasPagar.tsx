@@ -8,7 +8,12 @@ interface Props {
 export default function ParcelasPagar({ contaId, setPage }: Props) {
   const [parcelas, setParcelas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-
+  const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  const caixaAtual = JSON.parse(localStorage.getItem("caixa_id") || "{}");
+  const [parcelaSelecionada, setParcelaSelecionada] = useState<any>(null);
+  const [valorPagamento, setValorPagamento] = useState("");
+  const [origemPagamento, setOrigemPagamento] = useState('')
+  const [formaPagamento, setFormaPagamento] = useState('');
   async function carregar() {
     setLoading(true);
     const res = await window.ipcRenderer.invoke(
@@ -31,9 +36,7 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
 
 
   async function pagarParcela(parcela: any) {
-    const valor = prompt(
-      `Valor a pagar (máx R$ ${Number(parcela.valor - parcela.valor_pago).toFixed(2)})`
-    );
+    const valor = valorPagamento
 
     if (!valor) return;
 
@@ -43,17 +46,26 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
       return;
     }
 
-    await window.ipcRenderer.invoke("financeiro:pagar-parcela", {
+    await window.ipcRenderer.invoke("financeiro:pagar-parcela-pagar", {
       parcela_id: parcela.id,
       valor_pago: valorPago,
-      forma_pagamento: "dinheiro", // depois você pode abrir select
-      usuario_id: 1,               // pegar do contexto/login
-      caixa_id: 1                  // pegar do caixa aberto
+      forma_pagamento: formaPagamento, // depois você pode abrir select
+      usuario_id: usuarioLogado.id,               // pegar do contexto/login
+      caixa_id: origemPagamento==='cofre'? null : caixaAtual,
+      origemPagamento                  // pegar do caixa aberto
     });
 
     carregar();
   }
-
+  const formasPagamento = [
+    { id: 'dinheiro', label: 'Dinheiro' },
+    { id: 'cartao', label: 'Cartão' },
+    { id: 'pix', label: 'Pix' },
+  ];
+  const listaOrigem = [
+    { id: 'caixa', label: 'Caixa' },
+    { id: 'cofre', label: 'Cofre' },
+  ];
   return (
     <div style={{ padding: 20 }}>
       <button
@@ -100,10 +112,14 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
                   {p.status !== "pago" && (
                     <button
                       style={btnPagar}
-                      onClick={() => pagarParcela(p)}
+                      onClick={() => {
+                        setParcelaSelecionada(p);
+                        setValorPagamento("");
+                      }}
                     >
                       Pagar
                     </button>
+
                   )}
                 </td>
               </tr>
@@ -111,6 +127,68 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
           })}
         </tbody>
       </table>
+      {parcelaSelecionada && (
+        <div style={modalOverlay}>
+          <div style={modal}>
+            <h3>Pagar parcela #{parcelaSelecionada.numero_parcela}</h3>
+
+            <select onChange={(e) => setOrigemPagamento(e.target.value)} value={origemPagamento}>
+
+              {listaOrigem.map((item, index) => (
+                <option value={item.id}>{item.label}</option>
+              ))}
+
+            </select>
+            <select onChange={(e) => setFormaPagamento(e.target.value)} value={formaPagamento}>
+
+              {formasPagamento.map((item, index) => (
+                <option value={item.id}>{item.label}</option>
+              ))}
+
+            </select>
+            <input
+              type="number"
+              placeholder="Valor a pagar"
+              value={valorPagamento}
+              onChange={(e) => setValorPagamento(e.target.value)}
+              style={input}
+
+            />
+
+            <div style={{ marginTop: 10 }}>
+              <button
+                style={btnConfirmar}
+                onClick={async () => {
+                  const valorPago = Number(valorPagamento);
+                  const saldo =
+                    parcelaSelecionada.valor -
+                    (parcelaSelecionada.valor_pago || 0);
+
+                  if (valorPago <= 0 || valorPago > saldo) {
+                    alert("Valor inválido");
+                    return;
+                  }
+
+
+                  pagarParcela(parcelaSelecionada)
+                  setParcelaSelecionada(null);
+                  carregar();
+                }}
+              >
+                Confirmar
+              </button>
+
+              <button
+                style={btnCancelar}
+                onClick={() => setParcelaSelecionada(null)}
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -153,4 +231,49 @@ const td = {
   padding: "10px",
   textAlign: "center" as const,
   fontSize: "14px",
+};
+const modalOverlay = {
+  position: "fixed" as const,
+  top: 0,
+  left: 0,
+  width: "100%",
+  height: "100%",
+  background: "rgba(0,0,0,0.5)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const modal = {
+  background: "#fff",
+  padding: 20,
+  borderRadius: 8,
+  width: 300,
+
+};
+
+const input = {
+  width: "100%",
+  padding: 8,
+  marginTop: 10,
+  boxSizing: 'border-box',
+};
+
+const btnConfirmar = {
+  backgroundColor: '#1e3a8a',
+  padding: "6px 12px",
+  borderRadius: 6,
+  border: "none",
+  marginRight: 5,
+  cursor: "pointer",
+  color: '#fff',
+};
+
+const btnCancelar = {
+  backgroundColor: '#6b7280',
+  color: '#fff',
+  padding: "6px 12px",
+  borderRadius: 6,
+  border: "none",
+  cursor: "pointer",
 };

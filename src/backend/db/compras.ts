@@ -264,18 +264,17 @@ export async function finalizarCompra(compraId: number) {
         EstoqueAtual = COALESCE(EstoqueAtual,0) + ?,
         CustoUltimaCompra = ?,
         CustoMedio = (
-          ( (COALESCE(EstoqueAtual,0) * COALESCE(CustoMedio,0)) + (? * ?) )
+          ((COALESCE(EstoqueAtual,0) * COALESCE(CustoMedio,0)) + (? * ?))
           / (COALESCE(EstoqueAtual,0) + ?)
         )
-      WHERE CodigoProduto = ?
-      `,
+      WHERE CodigoProduto = ?`,
       [
-        item.quantidade,             // + quantidade
-        item.custo_unitario,         // custo última compra
-        item.quantidade,             // para custo médio: quantidade
-        item.custo_unitario,         // valor unitário
-        item.quantidade,             // nova quantidade total
-        item.produto_id              // produto
+        item.quantidade,
+        item.custo_unitario,
+        item.quantidade,
+        item.custo_unitario,
+        item.quantidade,
+        item.produto_id
       ]
     );
   }
@@ -285,26 +284,60 @@ export async function finalizarCompra(compraId: number) {
     "UPDATE compras SET status = 'finalizada', atualizado_em = NOW() WHERE id = ?",
     [compraId]
   );
-  await pool.query(`
-  UPDATE contas_pagar cp
-  SET status = CASE
-    WHEN (
-      SELECT COALESCE(SUM(valor_pago), 0)
-      FROM parcelas_pagar
-      WHERE conta_pagar_id = cp.id
-    ) = 0 THEN 'aberto'
 
-    WHEN (
-      SELECT COALESCE(SUM(valor_pago), 0)
-      FROM parcelas_pagar
-      WHERE conta_pagar_id = cp.id
-    ) < cp.valor_total THEN 'parcial'
+  // 4️⃣ Buscar conta a pagar
+  const [[conta]]: any = await pool.query(
+    `SELECT id, valor_total 
+     FROM contas_pagar 
+     WHERE compra_id = ?`,
+    [compraId]
+  );
 
-    ELSE 'pago'
-  END
-  WHERE cp.compra_id = ?
-`, [compraId]);
+  if (!conta) {
+    throw new Error("Conta a pagar não encontrada para a compra");
+  }
 
+  // 5️⃣ Verificar se já existem parcelas
+  const [[{ total }]]: any = await pool.query(
+    `SELECT COUNT(*) AS total
+     FROM parcelas_pagar
+     WHERE conta_pagar_id = ?`,
+    [conta.id]
+  );
+
+  // 6️⃣ Criar parcela única se não existir
+  if (total === 0) {
+    await pool.query(
+      `INSERT INTO parcelas_pagar
+       (conta_pagar_id, numero_parcela, valor, valor_pago, data_vencimento, status)
+       VALUES (?, 1, ?, 0, CURDATE(), 'aberto')`,
+      [conta.id, conta.valor_total]
+    );
+  }
+
+  // 7️⃣ Atualizar status da conta a pagar
+  await pool.query(
+    `
+    UPDATE contas_pagar cp
+    SET status = CASE
+      WHEN (
+        SELECT COALESCE(SUM(valor_pago), 0)
+        FROM parcelas_pagar
+        WHERE conta_pagar_id = cp.id
+      ) = 0 THEN 'aberto'
+
+      WHEN (
+        SELECT COALESCE(SUM(valor_pago), 0)
+        FROM parcelas_pagar
+        WHERE conta_pagar_id = cp.id
+      ) < cp.valor_total THEN 'parcial'
+
+      ELSE 'pago'
+    END
+    WHERE cp.id = ?
+    `,
+    [conta.id]
+  );
 
   return { success: true };
 }
