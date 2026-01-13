@@ -1,0 +1,406 @@
+import { Card, CardContent } from "../../components/ui/card";
+import { useEffect, useState } from "react";
+
+interface Conta {
+    id: number;
+    nome: string;
+    tipo: "cofre" | "banco";
+    saldo: number;
+    ativo: number;
+}
+interface Props {
+    setPage: (page: string) => void;
+}
+export default function FinanceiroContas({ setPage }: Props) {
+    const [contas, setContas] = useState<Conta[]>([]);
+    const [modalAberto, setModalAberto] = useState(false);
+    const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+
+    const [novaConta, setNovaConta] = useState({
+        empresa_id: usuarioLogado.empresa_id,
+        nome: "",
+        tipo: "cofre" as "cofre" | "banco",
+        saldo: 0,
+        ativo: 1,
+        banco_nome: '',
+        banco_codigo: '',
+        agencia: '',
+        conta: '',
+        tipo_conta: "corrente" as "corrente" | "poupanca" | 'pagamento',
+    });
+    console.log(usuarioLogado)
+    useEffect(() => {
+        async function carregarContas() {
+            try {
+                const dados = await window.ipcRenderer.invoke(
+                    "financeiro:listar-contas"
+                );
+                setContas(dados);
+                if (dados.tipo !== "banco") {
+                    dados.banco_nome = null;
+                    dados.banco_codigo = null;
+                    dados.agencia = null;
+                    dados.conta = null;
+                    dados.tipo_conta = null;
+                }
+
+            } catch (err) {
+                console.error("Erro ao carregar contas", err);
+            }
+        }
+
+        carregarContas();
+    }, []);
+
+    console.log(contas)
+    return (
+        <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
+            <button
+                onClick={() => setPage('financeiro')}
+                style={{
+                    backgroundColor: '#e5e7eb',
+                    color: '#1e3a8a',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    marginBottom: '20px',
+                }}
+            >
+                ← Voltar
+            </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ color: '#1e3a8a' }}>Contas financeiras</h2>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                        onClick={() => setModalAberto(true)}
+                        style={{
+                            backgroundColor: "#1e3a8a",
+                            color: "#fff",
+                            border: "none",
+                            borderRadius: 6,
+                            padding: "8px 14px",
+                            cursor: "pointer",
+                            fontWeight: 600,
+                        }}
+                    >
+                        ＋ Cadastrar conta
+                    </button>
+
+                </div>
+            </div>
+
+            <Card>
+                <CardContent>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                        <thead style={theadRow}>
+                            <tr >
+                                <th style={th} align="left">Conta</th>
+                                <th style={th} >Tipo</th>
+                                <th style={th} align="right">Saldo</th>
+                                <th style={th} >Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {contas.map((c) => (
+                                <tr key={c.id} >
+                                    <td style={td}>{c.nome}</td>
+                                    <td style={{ ...td, textTransform: "capitalize" }}>{c.tipo}</td>
+                                    <td style={td} align="right">
+                                        R$ {Number(c.saldo).toFixed(2)}
+                                    </td>
+                                    <td style={td}>
+                                        {c.ativo ? "Ativa" : "Inativa"}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </CardContent>
+            </Card>
+            {modalAberto && (
+                <div
+                    style={{
+                        position: "fixed",
+                        inset: 0,
+                        backgroundColor: "rgba(0,0,0,0.4)",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        zIndex: 999,
+
+                    }}
+                >
+
+
+                    <div style={pageContainer}>
+                        <h3
+                            style={{
+                                fontSize: 18,
+                                fontWeight: 600,
+                                borderBottom: "1px solid #e5e7eb",
+                                paddingBottom: 12,
+                            }}
+                        >
+                            Nova conta financeira
+                        </h3>
+
+                        <div
+                            style={formContainer}
+                        >
+                            <div style={{ marginBottom: 12 }}>
+                                <label style={label}>Nome</label>
+                                <input
+                                    type="text"
+                                    value={novaConta.nome}
+                                    onChange={(e) =>
+                                        setNovaConta({ ...novaConta, nome: e.target.value })
+                                    }
+                                    style={input} />
+                            </div>
+
+                            <div style={{ marginBottom: 12 }}>
+                                <label style={label}>Tipo</label>
+                                <select
+                                    value={novaConta.tipo}
+                                    onChange={(e) =>
+                                        setNovaConta({
+                                            ...novaConta,
+                                            tipo: e.target.value as any,
+                                        })
+                                    }
+                                    style={input}
+                                >
+                                    <option value="cofre">Cofre</option>
+                                    <option value="banco">Banco</option>
+                                </select>
+                            </div>
+
+                            <div style={{ marginBottom: 20 }}>
+                                <label style={label}>Saldo inicial</label>
+                                <input
+                                    type="number"
+                                    value={novaConta.saldo}
+                                    onChange={(e) =>
+                                        setNovaConta({
+                                            ...novaConta,
+                                            saldo: Number(e.target.value),
+                                        })
+                                    }
+                                    style={input}
+                                />
+                            </div>
+                            {novaConta.tipo === 'banco' && (
+
+                                <>
+                                    <div style={{ marginBottom: 20 }}>
+                                        <label style={label}>Nome banco</label>
+                                        <input
+                                            value={novaConta.banco_nome}
+                                            onChange={(e) =>
+                                                setNovaConta({
+                                                    ...novaConta,
+                                                    banco_nome: e.target.value,
+                                                })
+                                            }
+                                            style={input}
+                                        />
+                                    </div>
+
+
+                                    <div style={{ marginBottom: 20 }}>
+                                        <label style={label}>Código</label>
+                                        <input
+
+                                            value={novaConta.banco_codigo}
+                                            onChange={(e) =>
+                                                setNovaConta({
+                                                    ...novaConta,
+                                                    banco_codigo: Number(e.target.value),
+                                                })
+                                            }
+                                            style={input}
+                                        />
+                                    </div>
+                                    <div style={{ marginBottom: 20 }}>
+                                        <label style={label}>Agencia</label>
+                                        <input
+                                            value={novaConta.agencia}
+                                            onChange={(e) =>
+                                                setNovaConta({
+                                                    ...novaConta,
+                                                    agencia: Number(e.target.value),
+                                                })
+                                            }
+                                            style={input}
+                                        />
+                                    </div>
+                                    <div style={{ marginBottom: 20 }}>
+                                        <label style={label}>Conta</label>
+                                        <input
+                                            value={novaConta.conta}
+                                            onChange={(e) =>
+                                                setNovaConta({
+                                                    ...novaConta,
+                                                    conta: Number(e.target.value),
+                                                })
+                                            }
+                                            style={input}
+                                        />
+                                    </div>
+                                    <div style={{ marginBottom: 12 }}>
+                                        <label style={label}>Tipo de conta</label>
+                                        <select
+                                            value={novaConta.tipo_conta}
+                                            onChange={(e) =>
+                                                setNovaConta({
+                                                    ...novaConta,
+                                                    tipo_conta: e.target.value as any,
+                                                })
+                                            }
+                                            style={input}
+                                        >
+                                            <option value="corrente">Corrente</option>
+                                            <option value="poupanca">Poupanca</option>
+                                            <option value="pagamento">Pagamento</option>
+                                        </select>
+                                    </div>
+                                </>
+                            )}
+
+
+                        </div>
+                        <div
+                            style={{
+                                display: "flex",
+                                justifyContent: "flex-end",
+                                gap: 10,
+                            }}
+                        >
+                            <button
+                                onClick={() => setModalAberto(false)}
+                                style={buttonSecondary}
+                            >
+                                Cancelar
+                            </button>
+
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        await window.ipcRenderer.invoke(
+                                            "financeiro:cadastrar-conta",
+                                            novaConta
+                                        );
+
+                                        setModalAberto(false);
+                                        setNovaConta({ nome: "", tipo: "cofre", saldo: 0 });
+
+                                        const dados = await window.ipcRenderer.invoke(
+                                            "financeiro:listar-contas"
+                                        );
+                                        setContas(dados);
+                                    } catch (err) {
+                                        console.error("Erro ao criar conta", err);
+                                    }
+                                }}
+                                style={buttonPrimary}
+                            >
+                                Salvar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+        </div>
+    );
+}
+const input = {
+    width: "100%",
+    padding: 8,
+    boxSizing: 'border-box',
+    borderRadius: '8px'
+
+};
+const pageContainer: React.CSSProperties = {
+    backgroundColor: "#ffffff",
+    borderRadius: "12px",
+    width: "100%",
+    maxWidth: "1100px",
+    maxHeight: "90vh",
+    overflowY: "auto",
+
+    padding: "28px 32px",
+
+    boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+};
+
+const formContainer: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+    gap: "20px 24px",
+    marginTop: 20,
+};
+
+const modalOverlay: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 999,
+};
+
+const theadRow = {
+    backgroundColor: "#e5e7eb",
+    color: "#7c2d12",
+};
+const th: React.CSSProperties = {
+    padding: 10,
+    fontWeight: 600,
+    textAlign: "center",
+};
+const td = {
+    padding: "12px 8px",
+    borderBottom: "1px solid #e5e7eb",
+    fontSize: "14px",
+    textAlign: "center",
+    color: "#374151",
+};
+const label: React.CSSProperties = {
+    fontSize: 13,
+    fontWeight: 600,
+    marginBottom: 6,
+    display: "block",
+    color: "#374151",
+};
+const buttonBase: React.CSSProperties = {
+    padding: '10px 22px',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: 600,
+    fontSize: '15px',
+    transition: '0.2s all ease',
+};
+
+const buttonSecondary: React.CSSProperties = {
+    ...buttonBase,
+    backgroundColor: '#6b7280',
+    color: '#fff',
+};
+
+const buttonPrimary: React.CSSProperties = {
+    ...buttonBase,
+    backgroundColor: '#1e3a8a',
+    color: '#fff',
+    padding: '8px 16px',
+    borderRadius: '6px',
+    border: 'none',
+    cursor: 'pointer',
+    fontWeight: 500,
+};

@@ -114,6 +114,7 @@ ipcMain.handle("login", async (event, { email, senha }) => {
         nome: usuario.nome,
         email: usuario.email,
         nivel: usuario.nivel,
+        empresa_id: usuario.empresa_id
       },
     };
   } catch (error) {
@@ -608,10 +609,141 @@ ipcMain.handle("financeiro:listar-parcelas-pagar", async (_e, contaId) => {
 ipcMain.handle("financeiro:dashboard", async () => {
   return dashboardFinanceiro();
 });
-ipcMain.handle("financeiro:pagar-parcela-pagar",async (_, dados) => {
-return baixarParcelaPagar(dados);
-  }
+ipcMain.handle("financeiro:pagar-parcela-pagar", async (_, dados) => {
+  return baixarParcelaPagar(dados);
+}
 );
+ipcMain.handle("financeiro:resumo-anual", async () => {
+  const [rows]: any = await pool.query(`
+ SELECT
+  YEAR(data_vencimento) AS ano,
+  MONTH(data_vencimento) AS mes,
+
+  -- CONTAS A RECEBER
+  SUM(
+    CASE
+      WHEN origem = 'receber'
+      THEN (valor - IFNULL(valor_pago, 0))
+      ELSE 0
+    END
+  ) AS receber,
+
+  -- CONTAS A PAGAR
+  SUM(
+    CASE
+      WHEN origem = 'pagar'
+      THEN (valor - IFNULL(valor_pago, 0))
+      ELSE 0
+    END
+  ) AS pagar
+
+FROM (
+  -- PARCELAS A RECEBER
+  SELECT
+    valor,
+    valor_pago,
+    data_vencimento,
+    'receber' AS origem
+  FROM parcelas_receber
+  WHERE status IN ('aberto', 'parcial', 'atrasado')
+
+  UNION ALL
+
+  -- PARCELAS A PAGAR
+  SELECT
+    valor,
+    valor_pago,
+    data_vencimento,
+    'pagar' AS origem
+  FROM parcelas_pagar
+  WHERE status = 'aberto'
+) t
+
+GROUP BY ano, mes
+ORDER BY ano, mes;
+
+
+  `);
+
+  return rows;
+});
+ipcMain.handle("financeiro:vencimentos-mes-atual", async () => {
+  console.log("📊 IPC financeiro:vencimentos-mes-atual chamado");
+
+  const [rows]: any = await pool.query(`
+    SELECT
+      SUM(
+        CASE WHEN tipo = 'receber'
+        THEN valor_restante
+        ELSE 0 END
+      ) AS receber,
+      SUM(
+        CASE WHEN tipo = 'pagar'
+        THEN valor_restante
+        ELSE 0 END
+      ) AS pagar
+    FROM (
+      SELECT
+        (pr.valor - IFNULL(pr.valor_pago, 0)) AS valor_restante,
+        'receber' AS tipo
+      FROM parcelas_receber pr
+      WHERE pr.status <> 'pago'
+        AND MONTH(pr.data_vencimento) = MONTH(CURDATE())
+        AND YEAR(pr.data_vencimento) = YEAR(CURDATE())
+
+      UNION ALL
+
+      SELECT
+        (pp.valor - IFNULL(pp.valor_pago, 0)) AS valor_restante,
+        'pagar' AS tipo
+      FROM parcelas_pagar pp
+      WHERE pp.status <> 'pago'
+        AND MONTH(pp.data_vencimento) = MONTH(CURDATE())
+        AND YEAR(pp.data_vencimento) = YEAR(CURDATE())
+    ) t
+  `);
+
+  console.log("📊 Resultado vencimentos mês:", rows[0]);
+  return rows[0] || { receber: 0, pagar: 0 };
+});
+ipcMain.handle("financeiro:listar-contas", async () => {
+  const [rows] = await pool.query(`
+    SELECT 
+      id,
+      nome,
+      tipo,
+      saldo,
+      ativo
+    FROM financeiro_contas
+    ORDER BY tipo, nome
+  `);
+
+  return rows;
+});
+ipcMain.handle("financeiro:cadastrar-conta", async (_event, dados) => {
+  const {
+    empresa_id,
+    nome,
+    tipo,
+    saldo,
+    banco_nome,
+    banco_codigo,
+    agencia,
+    conta,
+    tipo_conta
+  } = dados;
+
+  await pool.query(
+    `
+    INSERT INTO financeiro_contas
+      (empresa_id,nome,tipo,saldo,banco_nome,banco_codigo,agencia,conta,tipo_conta)
+    VALUES (?, ?, ?, ?, ? ,? , ?, ?,?)
+    `,
+    [empresa_id,nome,tipo,saldo,banco_nome,banco_codigo,agencia,conta,tipo_conta]
+  );
+
+  return { success: true };
+});
 
 app.whenReady().then(createWindow)
 

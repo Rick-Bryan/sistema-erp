@@ -23,6 +23,7 @@ import Financeiro from './components/financeiro/Financeiro';
 import ContasReceber from './components/financeiro/ContasReceber';
 import ParcelasReceber from './components/financeiro/ParcelasReceber';
 import ContasPagar from './components/financeiro/ContasPagar';
+import FinanceiroContas from './components/financeiro/FinanceiroContas';
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
@@ -66,7 +67,9 @@ export default function App() {
       if (parts[1] === "receber" && parts.length === 2) {
         return <ContasReceber setPage={setPage} />;
       }
-
+      if (parts[1] === "contas") {
+        return <FinanceiroContas setPage={setPage} />;
+      }
       // financeiro/receber/parcelas/:id
       if (parts[1] === "receber" && parts[2] === "parcelas") {
         const contaId = Number(parts[3]);
@@ -120,7 +123,6 @@ export default function App() {
         return <Caixa setPage={setPage} setCaixaSelecionado={setCaixaSelecionado} />
       case "movimentacao-estoque":
         return <EstoqueMovimentos setPage={setPage} />;
-
       case 'caixa-detalhes':
         return (
           <CaixaDetalhes

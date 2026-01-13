@@ -147,8 +147,9 @@ export async function getCompraById(id: number) {
 export async function salvarCompraCompleta(dados: {
   fornecedor_id: number;
   usuario_id: number;
+  empresa_id: number;
   valor_total: number;
-  forma_pagamento: string;
+  forma_pagamento: "à vista" | "a prazo";
   status?: string;
   observacoes?: string;
   itens: {
@@ -156,91 +157,130 @@ export async function salvarCompraCompleta(dados: {
     quantidade: number;
     custo_unitario: number;
   }[];
-  vencimento: string;
-}) {
+  vencimento?: string;
+  parcelas?: number;
 
+  // qtde de parcelas (se a prazo)
+}) {
   const conn = await pool.getConnection();
 
   try {
     await conn.beginTransaction();
 
-    // 🔎 VALIDAR ITENS ANTES DE QUALQUER INSERT
+    // 🔎 Validações
     if (!dados.itens || dados.itens.length === 0) {
       throw new Error("Nenhum item informado na compra.");
     }
 
     for (const item of dados.itens) {
-      if (!item.produto_id || item.produto_id === 0) {
-        throw new Error("Item de compra inválido: produto não selecionado.");
-      }
-      if (!item.quantidade || item.quantidade <= 0) {
-        throw new Error("Item de compra inválido: quantidade inválida.");
-      }
-      if (!item.custo_unitario || item.custo_unitario <= 0) {
-        throw new Error("Item de compra inválido: custo unitário inválido.");
-      }
+      if (!item.produto_id) throw new Error("Produto inválido.");
+      if (item.quantidade <= 0) throw new Error("Quantidade inválida.");
+      if (item.custo_unitario <= 0) throw new Error("Custo inválido.");
     }
 
-    // 1️⃣ Criar compra (agora usando conn)
-    const [compra] = await conn.query(
-      `INSERT INTO compras (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+    // 1️⃣ Criar compra
+    const [compra]: any = await conn.query(
+      `
+      INSERT INTO compras
+        (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
+      VALUES (?, ?, ?, ?, ?, ?)
+      `,
       [
         dados.fornecedor_id,
         dados.usuario_id,
         dados.valor_total,
         dados.forma_pagamento,
         dados.status || "aberta",
-        dados.observacoes || null,
+        dados.observacoes || null
       ]
     );
 
-    const compra_id = (compra as any).insertId;
+    const compra_id = compra.insertId;
 
-    // 2️⃣ Criar itens + registrar estoque
+    // 2️⃣ Itens da compra
     for (const item of dados.itens) {
       await conn.query(
-        `INSERT INTO itens_compra (compra_id, produto_id, quantidade, custo_unitario)
-         VALUES (?, ?, ?, ?)`,
+        `
+        INSERT INTO itens_compra
+          (compra_id, produto_id, quantidade, custo_unitario)
+        VALUES (?, ?, ?, ?)
+        `,
         [compra_id, item.produto_id, item.quantidade, item.custo_unitario]
       );
-
-      // 💾 Registrar estoque
-      await registrarMovimentoEstoque({
-        produto_id: item.produto_id,
-        quantidade: item.quantidade,
-        custo_unitario: item.custo_unitario,
-        documento_id: compra_id,
-        observacao: `Entrada por compra #${compra_id}`,
-        tipo: 'entrada',
-        origem: 'compra'
-      });
-
-
-
     }
 
-    // 3️⃣ Criar contas a pagar (com correção)
-    // 3️⃣ Criar contas a pagar (CORRETO)
-    await conn.query(
+    // 3️⃣ Criar conta a pagar
+    const [conta]: any = await conn.query(
       `
-  INSERT INTO contas_pagar 
-    (empresa_id, compra_id, fornecedor_id, descricao, valor_total, criado_em, status)
-  VALUES (?, ?, ?, ?, ?, NOW(), ?)
-  `,
+      INSERT INTO contas_pagar
+        (empresa_id, compra_id, fornecedor_id, descricao, valor_total, status, criado_em)
+      VALUES (?, ?, ?, ?, ?, 'aberto', NOW())
+      `,
       [
         dados.empresa_id,
         compra_id,
         dados.fornecedor_id,
         `Compra #${compra_id}`,
-        dados.valor_total,
-        "aberto",
+        dados.valor_total
       ]
     );
 
+    const conta_pagar_id = conta.insertId;
+
+    // 4️⃣ Criar parcelas SOMENTE se for a prazo
+    if (dados.forma_pagamento === "a prazo") {
+      if (!dados.parcelas || dados.parcelas < 1) {
+        throw new Error("Número de parcelas inválido.");
+      }
+
+      if (!dados.vencimento) {
+        throw new Error("Data de vencimento não informada.");
+      }
+
+      const totalParcelas = dados.parcelas;
+      const valorParcela = Number(
+        (dados.valor_total / totalParcelas).toFixed(2)
+      );
+
+      const dataBase = new Date(dados.vencimento);
+
+      if (isNaN(dataBase.getTime())) {
+        throw new Error("Data de vencimento inválida.");
+      }
+
+      for (let i = 1; i <= totalParcelas; i++) {
+        const vencimento = new Date(dataBase);
+        vencimento.setMonth(dataBase.getMonth() + (i - 1));
+
+        await conn.query(
+          `
+      INSERT INTO parcelas_pagar
+        (conta_pagar_id, numero_parcela, valor, valor_pago, data_vencimento, status)
+      VALUES (?, ?, ?, 0, ?, 'aberto')
+      `,
+          [
+            conta_pagar_id,
+            i,
+            valorParcela,
+            vencimento.toISOString().slice(0, 10)
+          ]
+        );
+      }
+    }
+    if (dados.forma_pagamento === "à vista") {
+      await conn.query(
+        `
+    UPDATE contas_pagar
+    SET status = 'pago'
+    WHERE id = ?
+    `,
+        [conta_pagar_id]
+      );
+    }
+
 
     await conn.commit();
-    return { sucesso: true, id: compra_id };
+    return { sucesso: true, compra_id };
 
   } catch (err) {
     await conn.rollback();
@@ -249,6 +289,7 @@ export async function salvarCompraCompleta(dados: {
     conn.release();
   }
 }
+
 export async function finalizarCompra(compraId: number) {
   // 1️⃣ Buscar itens da compra
   const [itens]: any = await pool.query(
@@ -285,59 +326,6 @@ export async function finalizarCompra(compraId: number) {
     [compraId]
   );
 
-  // 4️⃣ Buscar conta a pagar
-  const [[conta]]: any = await pool.query(
-    `SELECT id, valor_total 
-     FROM contas_pagar 
-     WHERE compra_id = ?`,
-    [compraId]
-  );
-
-  if (!conta) {
-    throw new Error("Conta a pagar não encontrada para a compra");
-  }
-
-  // 5️⃣ Verificar se já existem parcelas
-  const [[{ total }]]: any = await pool.query(
-    `SELECT COUNT(*) AS total
-     FROM parcelas_pagar
-     WHERE conta_pagar_id = ?`,
-    [conta.id]
-  );
-
-  // 6️⃣ Criar parcela única se não existir
-  if (total === 0) {
-    await pool.query(
-      `INSERT INTO parcelas_pagar
-       (conta_pagar_id, numero_parcela, valor, valor_pago, data_vencimento, status)
-       VALUES (?, 1, ?, 0, CURDATE(), 'aberto')`,
-      [conta.id, conta.valor_total]
-    );
-  }
-
-  // 7️⃣ Atualizar status da conta a pagar
-  await pool.query(
-    `
-    UPDATE contas_pagar cp
-    SET status = CASE
-      WHEN (
-        SELECT COALESCE(SUM(valor_pago), 0)
-        FROM parcelas_pagar
-        WHERE conta_pagar_id = cp.id
-      ) = 0 THEN 'aberto'
-
-      WHEN (
-        SELECT COALESCE(SUM(valor_pago), 0)
-        FROM parcelas_pagar
-        WHERE conta_pagar_id = cp.id
-      ) < cp.valor_total THEN 'parcial'
-
-      ELSE 'pago'
-    END
-    WHERE cp.id = ?
-    `,
-    [conta.id]
-  );
 
   return { success: true };
 }

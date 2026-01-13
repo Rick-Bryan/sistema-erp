@@ -1,5 +1,7 @@
 import { Card, CardHeader, CardContent } from "../../components/ui/card";
-import { ArrowDownCircle, ArrowUpCircle, BarChart } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, BarChart,Wallet } from "lucide-react";
+import FinanceiroResumo from "./FinanceiroResumo";
+import FinanceiroVencimentosMes from "./FinanceiroVencimentoMes";
 
 interface Props {
     setPage: (page: string) => void;
@@ -32,7 +34,10 @@ export default function Financeiro({ setPage }: Props) {
                     display: "grid",
                     gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))",
                     gap: 16,
-                }}
+                    marginTop: 16,
+                    marginBottom: 16,
+                }
+                }
             >
                 <Card
                     className="cursor-pointer"
@@ -63,7 +68,7 @@ export default function Financeiro({ setPage }: Props) {
                 </Card>
                 <Card
                     className="cursor-pointer"
-                    onClick={() => setPage("financeiro-fluxo")}
+                    onClick={() => setPage("caixa")}
                 >
                     <CardHeader>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -75,7 +80,25 @@ export default function Financeiro({ setPage }: Props) {
                         Entradas, saídas e saldo consolidado
                     </CardContent>
                 </Card>
+                <Card
+                    className="cursor-pointer"
+                    onClick={() => setPage("financeiro/contas")}
+                >
+                    <CardHeader>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <Wallet style={{ width: 28, height: 28 }} />
+                            <strong>Contas</strong>
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        Caixa, Cofre e Bancos
+                    </CardContent>
+                </Card>
+
             </div>
-        </div>
+
+            <FinanceiroResumo />
+            <FinanceiroVencimentosMes />
+        </div >
     );
 }

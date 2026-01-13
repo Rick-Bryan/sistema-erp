@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import toast from "react-hot-toast";
 
 interface Props {
   contaId: number;
@@ -12,8 +13,11 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
   const caixaAtual = JSON.parse(localStorage.getItem("caixa_id") || "{}");
   const [parcelaSelecionada, setParcelaSelecionada] = useState<any>(null);
   const [valorPagamento, setValorPagamento] = useState("");
-  const [origemPagamento, setOrigemPagamento] = useState('')
-  const [formaPagamento, setFormaPagamento] = useState('');
+  const [origemPagamento, setOrigemPagamento] = useState<'caixa' | 'cofre'>('caixa');
+  const [formaPagamento, setFormaPagamento] = useState('dinheiro');
+
+
+
   async function carregar() {
     setLoading(true);
     const res = await window.ipcRenderer.invoke(
@@ -42,8 +46,11 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
 
     const valorPago = Number(valor);
     if (valorPago <= 0) {
-      alert("Valor inválido");
+      toast.error("Valor inválido");
       return;
+    }
+    if (!origemPagamento || (origemPagamento !== 'caixa' && origemPagamento !== 'cofre')) {
+      throw new Error("Origem inválida. Informe caixa ou cofre.");
     }
 
     await window.ipcRenderer.invoke("financeiro:pagar-parcela-pagar", {
@@ -51,7 +58,7 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
       valor_pago: valorPago,
       forma_pagamento: formaPagamento, // depois você pode abrir select
       usuario_id: usuarioLogado.id,               // pegar do contexto/login
-      caixa_id: origemPagamento==='cofre'? null : caixaAtual,
+      caixa_id: origemPagamento === 'cofre' ? null : caixaAtual,
       origemPagamento                  // pegar do caixa aberto
     });
 
@@ -132,14 +139,14 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
           <div style={modal}>
             <h3>Pagar parcela #{parcelaSelecionada.numero_parcela}</h3>
 
-            <select onChange={(e) => setOrigemPagamento(e.target.value)} value={origemPagamento}>
+            <select style={input} onChange={(e) => setOrigemPagamento(e.target.value)} value={origemPagamento}>
 
               {listaOrigem.map((item, index) => (
                 <option value={item.id}>{item.label}</option>
               ))}
 
             </select>
-            <select onChange={(e) => setFormaPagamento(e.target.value)} value={formaPagamento}>
+            <select style={input} onChange={(e) => setFormaPagamento(e.target.value)} value={formaPagamento}>
 
               {formasPagamento.map((item, index) => (
                 <option value={item.id}>{item.label}</option>
@@ -165,7 +172,7 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
                     (parcelaSelecionada.valor_pago || 0);
 
                   if (valorPago <= 0 || valorPago > saldo) {
-                    alert("Valor inválido");
+                    toast.error("Valor inválido");
                     return;
                   }
 
@@ -257,6 +264,8 @@ const input = {
   padding: 8,
   marginTop: 10,
   boxSizing: 'border-box',
+  borderRadius: '8px',
+
 };
 
 const btnConfirmar = {

@@ -28,7 +28,9 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
     status: "aberta",
     observacoes: "",
     itens: [] as any[],
-    valor_total: 0
+    valor_total: 0,
+    parcelas: 1,
+    vencimento: ""
   });
 
   // Carrega fornecedores e produtos
@@ -86,13 +88,20 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
       toast.error("Todos os itens precisam ter um produto selecionado!");
       return;
     }
+    if (
+      compra.forma_pagamento === "a prazo" &&
+      (!compra.parcelas || !compra.vencimento)
+    ) {
+      toast.error("Informe parcelas e data do primeiro vencimento!");
+      return;
+    }
 
     try {
       await window.electronAPI.addCompraCompleta(compra);
       toast.success("Compra registrada com sucesso!");
       refresh();
       onClose();
-      
+
     } catch (e) {
       console.error(e);
       toast.error("Erro ao salvar compra.");
@@ -130,6 +139,34 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
             <option value="a prazo">A prazo</option>
           </select>
         </div>
+        {compra.forma_pagamento === "a prazo" && (
+          <>
+            <div style={{ marginBottom: 15 }}>
+              <label style={label}>Quantidade de parcelas</label>
+              <input
+                type="number"
+                min={1}
+                value={compra.parcelas}
+                onChange={(e) =>
+                  setCompra({ ...compra, parcelas: Number(e.target.value) })
+                }
+                style={input}
+              />
+            </div>
+
+            <div style={{ marginBottom: 15 }}>
+              <label style={label}>Primeiro vencimento</label>
+              <input
+                type="date"
+                value={compra.vencimento}
+                onChange={(e) =>
+                  setCompra({ ...compra, vencimento: e.target.value })
+                }
+                style={input}
+              />
+            </div>
+          </>
+        )}
 
         <div style={{ marginBottom: 15 }}>
           <label style={label}>Observações</label>

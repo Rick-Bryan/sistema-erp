@@ -28887,19 +28887,16 @@ async function salvarCompraCompleta(dados) {
       throw new Error("Nenhum item informado na compra.");
     }
     for (const item of dados.itens) {
-      if (!item.produto_id || item.produto_id === 0) {
-        throw new Error("Item de compra inválido: produto não selecionado.");
-      }
-      if (!item.quantidade || item.quantidade <= 0) {
-        throw new Error("Item de compra inválido: quantidade inválida.");
-      }
-      if (!item.custo_unitario || item.custo_unitario <= 0) {
-        throw new Error("Item de compra inválido: custo unitário inválido.");
-      }
+      if (!item.produto_id) throw new Error("Produto inválido.");
+      if (item.quantidade <= 0) throw new Error("Quantidade inválida.");
+      if (item.custo_unitario <= 0) throw new Error("Custo inválido.");
     }
     const [compra] = await conn.query(
-      `INSERT INTO compras (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+      `
+      INSERT INTO compras
+        (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
+      VALUES (?, ?, ?, ?, ?, ?)
+      `,
       [
         dados.fornecedor_id,
         dados.usuario_id,
@@ -28912,37 +28909,74 @@ async function salvarCompraCompleta(dados) {
     const compra_id = compra.insertId;
     for (const item of dados.itens) {
       await conn.query(
-        `INSERT INTO itens_compra (compra_id, produto_id, quantidade, custo_unitario)
-         VALUES (?, ?, ?, ?)`,
+        `
+        INSERT INTO itens_compra
+          (compra_id, produto_id, quantidade, custo_unitario)
+        VALUES (?, ?, ?, ?)
+        `,
         [compra_id, item.produto_id, item.quantidade, item.custo_unitario]
       );
-      await registrarMovimentoEstoque({
-        produto_id: item.produto_id,
-        quantidade: item.quantidade,
-        custo_unitario: item.custo_unitario,
-        documento_id: compra_id,
-        observacao: `Entrada por compra #${compra_id}`,
-        tipo: "entrada",
-        origem: "compra"
-      });
     }
-    await conn.query(
+    const [conta] = await conn.query(
       `
-  INSERT INTO contas_pagar 
-    (empresa_id, compra_id, fornecedor_id, descricao, valor_total, criado_em, status)
-  VALUES (?, ?, ?, ?, ?, NOW(), ?)
-  `,
+      INSERT INTO contas_pagar
+        (empresa_id, compra_id, fornecedor_id, descricao, valor_total, status, criado_em)
+      VALUES (?, ?, ?, ?, ?, 'aberto', NOW())
+      `,
       [
         dados.empresa_id,
         compra_id,
         dados.fornecedor_id,
         `Compra #${compra_id}`,
-        dados.valor_total,
-        "aberto"
+        dados.valor_total
       ]
     );
+    const conta_pagar_id = conta.insertId;
+    if (dados.forma_pagamento === "a prazo") {
+      if (!dados.parcelas || dados.parcelas < 1) {
+        throw new Error("Número de parcelas inválido.");
+      }
+      if (!dados.vencimento) {
+        throw new Error("Data de vencimento não informada.");
+      }
+      const totalParcelas = dados.parcelas;
+      const valorParcela = Number(
+        (dados.valor_total / totalParcelas).toFixed(2)
+      );
+      const dataBase = new Date(dados.vencimento);
+      if (isNaN(dataBase.getTime())) {
+        throw new Error("Data de vencimento inválida.");
+      }
+      for (let i = 1; i <= totalParcelas; i++) {
+        const vencimento = new Date(dataBase);
+        vencimento.setMonth(dataBase.getMonth() + (i - 1));
+        await conn.query(
+          `
+      INSERT INTO parcelas_pagar
+        (conta_pagar_id, numero_parcela, valor, valor_pago, data_vencimento, status)
+      VALUES (?, ?, ?, 0, ?, 'aberto')
+      `,
+          [
+            conta_pagar_id,
+            i,
+            valorParcela,
+            vencimento.toISOString().slice(0, 10)
+          ]
+        );
+      }
+    }
+    if (dados.forma_pagamento === "à vista") {
+      await conn.query(
+        `
+    UPDATE contas_pagar
+    SET status = 'pago'
+    WHERE id = ?
+    `,
+        [conta_pagar_id]
+      );
+    }
     await conn.commit();
-    return { sucesso: true, id: compra_id };
+    return { sucesso: true, compra_id };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -28979,51 +29013,6 @@ async function finalizarCompra(compraId) {
   await pool.query(
     "UPDATE compras SET status = 'finalizada', atualizado_em = NOW() WHERE id = ?",
     [compraId]
-  );
-  const [[conta]] = await pool.query(
-    `SELECT id, valor_total 
-     FROM contas_pagar 
-     WHERE compra_id = ?`,
-    [compraId]
-  );
-  if (!conta) {
-    throw new Error("Conta a pagar não encontrada para a compra");
-  }
-  const [[{ total }]] = await pool.query(
-    `SELECT COUNT(*) AS total
-     FROM parcelas_pagar
-     WHERE conta_pagar_id = ?`,
-    [conta.id]
-  );
-  if (total === 0) {
-    await pool.query(
-      `INSERT INTO parcelas_pagar
-       (conta_pagar_id, numero_parcela, valor, valor_pago, data_vencimento, status)
-       VALUES (?, 1, ?, 0, CURDATE(), 'aberto')`,
-      [conta.id, conta.valor_total]
-    );
-  }
-  await pool.query(
-    `
-    UPDATE contas_pagar cp
-    SET status = CASE
-      WHEN (
-        SELECT COALESCE(SUM(valor_pago), 0)
-        FROM parcelas_pagar
-        WHERE conta_pagar_id = cp.id
-      ) = 0 THEN 'aberto'
-
-      WHEN (
-        SELECT COALESCE(SUM(valor_pago), 0)
-        FROM parcelas_pagar
-        WHERE conta_pagar_id = cp.id
-      ) < cp.valor_total THEN 'parcial'
-
-      ELSE 'pago'
-    END
-    WHERE cp.id = ?
-    `,
-    [conta.id]
   );
   return { success: true };
 }
@@ -29097,7 +29086,8 @@ ipcMain.handle("login", async (event, { email, senha }) => {
         id: usuario.id,
         nome: usuario.nome,
         email: usuario.email,
-        nivel: usuario.nivel
+        nivel: usuario.nivel,
+        empresa_id: usuario.empresa_id
       }
     };
   } catch (error) {
@@ -29501,4 +29491,129 @@ ipcMain.handle(
     return baixarParcelaPagar(dados);
   }
 );
+ipcMain.handle("financeiro:resumo-anual", async () => {
+  const [rows] = await pool.query(`
+ SELECT
+  YEAR(data_vencimento) AS ano,
+  MONTH(data_vencimento) AS mes,
+
+  -- CONTAS A RECEBER
+  SUM(
+    CASE
+      WHEN origem = 'receber'
+      THEN (valor - IFNULL(valor_pago, 0))
+      ELSE 0
+    END
+  ) AS receber,
+
+  -- CONTAS A PAGAR
+  SUM(
+    CASE
+      WHEN origem = 'pagar'
+      THEN (valor - IFNULL(valor_pago, 0))
+      ELSE 0
+    END
+  ) AS pagar
+
+FROM (
+  -- PARCELAS A RECEBER
+  SELECT
+    valor,
+    valor_pago,
+    data_vencimento,
+    'receber' AS origem
+  FROM parcelas_receber
+  WHERE status IN ('aberto', 'parcial', 'atrasado')
+
+  UNION ALL
+
+  -- PARCELAS A PAGAR
+  SELECT
+    valor,
+    valor_pago,
+    data_vencimento,
+    'pagar' AS origem
+  FROM parcelas_pagar
+  WHERE status = 'aberto'
+) t
+
+GROUP BY ano, mes
+ORDER BY ano, mes;
+
+
+  `);
+  return rows;
+});
+ipcMain.handle("financeiro:vencimentos-mes-atual", async () => {
+  console.log("📊 IPC financeiro:vencimentos-mes-atual chamado");
+  const [rows] = await pool.query(`
+    SELECT
+      SUM(
+        CASE WHEN tipo = 'receber'
+        THEN valor_restante
+        ELSE 0 END
+      ) AS receber,
+      SUM(
+        CASE WHEN tipo = 'pagar'
+        THEN valor_restante
+        ELSE 0 END
+      ) AS pagar
+    FROM (
+      SELECT
+        (pr.valor - IFNULL(pr.valor_pago, 0)) AS valor_restante,
+        'receber' AS tipo
+      FROM parcelas_receber pr
+      WHERE pr.status <> 'pago'
+        AND MONTH(pr.data_vencimento) = MONTH(CURDATE())
+        AND YEAR(pr.data_vencimento) = YEAR(CURDATE())
+
+      UNION ALL
+
+      SELECT
+        (pp.valor - IFNULL(pp.valor_pago, 0)) AS valor_restante,
+        'pagar' AS tipo
+      FROM parcelas_pagar pp
+      WHERE pp.status <> 'pago'
+        AND MONTH(pp.data_vencimento) = MONTH(CURDATE())
+        AND YEAR(pp.data_vencimento) = YEAR(CURDATE())
+    ) t
+  `);
+  console.log("📊 Resultado vencimentos mês:", rows[0]);
+  return rows[0] || { receber: 0, pagar: 0 };
+});
+ipcMain.handle("financeiro:listar-contas", async () => {
+  const [rows] = await pool.query(`
+    SELECT 
+      id,
+      nome,
+      tipo,
+      saldo,
+      ativo
+    FROM financeiro_contas
+    ORDER BY tipo, nome
+  `);
+  return rows;
+});
+ipcMain.handle("financeiro:cadastrar-conta", async (_event, dados) => {
+  const {
+    empresa_id,
+    nome,
+    tipo,
+    saldo,
+    banco_nome,
+    banco_codigo,
+    agencia,
+    conta,
+    tipo_conta
+  } = dados;
+  await pool.query(
+    `
+    INSERT INTO financeiro_contas
+      (empresa_id,nome,tipo,saldo,banco_nome,banco_codigo,agencia,conta,tipo_conta)
+    VALUES (?, ?, ?, ?, ? ,? , ?, ?,?)
+    `,
+    [empresa_id, nome, tipo, saldo, banco_nome, banco_codigo, agencia, conta, tipo_conta]
+  );
+  return { success: true };
+});
 app.whenReady().then(createWindow);
