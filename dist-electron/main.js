@@ -20025,21 +20025,27 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-field_flags.NOT_NULL = 1;
-field_flags.PRI_KEY = 2;
-field_flags.UNIQUE_KEY = 4;
-field_flags.MULTIPLE_KEY = 8;
-field_flags.BLOB = 16;
-field_flags.UNSIGNED = 32;
-field_flags.ZEROFILL = 64;
-field_flags.BINARY = 128;
-field_flags.ENUM = 256;
-field_flags.AUTO_INCREMENT = 512;
-field_flags.TIMESTAMP = 1024;
-field_flags.SET = 2048;
-field_flags.NO_DEFAULT_VALUE = 4096;
-field_flags.ON_UPDATE_NOW = 8192;
-field_flags.NUM = 32768;
+var hasRequiredField_flags;
+function requireField_flags() {
+  if (hasRequiredField_flags) return field_flags;
+  hasRequiredField_flags = 1;
+  field_flags.NOT_NULL = 1;
+  field_flags.PRI_KEY = 2;
+  field_flags.UNIQUE_KEY = 4;
+  field_flags.MULTIPLE_KEY = 8;
+  field_flags.BLOB = 16;
+  field_flags.UNSIGNED = 32;
+  field_flags.ZEROFILL = 64;
+  field_flags.BINARY = 128;
+  field_flags.ENUM = 256;
+  field_flags.AUTO_INCREMENT = 512;
+  field_flags.TIMESTAMP = 1024;
+  field_flags.SET = 2048;
+  field_flags.NO_DEFAULT_VALUE = 4096;
+  field_flags.ON_UPDATE_NOW = 8192;
+  field_flags.NUM = 32768;
+  return field_flags;
+}
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20103,7 +20109,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = field_flags;
+    const fiedFlags = requireField_flags();
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23159,7 +23165,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = field_flags;
+const FieldFlags$1 = requireField_flags();
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23348,7 +23354,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = field_flags;
+const FieldFlags = requireField_flags();
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -28323,6 +28329,9 @@ async function fecharCaixa({
     motivo_diferenca
   };
 }
+function fixMoney(v) {
+  return Number(Number(v).toFixed(2));
+}
 async function criarContasReceberVenda({ empresa_id, cliente_id, venda_id, valor_total, parcelas }) {
   const status = "aberto";
   const [conta] = await pool.query(
@@ -28355,7 +28364,8 @@ async function baixarParcelaReceber({
   valor_pago,
   forma_pagamento,
   usuario_id,
-  caixa_id
+  caixa_id,
+  conta_id
 }) {
   const conn = await pool.getConnection();
   await conn.beginTransaction();
@@ -28370,11 +28380,18 @@ async function baixarParcelaReceber({
     if (parcela.status === "pago") {
       throw new Error("Parcela já está quitada");
     }
-    const novoValorPago = Number(parcela.valor_pago) + Number(valor_pago);
+    const novoValorPago = Number(
+      (Number(parcela.valor_pago || 0) + Number(valor_pago)).toFixed(2)
+    );
     if (novoValorPago > parcela.valor) {
       throw new Error("Valor pago excede o valor da parcela");
     }
-    const status = novoValorPago >= parcela.valor ? "pago" : "parcial";
+    let status = "aberto";
+    if (novoValorPago >= parcela.valor) {
+      status = "pago";
+    } else if (novoValorPago > 0) {
+      status = "parcial";
+    }
     await conn.query(
       `UPDATE parcelas_receber
    SET valor_pago = ?,
@@ -28388,11 +28405,6 @@ async function baixarParcelaReceber({
         parcela_id
       ]
     );
-    await conn.query(`
-  UPDATE contas_receber
-  SET valor_pago = valor_pago + ?
-  WHERE id = ?
-`, [valor_pago, parcela.conta_receber_id]);
     await atualizarStatusContaReceber(parcela.conta_receber_id, conn);
     await conn.query(
       `INSERT INTO caixa_movimentos
@@ -28434,19 +28446,24 @@ async function dashboardFinanceiro() {
 async function atualizarStatusContaReceber(contaId, conn = pool) {
   const [[res]] = await conn.query(`
     SELECT 
-      SUM(pr.valor) total,
-      SUM(pr.valor_pago) pago,
+      ROUND(SUM(pr.valor),2) AS total,
+      ROUND(SUM(COALESCE(pr.valor_pago,0)),2) AS pago,
       cr.venda_id
     FROM parcelas_receber pr
     JOIN contas_receber cr ON cr.id = pr.conta_receber_id
     WHERE pr.conta_receber_id = ?
   `, [contaId]);
+  let total = Number(res.total || 0);
+  let pago = Number(res.pago || 0);
+  total = Number(total.toFixed(2));
+  pago = Number(pago.toFixed(2));
+  if (pago > total) pago = total;
   let status = "aberto";
-  if (res.pago >= res.total) status = "pago";
-  else if (res.pago > 0) status = "parcial";
+  if (pago === total) status = "pago";
+  else if (pago > 0) status = "parcial";
   await conn.query(
-    `UPDATE contas_receber SET status = ? WHERE id = ?`,
-    [status, contaId]
+    `UPDATE contas_receber SET valor_pago = ?, status = ? WHERE id = ?`,
+    [pago, status, contaId]
   );
   if (status === "pago" && res.venda_id) {
     await conn.query(
@@ -28535,71 +28552,121 @@ async function baixarParcelaPagar({
   forma_pagamento,
   usuario_id,
   caixa_id,
-  origemPagamento
+  origemPagamento,
+  conta_id
 }) {
   const conn = await pool.getConnection();
   await conn.beginTransaction();
   try {
     const [[parcela]] = await conn.query(`
-      SELECT 
-        pp.*,
-        cp.id AS conta_pagar_id,
-        cp.compra_id
-      FROM parcelas_pagar pp
-      JOIN contas_pagar cp ON cp.id = pp.conta_pagar_id
-      WHERE pp.id = ?
-    `, [parcela_id]);
+  SELECT 
+    pp.*,
+    cp.id AS conta_pagar_id,
+    cp.compra_id
+  FROM parcelas_pagar pp
+  JOIN contas_pagar cp ON cp.id = pp.conta_pagar_id
+  WHERE pp.id = ?
+`, [parcela_id]);
+    if (!Number.isInteger(parcela_id)) {
+      throw new Error("Parcela inválida");
+    }
+    if (!Number.isInteger(usuario_id)) {
+      throw new Error("Usuário inválido");
+    }
+    if (!valor_pago || valor_pago <= 0) {
+      throw new Error("Valor pago inválido");
+    }
+    if (!forma_pagamento) {
+      throw new Error("Forma de pagamento não informada");
+    }
+    if (!origemPagamento) {
+      throw new Error("Origem do pagamento não informada");
+    }
+    if (origemPagamento === "caixa") {
+      if (!Number.isInteger(caixa_id)) {
+        throw new Error("Caixa não informado");
+      }
+    }
+    if (origemPagamento === "banco" || origemPagamento === "cofre") {
+      if (!Number.isInteger(conta_id)) {
+        throw new Error("Conta financeira não informada");
+      }
+    }
     if (!parcela) {
       throw new Error("Parcela não encontrada");
     }
     if (parcela.status === "pago") {
       throw new Error("Parcela já está quitada");
     }
-    const novoValorPago = Number(parcela.valor_pago || 0) + Number(valor_pago);
-    if (novoValorPago > parcela.valor) {
-      throw new Error("Valor pago excede o valor da parcela");
+    let novoValorPago = fixMoney(
+      Number(parcela.valor_pago || 0) + Number(valor_pago)
+    );
+    const valorParcela = fixMoney(parcela.valor);
+    if (novoValorPago > valorParcela) {
+      novoValorPago = valorParcela;
     }
-    const novoStatus = novoValorPago >= parcela.valor ? "pago" : "aberto";
+    ;
+    const pagoFinal = fixMoney(novoValorPago);
+    const novoStatus = pagoFinal >= valorParcela ? "pago" : "aberto";
     await conn.query(`
-      UPDATE parcelas_pagar
-      SET
-        valor_pago = ?,
-        status = ?,
-        data_pagamento = ?
-      WHERE id = ?
-    `, [
-      novoValorPago,
+  UPDATE parcelas_pagar
+SET
+  valor_pago = ROUND(?,2),
+  status = ?,
+  data_pagamento = ?
+WHERE id = ?
+
+`, [
+      pagoFinal,
       novoStatus,
       novoStatus === "pago" ? /* @__PURE__ */ new Date() : null,
       parcela_id
     ]);
     await atualizarStatusContaPagar(parcela.conta_pagar_id, conn);
-    if (caixa_id !== null) {
+    if (origemPagamento === "caixa") {
       await conn.query(`
-      INSERT INTO caixa_movimentos
-        (caixa_id, tipo, origem, descricao, valor, forma_pagamento, usuario_id, compra_id, criado_em)
-      VALUES
-        (?, 'saida', 'conta_pagar', ?, ?, ?, ?, ?, NOW())
-    `, [
+  INSERT INTO caixa_movimentos
+    (caixa_id, tipo, origem, descricao, valor, forma_pagamento, usuario_id, criado_em)
+  VALUES
+    (?, 'saida', 'conta_pagar', ?, ?, ?, ?, NOW())
+`, [
         caixa_id,
         `Pagamento parcela ${parcela.numero_parcela}`,
-        valor_pago,
+        pagoFinal,
         forma_pagamento,
-        usuario_id,
-        parcela.compra_id ?? null
+        usuario_id
       ]);
     }
-    await conn.query(` INSERT INTO financeiro_movimentos (origem,tipo,descricao,valor,forma_pagamento,usuario_id, referencia_tipo)
-      VALUES
-      (?,?,?,?,?,?,?)`, [
-      origemPagamento,
-      "saida",
-      `Pagamento de parcela`,
+    if (origemPagamento !== "caixa") {
+      await conn.query(`
+  INSERT INTO financeiro_movimentos
+    (origem, tipo, descricao, valor, forma_pagamento, usuario_id, referencia_tipo)
+  VALUES
+    (?, 'saida', ?, ?, ?, ?, ?)
+`, [
+        origemPagamento,
+        "Pagamento de parcela",
+        pagoFinal,
+        forma_pagamento,
+        usuario_id,
+        "Parcela pagar"
+      ]);
+      await atualizarSaldoConta(
+        conn,
+        conta_id,
+        pagoFinal,
+        "saida"
+      );
+    }
+    if (pagoFinal <= 0) {
+      throw new Error("Valor aplicado inválido");
+    }
+    console.log(
+      conta_id,
+      pagoFinal,
       valor_pago,
-      forma_pagamento,
-      usuario_id,
-      "Parcela pagar"
-    ]);
+      "saida"
+    );
     await conn.commit();
   } catch (err) {
     await conn.rollback();
@@ -28617,13 +28684,21 @@ async function atualizarStatusContaPagar(contaId, conn = pool) {
     WHERE conta_pagar_id = ?
   `, [contaId]);
   let status = "aberto";
+  res.total = fixMoney(res.total || 0);
+  res.pago = fixMoney(res.pago || 0);
   if (res.pago >= res.total) status = "pago";
   else if (res.pago > 0) status = "parcial";
   await conn.query(`
-    UPDATE contas_pagar
-    SET status = ?
-    WHERE id = ?
-  `, [status, contaId]);
+  UPDATE contas_pagar
+  SET 
+    status = ?,
+    valor_pago = (
+      SELECT ROUND(SUM(valor_pago),2)
+      FROM parcelas_pagar
+      WHERE conta_pagar_id = ?
+    )
+  WHERE id = ?
+`, [status, contaId, contaId]);
 }
 async function listarParcelasPagar(contaId, conn = pool) {
   const [rows] = await conn.query(`
@@ -28633,6 +28708,17 @@ async function listarParcelasPagar(contaId, conn = pool) {
       ORDER BY numero_parcela
     `, [contaId]);
   return rows;
+}
+async function atualizarSaldoConta(conn, conta_id, valor, tipo) {
+  const operador = "-";
+  await conn.query(
+    `
+    UPDATE financeiro_contas
+    SET saldo = saldo ${operador} ?
+    WHERE id = ?
+    `,
+    [valor, conta_id]
+  );
 }
 async function listarVendas() {
   const [rows] = await pool.query(`
@@ -28806,15 +28892,15 @@ async function criarCompra({
   fornecedor_id,
   usuario_id,
   valor_total,
-  forma_pagamento,
+  tipo_pagamento,
   status,
   observacoes
 }) {
   const [result] = await pool.query(
     `INSERT INTO compras 
-      (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes) 
+      (fornecedor_id, usuario_id, valor_total, tipo_pagamento, status, observacoes) 
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
+    [fornecedor_id, usuario_id, valor_total, tipo_pagamento, status, observacoes]
   );
   return result.insertId;
 }
@@ -28891,16 +28977,26 @@ async function salvarCompraCompleta(dados) {
       if (item.quantidade <= 0) throw new Error("Quantidade inválida.");
       if (item.custo_unitario <= 0) throw new Error("Custo inválido.");
     }
+    if (!dados.usuario_id) {
+      throw new Error("Usuário não identificado para o movimento financeiro");
+    }
+    if (!dados.conta_id) {
+      throw new Error("Conta financeira não informada para a compra à vista");
+    }
+    if (!["avista", "parcelado"].includes(dados.tipo_pagamento)) {
+      throw new Error("Tipo de pagamento inválido");
+    }
     const [compra] = await conn.query(
       `
       INSERT INTO compras
-        (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
-      VALUES (?, ?, ?, ?, ?, ?)
+        (fornecedor_id, usuario_id, valor_total, tipo_pagamento,forma_pagamento, status, observacoes)
+      VALUES (?, ?, ?, ?, ?, ?,?)
       `,
       [
         dados.fornecedor_id,
         dados.usuario_id,
         dados.valor_total,
+        dados.tipo_pagamento,
         dados.forma_pagamento,
         dados.status || "aberta",
         dados.observacoes || null
@@ -28932,7 +29028,7 @@ async function salvarCompraCompleta(dados) {
       ]
     );
     const conta_pagar_id = conta.insertId;
-    if (dados.forma_pagamento === "a prazo") {
+    if (dados.tipo_pagamento === "parcelado") {
       if (!dados.parcelas || dados.parcelas < 1) {
         throw new Error("Número de parcelas inválido.");
       }
@@ -28965,7 +29061,7 @@ async function salvarCompraCompleta(dados) {
         );
       }
     }
-    if (dados.forma_pagamento === "à vista") {
+    if (dados.tipo_pagamento === "avista") {
       await conn.query(
         `
     UPDATE contas_pagar
@@ -28973,6 +29069,15 @@ async function salvarCompraCompleta(dados) {
     WHERE id = ?
     `,
         [conta_pagar_id]
+      );
+      await conn.query(`INSERT INTO financeiro_movimentos
+(conta_id, tipo, valor,forma_pagamento, descricao, referencia_tipo, referencia_id, usuario_id)
+VALUES (?, 'saida', ?,?, 'Compra', 'compra', ?, ?)`, [dados.conta_id, dados.valor_total, dados.forma_pagamento, compra_id, dados.usuario_id]);
+      await atualizarSaldoConta(
+        conn,
+        dados.conta_id,
+        dados.valor_total,
+        "saida"
       );
     }
     await conn.commit();

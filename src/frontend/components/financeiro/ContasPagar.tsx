@@ -86,7 +86,7 @@ export default function ContasPagar({ setPage }: Props) {
             {contas.map((c) => {
               const pago = Number(c.valor_pago || 0);
               const total = Number(c.valor_total);
-              const saldo = total - pago;
+              const saldo = Math.max(0, Number((total - pago).toFixed(2)));
 
               return (
                 <tr key={c.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
@@ -100,7 +100,7 @@ export default function ContasPagar({ setPage }: Props) {
                     <button
                       style={btnParcelas}
                       onClick={() =>
-                    
+
                         setPage(`financeiro/pagar/parcelas/${c.id}`)
 
                       }

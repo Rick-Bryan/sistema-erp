@@ -182,12 +182,12 @@ export default function FinanceiroContas({ setPage }: Props) {
                             <div style={{ marginBottom: 20 }}>
                                 <label style={label}>Saldo inicial</label>
                                 <input
-                                    type="number"
+                                    type="text"
                                     value={novaConta.saldo}
                                     onChange={(e) =>
                                         setNovaConta({
                                             ...novaConta,
-                                            saldo: Number(e.target.value),
+                                            saldo: e.target.value,
                                         })
                                     }
                                     style={input}
@@ -214,12 +214,12 @@ export default function FinanceiroContas({ setPage }: Props) {
                                     <div style={{ marginBottom: 20 }}>
                                         <label style={label}>Código</label>
                                         <input
-
+                                            type="text"
                                             value={novaConta.banco_codigo}
                                             onChange={(e) =>
                                                 setNovaConta({
                                                     ...novaConta,
-                                                    banco_codigo: Number(e.target.value),
+                                                    banco_codigo: e.target.value,
                                                 })
                                             }
                                             style={input}
@@ -228,11 +228,12 @@ export default function FinanceiroContas({ setPage }: Props) {
                                     <div style={{ marginBottom: 20 }}>
                                         <label style={label}>Agencia</label>
                                         <input
+                                         type="text"
                                             value={novaConta.agencia}
                                             onChange={(e) =>
                                                 setNovaConta({
                                                     ...novaConta,
-                                                    agencia: Number(e.target.value),
+                                                    agencia: e.target.value,
                                                 })
                                             }
                                             style={input}
@@ -241,11 +242,12 @@ export default function FinanceiroContas({ setPage }: Props) {
                                     <div style={{ marginBottom: 20 }}>
                                         <label style={label}>Conta</label>
                                         <input
+                                         type="text"
                                             value={novaConta.conta}
                                             onChange={(e) =>
                                                 setNovaConta({
                                                     ...novaConta,
-                                                    conta: Number(e.target.value),
+                                                    conta: e.target.value,
                                                 })
                                             }
                                             style={input}

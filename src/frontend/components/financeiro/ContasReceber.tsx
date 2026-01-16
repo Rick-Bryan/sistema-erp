@@ -26,7 +26,7 @@ export default function ContasReceber({ setPage }: Props) {
   }
 
 
-
+  console.log(contas)
   return (
     <div style={{ padding: '20px', background: '#f5f7fa', minHeight: '100vh' }}>
       <button
@@ -91,7 +91,8 @@ export default function ContasReceber({ setPage }: Props) {
             {contas.map((c) => {
               const pago = Number(c.valor_pago || 0);
               const total = Number(c.valor_total);
-              const saldo = total - pago;
+              const saldo = Number((total - pago).toFixed(2));
+
 
               return (
                 <tr key={c.id} style={{ borderBottom: '1px solid #e5e7eb' }}>

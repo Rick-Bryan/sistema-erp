@@ -92,11 +92,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
 
   addCompraCompleta: (dados) => {
-    const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
-    return ipcRenderer.invoke("compras:salvar-compra-completa", {
-      ...dados,
-      usuario_id: usuario.id,
-    });
+
+    return ipcRenderer.invoke("compras:salvar-compra-completa",dados);
   },
   addSubGrupo: (nome, codigoGrupo) => ipcRenderer.invoke('addSubGrupo', nome, codigoGrupo),
   addGrupo: (nome, comissao) => ipcRenderer.invoke('addGrupo', nome, comissao),

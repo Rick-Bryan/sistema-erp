@@ -72,11 +72,7 @@ electron.contextBridge.exposeInMainWorld("electronAPI", {
   addItensCompra: (payload2) => electron.ipcRenderer.invoke("compras:criar-itens", payload2),
   addContasPagar: (payload2) => electron.ipcRenderer.invoke("compras:criar-contas-pagar", payload2),
   addCompraCompleta: (dados) => {
-    const usuario = JSON.parse(localStorage.getItem("usuario") || "{}");
-    return electron.ipcRenderer.invoke("compras:salvar-compra-completa", {
-      ...dados,
-      usuario_id: usuario.id
-    });
+    return electron.ipcRenderer.invoke("compras:salvar-compra-completa", dados);
   },
   addSubGrupo: (nome, codigoGrupo) => electron.ipcRenderer.invoke("addSubGrupo", nome, codigoGrupo),
   addGrupo: (nome, comissao) => electron.ipcRenderer.invoke("addGrupo", nome, comissao),

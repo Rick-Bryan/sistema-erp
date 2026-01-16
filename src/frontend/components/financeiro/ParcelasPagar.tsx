@@ -4,19 +4,24 @@ import toast from "react-hot-toast";
 interface Props {
   contaId: number;
   setPage: (page: string) => void;
+
 }
 
 export default function ParcelasPagar({ contaId, setPage }: Props) {
   const [parcelas, setParcelas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
-  const caixaAtual = JSON.parse(localStorage.getItem("caixa_id") || "{}");
+  const caixaAtual = Number(localStorage.getItem("caixa_id"));
+console.log("LIDO caixa_id:", caixaAtual);
+
   const [parcelaSelecionada, setParcelaSelecionada] = useState<any>(null);
   const [valorPagamento, setValorPagamento] = useState("");
-  const [origemPagamento, setOrigemPagamento] = useState<'caixa' | 'cofre'>('caixa');
+  const [origemPagamento, setOrigemPagamento] = useState<
+    'caixa' | 'banco' | 'cofre'>('caixa');
+
   const [formaPagamento, setFormaPagamento] = useState('dinheiro');
-
-
+  const [contaSelecionada, setContaSelecionada] = useState<number | null>(null);
+  const [contas, setContas] = useState<any[]>([]);
 
   async function carregar() {
     setLoading(true);
@@ -28,7 +33,13 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
     setLoading(false);
   }
   const carregou = useRef(false);
-
+  useEffect(() => {
+    async function carregarContas() {
+      const c = await window.ipcRenderer.invoke('financeiro:listar-contas')
+      setContas(c)
+    }
+    carregarContas();
+  }, [])
   useEffect(() => {
     if (carregou.current) return;
     carregou.current = true;
@@ -36,8 +47,11 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
     carregar();
   }, []);
 
-  console.log(parcelas.map(p => p.id));
 
+  console.log(
+    "localStorage caixa_id:",
+    localStorage.getItem("caixa_id")
+  );
 
   async function pagarParcela(parcela: any) {
     const valor = valorPagamento
@@ -49,21 +63,48 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
       toast.error("Valor inválido");
       return;
     }
-    if (!origemPagamento || (origemPagamento !== 'caixa' && origemPagamento !== 'cofre')) {
-      throw new Error("Origem inválida. Informe caixa ou cofre.");
+
+    if (origemPagamento === 'banco' && !contaSelecionada) {
+      toast.error("Selecione uma conta digital");
+      return;
     }
+
+    if (origemPagamento === 'caixa' && (!caixaAtual || isNaN(caixaAtual))) {
+      toast.error("Nenhum caixa aberto");
+      return;
+    }
+
+
+    console.log(
+      `Origem ${origemPagamento}`,
+      `Caixa ${caixaAtual}`,
+      contaSelecionada,
+
+    );
 
     await window.ipcRenderer.invoke("financeiro:pagar-parcela-pagar", {
       parcela_id: parcela.id,
       valor_pago: valorPago,
-      forma_pagamento: formaPagamento, // depois você pode abrir select
-      usuario_id: usuarioLogado.id,               // pegar do contexto/login
-      caixa_id: origemPagamento === 'cofre' ? null : caixaAtual,
-      origemPagamento                  // pegar do caixa aberto
+      forma_pagamento: formaPagamento,
+      usuario_id: usuarioLogado.id,
+      origemPagamento,
+
+      caixa_id: origemPagamento === 'caixa'
+        ? caixaAtual
+        : null,
+
+      conta_id: origemPagamento === 'banco'
+        ? contaSelecionada
+        : null
     });
+
+
+
 
     carregar();
   }
+
+
   const formasPagamento = [
     { id: 'dinheiro', label: 'Dinheiro' },
     { id: 'cartao', label: 'Cartão' },
@@ -72,6 +113,7 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
   const listaOrigem = [
     { id: 'caixa', label: 'Caixa' },
     { id: 'cofre', label: 'Cofre' },
+    { id: 'banco', label: 'Banco' }
   ];
   return (
     <div style={{ padding: 20 }}>
@@ -153,6 +195,27 @@ export default function ParcelasPagar({ contaId, setPage }: Props) {
               ))}
 
             </select>
+            {origemPagamento === 'banco' && (
+
+              <select
+                style={input}
+                value={contaSelecionada ?? ''}
+                onChange={(e) =>
+                  setContaSelecionada(e.target.value ? Number(e.target.value) : null)
+                }
+              >
+
+                <option value="">Selecione a conta</option>
+                {contas.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nome}
+                  </option>
+                ))}
+              </select>
+
+
+            )}
+
             <input
               type="number"
               placeholder="Valor a pagar"

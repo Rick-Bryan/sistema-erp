@@ -49,6 +49,7 @@ export default function CaixaAbertura({ onVoltar }: CaixaCadastroProps) {
       if (resposta?.id) {
         // SALVA O ID DO CAIXA NO LOCALSTORAGE
         localStorage.setItem("caixa_id", resposta.id);
+        console.log("SALVO caixa_id:", localStorage.getItem("caixa_id"));
       }
 
       toast.success('Caixa aberto com sucesso!');

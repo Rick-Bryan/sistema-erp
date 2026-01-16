@@ -20,19 +20,31 @@ interface NovaCompraModalProps {
 
 export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalProps) {
   const [fornecedores, setFornecedores] = useState<any[]>([]);
+  const usuario = JSON.parse(localStorage.getItem('usuarioLogado') || '{}')
   const [produtos, setProdutos] = useState<any[]>([]);
+  const [contas, setContas] = useState<any[]>([]);
   const [compra, setCompra] = useState({
-    fornecedor_id: "",
-    usuario_id: 1, // ID do usuário logado
-    forma_pagamento: "à vista",
+    fornecedor_id: null as number | null, // ✅ CORRETO,
+    usuario_id: usuario.id, // ID do usuário logado
+    tipo_pagamento: "avista",
+    forma_pagamento: "dinheiro",
     status: "aberta",
     observacoes: "",
     itens: [] as any[],
     valor_total: 0,
     parcelas: 1,
-    vencimento: ""
+    vencimento: "",
+    conta_id: null as number | null, // ✅ CORRETO
   });
 
+  console.log(usuario)
+  useEffect(() => {
+    async function carregarContas() {
+      const c = await window.ipcRenderer.invoke('financeiro:listar-contas')
+      setContas(c)
+    }
+    carregarContas();
+  }, [])
   // Carrega fornecedores e produtos
   useEffect(() => {
     async function carregarDados() {
@@ -89,10 +101,14 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
       return;
     }
     if (
-      compra.forma_pagamento === "a prazo" &&
+      compra.tipo_pagamento === "parcelado" &&
       (!compra.parcelas || !compra.vencimento)
     ) {
       toast.error("Informe parcelas e data do primeiro vencimento!");
+      return;
+    }
+    if (compra.tipo_pagamento === "avista" && !compra.forma_pagamento) {
+      toast.error("Selecione a forma de pagamento");
       return;
     }
 
@@ -118,7 +134,7 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
           <label style={label}>Fornecedor</label>
           <select
             value={compra.fornecedor_id}
-            onChange={(e) => setCompra({ ...compra, fornecedor_id: e.target.value })}
+            onChange={(e) => setCompra({ ...compra, fornecedor_id:  Number(e.target.value) || null})}
             style={input}
           >
             <option value="">Selecione...</option>
@@ -129,17 +145,56 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
         </div>
 
         <div style={{ marginBottom: 15 }}>
-          <label style={label}>Forma de pagamento</label>
+          <label style={label}>Tipo de pagamento</label>
           <select
-            value={compra.forma_pagamento}
-            onChange={(e) => setCompra({ ...compra, forma_pagamento: e.target.value })}
+            value={compra.tipo_pagamento}
+            onChange={(e) => setCompra({ ...compra, tipo_pagamento: e.target.value })}
             style={input}
           >
-            <option value="à vista">À vista</option>
-            <option value="a prazo">A prazo</option>
+            <option value="avista">À vista</option>
+            <option value="parcelado">A prazo</option>
           </select>
         </div>
-        {compra.forma_pagamento === "a prazo" && (
+        <div style={{ marginBottom: 15 }}>
+          <label style={label}>Conta de pagamento</label>
+          <select
+            value={compra.conta_id}
+            onChange={(e) =>
+              setCompra({ ...compra, conta_id: Number(e.target.value) || null })
+            }
+
+            style={input}
+          >
+            <option value="">Selecione...</option>
+            {contas.map((c) => (
+              <option key={c.id} value={c.id}>{c.nome}</option>
+            ))}
+          </select>
+        </div>
+        {compra.tipo_pagamento === "avista" && (
+          <div style={{ marginBottom: 15 }}>
+            <label style={label}>Forma de pagamento</label>
+            <select
+              value={compra.forma_pagamento}
+              onChange={(e) =>
+                setCompra({
+                  ...compra,
+                  forma_pagamento: e.target.value as "dinheiro" | "pix" | "cartao" | "boleto",
+                })
+              }
+              style={input}
+            >
+              <option value="">Selecione...</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="pix">Pix</option>
+              <option value="cartao">Cartão</option>
+              <option value="boleto">Boleto</option>
+            </select>
+          </div>
+        )}
+
+
+        {compra.tipo_pagamento === "parcelado" && (
           <>
             <div style={{ marginBottom: 15 }}>
               <label style={label}>Quantidade de parcelas</label>

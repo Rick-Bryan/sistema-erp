@@ -1,5 +1,5 @@
 import { Card, CardHeader, CardContent } from "../../components/ui/card";
-import { ArrowDownCircle, ArrowUpCircle, BarChart,Wallet } from "lucide-react";
+import { ArrowDownCircle, ArrowUpCircle, BarChart, Wallet } from "lucide-react";
 import FinanceiroResumo from "./FinanceiroResumo";
 import FinanceiroVencimentosMes from "./FinanceiroVencimentoMes";
 
@@ -96,9 +96,9 @@ export default function Financeiro({ setPage }: Props) {
                 </Card>
 
             </div>
-
-            <FinanceiroResumo />
             <FinanceiroVencimentosMes />
+            <FinanceiroResumo />
+
         </div >
     );
 }

@@ -1,7 +1,7 @@
 // src/backend/compras.ts
 import pool from './connection';
 import { registrarMovimentoEstoque } from './estoque_movimento';
-
+import { atualizarSaldoConta } from './financeiro';
 // ------------------------
 // LISTAR COMPRAS
 // ------------------------
@@ -39,15 +39,15 @@ export async function criarCompra({
   fornecedor_id,
   usuario_id,
   valor_total,
-  forma_pagamento,
+  tipo_pagamento,
   status,
   observacoes
 }) {
   const [result] = await pool.query(
     `INSERT INTO compras 
-      (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes) 
+      (fornecedor_id, usuario_id, valor_total, tipo_pagamento, status, observacoes) 
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
+    [fornecedor_id, usuario_id, valor_total, tipo_pagamento, status, observacoes]
   );
 
   return result.insertId;
@@ -149,7 +149,8 @@ export async function salvarCompraCompleta(dados: {
   usuario_id: number;
   empresa_id: number;
   valor_total: number;
-  forma_pagamento: "à vista" | "a prazo";
+  tipo_pagamento: "avista" | "parcelado";
+  forma_pagamento: "dinheiro" | "pix" | "cartao" | "boleto";
   status?: string;
   observacoes?: string;
   itens: {
@@ -159,6 +160,7 @@ export async function salvarCompraCompleta(dados: {
   }[];
   vencimento?: string;
   parcelas?: number;
+  conta_id?: number;
 
   // qtde de parcelas (se a prazo)
 }) {
@@ -177,18 +179,28 @@ export async function salvarCompraCompleta(dados: {
       if (item.quantidade <= 0) throw new Error("Quantidade inválida.");
       if (item.custo_unitario <= 0) throw new Error("Custo inválido.");
     }
+    if (!dados.usuario_id) {
+      throw new Error("Usuário não identificado para o movimento financeiro");
+    }
+    if (!dados.conta_id) {
+      throw new Error("Conta financeira não informada para a compra à vista");
+    }
+    if (!["avista", "parcelado"].includes(dados.tipo_pagamento)) {
+      throw new Error("Tipo de pagamento inválido");
+    }
 
     // 1️⃣ Criar compra
     const [compra]: any = await conn.query(
       `
       INSERT INTO compras
-        (fornecedor_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
-      VALUES (?, ?, ?, ?, ?, ?)
+        (fornecedor_id, usuario_id, valor_total, tipo_pagamento,forma_pagamento, status, observacoes)
+      VALUES (?, ?, ?, ?, ?, ?,?)
       `,
       [
         dados.fornecedor_id,
         dados.usuario_id,
         dados.valor_total,
+        dados.tipo_pagamento,
         dados.forma_pagamento,
         dados.status || "aberta",
         dados.observacoes || null
@@ -228,7 +240,7 @@ export async function salvarCompraCompleta(dados: {
     const conta_pagar_id = conta.insertId;
 
     // 4️⃣ Criar parcelas SOMENTE se for a prazo
-    if (dados.forma_pagamento === "a prazo") {
+    if (dados.tipo_pagamento === "parcelado") {
       if (!dados.parcelas || dados.parcelas < 1) {
         throw new Error("Número de parcelas inválido.");
       }
@@ -267,7 +279,7 @@ export async function salvarCompraCompleta(dados: {
         );
       }
     }
-    if (dados.forma_pagamento === "à vista") {
+    if (dados.tipo_pagamento === "avista") {
       await conn.query(
         `
     UPDATE contas_pagar
@@ -276,6 +288,18 @@ export async function salvarCompraCompleta(dados: {
     `,
         [conta_pagar_id]
       );
+
+      await conn.query(`INSERT INTO financeiro_movimentos
+(conta_id, tipo, valor,forma_pagamento, descricao, referencia_tipo, referencia_id, usuario_id)
+VALUES (?, 'saida', ?,?, 'Compra', 'compra', ?, ?)`, [dados.conta_id, dados.valor_total, dados.forma_pagamento, compra_id, dados.usuario_id])
+      // 🔥 DESCONTA DO SALDO DA CONTA
+      await atualizarSaldoConta(
+        conn,
+        dados.conta_id,
+        dados.valor_total,
+        'saida'
+      );
+
     }
 
 
