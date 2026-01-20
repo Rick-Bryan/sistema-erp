@@ -28084,251 +28084,6 @@ async function deletarFornecedor(CodigoFornecedor) {
   await pool.query("DELETE FROM fornecedores WHERE CodigoFornecedor = ?", [CodigoFornecedor]);
   return true;
 }
-const isPositiveInt = (v) => Number.isInteger(v) && v > 0;
-async function listarSessoesCaixa() {
-  const [rows] = await pool.query("SELECT * FROM caixa_sessoes ORDER BY id DESC");
-  return rows;
-}
-async function listarMovimentosCaixa() {
-  const [rows] = await pool.query("SELECT * FROM caixa_movimentos ORDER BY id DESC");
-  return rows;
-}
-async function resumoMovimentosCaixa(caixaId) {
-  if (!isPositiveInt(caixaId)) throw new Error("caixaId inválido");
-  const [rows] = await pool.query(
-    "SELECT * FROM caixa_movimentos WHERE caixa_id = ? ORDER BY id DESC",
-    [caixaId]
-  );
-  return rows;
-}
-async function getCaixaAberto(usuario_id, empresa_id = null, pdv_id = null) {
-  if (!isPositiveInt(usuario_id)) throw new Error("usuario_id inválido");
-  const sqlSelect = `
-    SELECT id 
-    FROM caixa_sessoes 
-    WHERE usuario_id = ? 
-      AND (? IS NULL OR empresa_id = ?)
-      AND (? IS NULL OR pdv_id = ?)
-      AND status = 'aberto'
-    ORDER BY id DESC
-    LIMIT 1
-  `;
-  const [rows] = await pool.query(sqlSelect, [usuario_id, empresa_id, empresa_id, pdv_id, pdv_id]);
-  if (rows.length > 0) {
-    return rows[0].id;
-  }
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-    const insertSql = `
-      INSERT INTO caixa_sessoes (usuario_id, empresa_id, pdv_id, valor_abertura, observacoes, status, criado_em)
-      VALUES (?, ?, ?, 0, 'Abertura automática', 'aberto', NOW())
-    `;
-    const [result] = await conn.query(insertSql, [usuario_id, empresa_id, pdv_id]);
-    await conn.commit();
-    return result.insertId;
-  } catch (err) {
-    await conn.rollback();
-    throw err;
-  } finally {
-    conn.release();
-  }
-}
-async function abrirCaixa({ usuario_id, valor_abertura = 0, observacoes = "", empresa_id = null, pdv_id = null }) {
-  if (!isPositiveInt(usuario_id)) throw new Error("usuario_id inválido");
-  const [verify] = await pool.query(
-    'SELECT id FROM caixa_sessoes WHERE usuario_id = ? AND (? IS NULL OR empresa_id = ?) AND (? IS NULL OR pdv_id = ?) AND status = "Aberto"',
-    [usuario_id, empresa_id, empresa_id, pdv_id, pdv_id]
-  );
-  if (verify.length > 0) {
-    throw new Error("O colaborador já possui um caixa aberto nesta empresa/PDV");
-  }
-  const [result] = await pool.query(
-    'INSERT INTO caixa_sessoes (usuario_id, empresa_id, pdv_id, valor_abertura, observacoes, status, criado_em) VALUES (?, ?, ?, ?, ?, "Aberto", NOW())',
-    [usuario_id, empresa_id, pdv_id, Number(valor_abertura) || 0, observacoes || ""]
-  );
-  return { id: result.insertId };
-}
-async function inserirMovimentoCaixa({
-  usuario_id,
-  empresa_id = null,
-  pdv_id = null,
-  caixa_id = null,
-  observacoes = "",
-  tipo = "entrada",
-  descricao = "",
-  valor = 0,
-  origem = null,
-  venda_id = null,
-  forma_pagamento = null
-}) {
-  if (!isPositiveInt(usuario_id)) throw new Error("usuario_id inválido");
-  if (typeof valor !== "number") valor = Number(valor) || 0;
-  if (!["entrada", "saida"].includes(tipo)) throw new Error('tipo deve ser "entrada" ou "saida"');
-  const conn = await pool.getConnection();
-  try {
-    await conn.beginTransaction();
-    let caixaIdFinal = caixa_id;
-    if (!isPositiveInt(caixaIdFinal)) {
-      caixaIdFinal = await getCaixaAberto(usuario_id, empresa_id, pdv_id);
-    }
-    const [[saldos]] = await conn.query(
-      `
-      SELECT 
-        cs.valor_abertura,
-        IFNULL((SELECT SUM(valor) FROM caixa_movimentos WHERE caixa_id = cs.id AND tipo='entrada'),0) AS entradas,
-        IFNULL((SELECT SUM(valor) FROM caixa_movimentos WHERE caixa_id = cs.id AND tipo='saida'),0) AS saidas
-      FROM caixa_sessoes cs
-      WHERE cs.id = ?
-      `,
-      [caixaIdFinal]
-    );
-    if (!saldos) throw new Error("Caixa não encontrado");
-    const saldoAtual = Number(saldos.valor_abertura) + Number(saldos.entradas) - Number(saldos.saidas);
-    if (tipo === "saida" && valor > saldoAtual) {
-      throw new Error(`Saldo insuficiente no caixa. Disponível: R$ ${saldoAtual.toFixed(2)}`);
-    }
-    const insertSql = `
-      INSERT INTO caixa_movimentos
-      (usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id, forma_pagamento)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    const [result] = await conn.query(insertSql, [
-      usuario_id,
-      caixaIdFinal,
-      observacoes || "",
-      tipo,
-      descricao || "",
-      valor,
-      origem || null,
-      venda_id || null,
-      forma_pagamento || null
-    ]);
-    await conn.commit();
-    return { id: result.insertId };
-  } catch (err) {
-    await conn.rollback();
-    throw err;
-  } finally {
-    conn.release();
-  }
-}
-async function registrarCancelamentoVenda({ caixa_id, venda_id }) {
-  if (!isPositiveInt(caixa_id)) throw new Error("caixa_id inválido");
-  if (!isPositiveInt(venda_id)) throw new Error("venda_id inválido");
-  const [vendas] = await pool.query(
-    "SELECT valor_total, forma_pagamento FROM vendas WHERE id = ?",
-    [venda_id]
-  );
-  if (!vendas.length) throw new Error("Venda não encontrada");
-  const venda = vendas[0];
-  const [result] = await pool.query(
-    `
-      INSERT INTO caixa_movimentos
-      (caixa_id, venda_id, tipo, valor, forma_pagamento, descricao, data_movimento)
-      VALUES (?, ?, 'saida', ?, ?, ?, NOW())
-    `,
-    [caixa_id, venda_id, venda.valor_total, venda.forma_pagamento || null, `Cancelamento da venda #${venda_id}`]
-  );
-  return { id: result.insertId };
-}
-async function resumoCaixa(caixa_id) {
-  if (!isPositiveInt(caixa_id)) throw new Error("caixa_id inválido");
-  const [[entradasRow]] = await pool.query(
-    `SELECT IFNULL(SUM(valor),0) AS total
-     FROM caixa_movimentos
-     WHERE caixa_id = ? AND tipo = 'entrada'`,
-    [caixa_id]
-  );
-  const [[saidasRow]] = await pool.query(
-    `SELECT IFNULL(SUM(valor),0) AS total
-     FROM caixa_movimentos
-     WHERE caixa_id = ? AND tipo = 'saida'`,
-    [caixa_id]
-  );
-  const [sessRows] = await pool.query(
-    `SELECT valor_abertura, valor_fechamento_informado
-     FROM caixa_sessoes
-     WHERE id = ?`,
-    [caixa_id]
-  );
-  if (!sessRows.length) throw new Error("Sessão de caixa não encontrada");
-  const sessao = sessRows[0];
-  const valor_abertura = Number(sessao.valor_abertura || 0);
-  const entradas = Number(entradasRow.total || 0);
-  const saidas = Number(saidasRow.total || 0);
-  const valorInformado = Number(sessao.valor_fechamento_informado || 0);
-  if (saidas > valor_abertura + entradas) {
-    throw new Error(
-      "O valor de saída não pode exceder o saldo disponível do caixa"
-    );
-  }
-  if (valor_abertura === 0 && entradas === 0 && saidas > 0) {
-    throw new Error("Existe saída no caixa sem valor de abertura definido");
-  }
-  const saldo_esperado = valor_abertura + entradas - saidas;
-  const diferenca = Number((valorInformado - saldo_esperado).toFixed(2));
-  return {
-    valor_abertura,
-    total_entradas: entradas,
-    total_saidas: saidas,
-    saldo_esperado,
-    valor_informado: valorInformado,
-    diferenca
-  };
-}
-async function fecharCaixa({
-  caixa_id,
-  valor_fechamento_informado = null,
-  motivo_diferenca = null
-}) {
-  if (!caixa_id || isNaN(Number(caixa_id))) {
-    throw new Error("ID do caixa inválido!");
-  }
-  const resumo = await resumoCaixa(caixa_id);
-  if (!resumo) throw new Error("Caixa não encontrado!");
-  const valorEsperado = Number(resumo.saldo_esperado);
-  const valorFinal = valor_fechamento_informado !== null ? Number(valor_fechamento_informado) : valorEsperado;
-  const diferenca = Number(valorFinal) - Number(valorEsperado);
-  if (diferenca !== 0 && (!motivo_diferenca || motivo_diferenca.trim() === "")) {
-    throw new Error("É obrigatório informar o motivo da diferença!");
-  }
-  if (valorFinal < 0) {
-    throw new Error("Valor de fechamento não pode ser negativo!");
-  }
-  const [result] = await pool.query(
-    `
-      UPDATE caixa_sessoes
-      SET
-        fechado_em = NOW(),
-        valor_fechamento = ?,
-        valor_fechamento_informado = ?,
-        diferenca = ?,
-        motivo_diferenca = ?,
-        status = 'fechado',
-        atualizado_em = NOW()
-      WHERE id = ?
-    `,
-    [
-      valorFinal,
-      // valor calculado/contado
-      valor_fechamento_informado,
-      // valor informado pelo usuário (ou null)
-      diferenca,
-      // diferença registrada
-      motivo_diferenca,
-      // motivo, se houver
-      caixa_id
-    ]
-  );
-  return {
-    alterados: result.affectedRows,
-    valor_fechamento: valorFinal,
-    esperado: valorEsperado,
-    diferenca,
-    motivo_diferenca
-  };
-}
 function fixMoney(v) {
   return Number(Number(v).toFixed(2));
 }
@@ -28678,27 +28433,23 @@ WHERE id = ?
 async function atualizarStatusContaPagar(contaId, conn = pool) {
   const [[res]] = await conn.query(`
     SELECT
-      SUM(valor) AS total,
-      SUM(valor_pago) AS pago
+      ROUND(SUM(valor),2) AS total,
+      ROUND(SUM(valor_pago),2) AS pago
     FROM parcelas_pagar
     WHERE conta_pagar_id = ?
   `, [contaId]);
+  const total = fixMoney(res.total || 0);
+  const pago = fixMoney(res.pago || 0);
   let status = "aberto";
-  res.total = fixMoney(res.total || 0);
-  res.pago = fixMoney(res.pago || 0);
-  if (res.pago >= res.total) status = "pago";
-  else if (res.pago > 0) status = "parcial";
+  if (pago >= total) status = "pago";
+  else if (pago > 0) status = "parcial";
   await conn.query(`
-  UPDATE contas_pagar
-  SET 
-    status = ?,
-    valor_pago = (
-      SELECT ROUND(SUM(valor_pago),2)
-      FROM parcelas_pagar
-      WHERE conta_pagar_id = ?
-    )
-  WHERE id = ?
-`, [status, contaId, contaId]);
+    UPDATE contas_pagar
+    SET 
+      status = ?,
+      valor_pago = ?
+    WHERE id = ?
+  `, [status, pago, contaId]);
 }
 async function listarParcelasPagar(contaId, conn = pool) {
   const [rows] = await conn.query(`
@@ -28708,6 +28459,58 @@ async function listarParcelasPagar(contaId, conn = pool) {
       ORDER BY numero_parcela
     `, [contaId]);
   return rows;
+}
+async function registrarMovimentoFinanceiro({
+  origem,
+  conta_id,
+  tipo,
+  valor,
+  descricao,
+  forma_pagamento = null,
+  usuario_id,
+  referencia_tipo = null,
+  referencia_id = null,
+  tipo_pagamento = "avista"
+}) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query(
+      `
+      INSERT INTO financeiro_movimentos
+        (origem, conta_id, tipo, descricao, valor, forma_pagamento, usuario_id, referencia_tipo, referencia_id, criado_em, tipo_pagamento)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
+      `,
+      [
+        origem,
+        conta_id,
+        tipo,
+        descricao,
+        valor,
+        forma_pagamento,
+        usuario_id,
+        referencia_tipo,
+        referencia_id,
+        tipo_pagamento
+      ]
+    );
+    const operador = tipo === "entrada" ? "+" : "-";
+    await conn.query(
+      `
+      UPDATE financeiro_contas
+      SET saldo = saldo ${operador} ?
+      WHERE id = ?
+      `,
+      [valor, conta_id]
+    );
+    await conn.commit();
+    return true;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 async function atualizarSaldoConta(conn, conta_id, valor, tipo) {
   const operador = "-";
@@ -28719,6 +28522,361 @@ async function atualizarSaldoConta(conn, conta_id, valor, tipo) {
     `,
     [valor, conta_id]
   );
+}
+const isPositiveInt = (v) => Number.isInteger(v) && v > 0;
+async function listarSessoesCaixa() {
+  const [rows] = await pool.query("SELECT * FROM caixa_sessoes ORDER BY id DESC");
+  return rows;
+}
+async function listarMovimentosCaixa() {
+  const [rows] = await pool.query("SELECT * FROM caixa_movimentos ORDER BY id DESC");
+  return rows;
+}
+async function resumoMovimentosCaixa(caixaId) {
+  if (!isPositiveInt(caixaId)) throw new Error("caixaId inválido");
+  const [rows] = await pool.query(
+    "SELECT * FROM caixa_movimentos WHERE caixa_id = ? ORDER BY id DESC",
+    [caixaId]
+  );
+  return rows;
+}
+async function getCaixaAberto(usuario_id, empresa_id = null, pdv_id = null) {
+  if (!isPositiveInt(usuario_id)) throw new Error("usuario_id inválido");
+  const sqlSelect = `
+    SELECT id 
+    FROM caixa_sessoes 
+    WHERE usuario_id = ? 
+      AND (? IS NULL OR empresa_id = ?)
+      AND (? IS NULL OR pdv_id = ?)
+      AND status = 'aberto'
+    ORDER BY id DESC
+    LIMIT 1
+  `;
+  const [rows] = await pool.query(sqlSelect, [usuario_id, empresa_id, empresa_id, pdv_id, pdv_id]);
+  if (rows.length > 0) {
+    return rows[0].id;
+  }
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const insertSql = `
+      INSERT INTO caixa_sessoes (usuario_id, empresa_id, pdv_id, valor_abertura, observacoes, status, criado_em)
+      VALUES (?, ?, ?, 0, 'Abertura automática', 'aberto', NOW())
+    `;
+    const [result] = await conn.query(insertSql, [usuario_id, empresa_id, pdv_id]);
+    await conn.commit();
+    return result.insertId;
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+async function abrirCaixa({
+  usuario_id,
+  valor_abertura = 0,
+  observacoes = "",
+  pdv_id = null
+}) {
+  if (!isPositiveInt(usuario_id)) throw new Error("usuario_id inválido");
+  if (!global.usuarioLogado) {
+    throw new Error("Sessão expirada");
+  }
+  const empresa_id = global.usuarioLogado.empresa_id;
+  if (!empresa_id) {
+    throw new Error("Empresa não identificada");
+  }
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [verify] = await conn.query(
+      `
+      SELECT id 
+      FROM caixa_sessoes 
+      WHERE usuario_id = ?
+        AND empresa_id = ?
+        AND (? IS NULL OR pdv_id = ?)
+        AND status = 'aberto'
+      `,
+      [usuario_id, empresa_id, pdv_id, pdv_id]
+    );
+    if (verify.length > 0) {
+      throw new Error("O colaborador já possui um caixa aberto nesta empresa/PDV");
+    }
+    const valor = Number(valor_abertura) || 0;
+    if (valor < 0) {
+      throw new Error("Valor de abertura inválido");
+    }
+    let cofre = null;
+    if (valor > 0) {
+      const [rows] = await conn.query(
+        `
+        SELECT id, saldo 
+        FROM financeiro_contas 
+        WHERE empresa_id = ? AND tipo = 'cofre'
+        LIMIT 1
+        `,
+        [empresa_id]
+      );
+      if (!rows.length) {
+        throw new Error("Cofre não encontrado");
+      }
+      cofre = rows[0];
+      if (Number(cofre.saldo) < valor) {
+        throw new Error("Saldo insuficiente no cofre");
+      }
+    }
+    const [result] = await conn.query(
+      `
+      INSERT INTO caixa_sessoes 
+        (usuario_id, empresa_id, pdv_id, valor_abertura, observacoes, status, criado_em) 
+      VALUES (?, ?, ?, ?, ?, 'aberto', NOW())
+      `,
+      [usuario_id, empresa_id, pdv_id, valor, observacoes || ""]
+    );
+    const caixaSessaoId = result.insertId;
+    if (valor > 0) {
+      if (valor > 0) {
+        await registrarMovimentoFinanceiro({
+          origem: "cofre",
+          conta_id: cofre.id,
+          tipo: "saida",
+          valor,
+          descricao: "Abertura de caixa",
+          forma_pagamento: "dinheiro",
+          usuario_id,
+          referencia_tipo: "caixa_sessao",
+          referencia_id: caixaSessaoId,
+          tipo_pagamento: "avista"
+        });
+      }
+    }
+    await conn.commit();
+    return { id: caixaSessaoId };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+async function inserirMovimentoCaixa({
+  usuario_id,
+  empresa_id = null,
+  pdv_id = null,
+  caixa_id = null,
+  observacoes = "",
+  tipo = "entrada",
+  descricao = "",
+  valor = 0,
+  origem = null,
+  venda_id = null,
+  forma_pagamento = null
+}) {
+  if (!isPositiveInt(usuario_id)) throw new Error("usuario_id inválido");
+  if (typeof valor !== "number") valor = Number(valor) || 0;
+  if (!["entrada", "saida"].includes(tipo)) throw new Error('tipo deve ser "entrada" ou "saida"');
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    let caixaIdFinal = caixa_id;
+    if (!isPositiveInt(caixaIdFinal)) {
+      caixaIdFinal = await getCaixaAberto(usuario_id, empresa_id, pdv_id);
+    }
+    const [[saldos]] = await conn.query(
+      `
+      SELECT 
+        cs.valor_abertura,
+        IFNULL((SELECT SUM(valor) FROM caixa_movimentos WHERE caixa_id = cs.id AND tipo='entrada'),0) AS entradas,
+        IFNULL((SELECT SUM(valor) FROM caixa_movimentos WHERE caixa_id = cs.id AND tipo='saida'),0) AS saidas
+      FROM caixa_sessoes cs
+      WHERE cs.id = ?
+      `,
+      [caixaIdFinal]
+    );
+    if (!saldos) throw new Error("Caixa não encontrado");
+    const saldoAtual = Number(saldos.valor_abertura) + Number(saldos.entradas) - Number(saldos.saidas);
+    if (tipo === "saida" && valor > saldoAtual) {
+      throw new Error(`Saldo insuficiente no caixa. Disponível: R$ ${saldoAtual.toFixed(2)}`);
+    }
+    const insertSql = `
+      INSERT INTO caixa_movimentos
+      (usuario_id, caixa_id, observacoes, tipo, descricao, valor, origem, venda_id, forma_pagamento)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const [result] = await conn.query(insertSql, [
+      usuario_id,
+      caixaIdFinal,
+      observacoes || "",
+      tipo,
+      descricao || "",
+      valor,
+      origem || null,
+      venda_id || null,
+      forma_pagamento || null
+    ]);
+    await conn.commit();
+    return { id: result.insertId };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+async function registrarCancelamentoVenda({ caixa_id, venda_id }) {
+  if (!isPositiveInt(caixa_id)) throw new Error("caixa_id inválido");
+  if (!isPositiveInt(venda_id)) throw new Error("venda_id inválido");
+  const [vendas] = await pool.query(
+    "SELECT valor_total, forma_pagamento FROM vendas WHERE id = ?",
+    [venda_id]
+  );
+  if (!vendas.length) throw new Error("Venda não encontrada");
+  const venda = vendas[0];
+  const [result] = await pool.query(
+    `
+      INSERT INTO caixa_movimentos
+      (caixa_id, venda_id, tipo, valor, forma_pagamento, descricao, data_movimento)
+      VALUES (?, ?, 'saida', ?, ?, ?, NOW())
+    `,
+    [caixa_id, venda_id, venda.valor_total, venda.forma_pagamento || null, `Cancelamento da venda #${venda_id}`]
+  );
+  return { id: result.insertId };
+}
+async function resumoCaixa(caixa_id) {
+  if (!isPositiveInt(caixa_id)) throw new Error("caixa_id inválido");
+  const [[entradasRow]] = await pool.query(
+    `SELECT IFNULL(SUM(valor),0) AS total
+     FROM caixa_movimentos
+     WHERE caixa_id = ? AND tipo = 'entrada'`,
+    [caixa_id]
+  );
+  const [[saidasRow]] = await pool.query(
+    `SELECT IFNULL(SUM(valor),0) AS total
+     FROM caixa_movimentos
+     WHERE caixa_id = ? AND tipo = 'saida'`,
+    [caixa_id]
+  );
+  const [sessRows] = await pool.query(
+    `SELECT valor_abertura, valor_fechamento_informado
+     FROM caixa_sessoes
+     WHERE id = ?`,
+    [caixa_id]
+  );
+  if (!sessRows.length) throw new Error("Sessão de caixa não encontrada");
+  const sessao = sessRows[0];
+  const valor_abertura = Number(sessao.valor_abertura || 0);
+  const entradas = Number(entradasRow.total || 0);
+  const saidas = Number(saidasRow.total || 0);
+  const valorInformado = Number(sessao.valor_fechamento_informado || 0);
+  if (saidas > valor_abertura + entradas) {
+    throw new Error(
+      "O valor de saída não pode exceder o saldo disponível do caixa"
+    );
+  }
+  if (valor_abertura === 0 && entradas === 0 && saidas > 0) {
+    throw new Error("Existe saída no caixa sem valor de abertura definido");
+  }
+  const saldo_esperado = valor_abertura + entradas - saidas;
+  const diferenca = Number((valorInformado - saldo_esperado).toFixed(2));
+  return {
+    valor_abertura,
+    total_entradas: entradas,
+    total_saidas: saidas,
+    saldo_esperado,
+    valor_informado: valorInformado,
+    diferenca
+  };
+}
+async function fecharCaixa({
+  caixa_id,
+  valor_fechamento_informado = null,
+  motivo_diferenca = null
+}) {
+  if (!caixa_id || isNaN(Number(caixa_id))) {
+    throw new Error("ID do caixa inválido!");
+  }
+  if (!global.usuarioLogado) {
+    throw new Error("Sessão expirada");
+  }
+  const usuario_id = global.usuarioLogado.id;
+  const empresa_id = global.usuarioLogado.empresa_id;
+  if (!empresa_id) {
+    throw new Error("Empresa não identificada");
+  }
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const resumo = await resumoCaixa(caixa_id);
+    if (!resumo) throw new Error("Caixa não encontrado!");
+    const valorEsperado = Number(resumo.saldo_esperado);
+    const valorFinal = valor_fechamento_informado !== null ? Number(valor_fechamento_informado) : valorEsperado;
+    const diferenca = valorFinal - valorEsperado;
+    if (diferenca !== 0 && (!motivo_diferenca || motivo_diferenca.trim() === "")) {
+      throw new Error("É obrigatório informar o motivo da diferença!");
+    }
+    if (valorFinal < 0) {
+      throw new Error("Valor de fechamento não pode ser negativo!");
+    }
+    const [result] = await conn.query(
+      `
+        UPDATE caixa_sessoes
+        SET
+          fechado_em = NOW(),
+          valor_fechamento = ?,
+          valor_fechamento_informado = ?,
+          diferenca = ?,
+          motivo_diferenca = ?,
+          status = 'fechado',
+          atualizado_em = NOW()
+        WHERE id = ?
+      `,
+      [
+        valorFinal,
+        valor_fechamento_informado,
+        diferenca,
+        motivo_diferenca,
+        caixa_id
+      ]
+    );
+    const caixaSessaoId = result.insertId;
+    const [rows] = await conn.query(
+      `SELECT id, saldo FROM financeiro_contas 
+       WHERE empresa_id = ? AND tipo = 'cofre' 
+       LIMIT 1`,
+      [empresa_id]
+    );
+    if (!rows.length) {
+      throw new Error("Cofre não encontrado para esta empresa!");
+    }
+    const cofre = rows[0];
+    await registrarMovimentoFinanceiro({
+      origem: "cofre",
+      conta_id: cofre.id,
+      tipo: "entrada",
+      valor: valorFinal,
+      descricao: "Fechamento de caixa",
+      forma_pagamento: "dinheiro",
+      usuario_id,
+      referencia_tipo: "caixa_sessao",
+      referencia_id: caixaSessaoId,
+      tipo_pagamento: "avista"
+    });
+    await conn.commit();
+    return {
+      alterados: result.affectedRows,
+      valor_fechamento: valorFinal,
+      esperado: valorEsperado,
+      diferenca,
+      motivo_diferenca
+    };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 async function listarVendas() {
   const [rows] = await pool.query(`
@@ -29036,26 +29194,33 @@ async function salvarCompraCompleta(dados) {
         throw new Error("Data de vencimento não informada.");
       }
       const totalParcelas = dados.parcelas;
-      const valorParcela = Number(
-        (dados.valor_total / totalParcelas).toFixed(2)
-      );
       const dataBase = new Date(dados.vencimento);
       if (isNaN(dataBase.getTime())) {
         throw new Error("Data de vencimento inválida.");
       }
+      if (isNaN(dataBase.getTime())) {
+        throw new Error("Data de vencimento inválida.");
+      }
+      const base = fixMoney(dados.valor_total / totalParcelas);
+      let acumulado = 0;
       for (let i = 1; i <= totalParcelas; i++) {
         const vencimento = new Date(dataBase);
         vencimento.setMonth(dataBase.getMonth() + (i - 1));
+        let valor = base;
+        if (i === totalParcelas) {
+          valor = fixMoney(dados.valor_total - acumulado);
+        }
+        acumulado = fixMoney(acumulado + valor);
         await conn.query(
           `
-      INSERT INTO parcelas_pagar
-        (conta_pagar_id, numero_parcela, valor, valor_pago, data_vencimento, status)
-      VALUES (?, ?, ?, 0, ?, 'aberto')
-      `,
+    INSERT INTO parcelas_pagar
+      (conta_pagar_id, numero_parcela, valor, valor_pago, data_vencimento, status)
+    VALUES (?, ?, ?, 0, ?, 'aberto')
+    `,
           [
             conta_pagar_id,
             i,
-            valorParcela,
+            valor,
             vencimento.toISOString().slice(0, 10)
           ]
         );
@@ -29174,9 +29339,15 @@ ipcMain.handle("salvar-produto", async (_, produto) => {
 ipcMain.handle("get-fabricantes", async () => {
   return await listarFabricantes();
 });
+ipcMain.handle("session:get", () => {
+  return global.usuarioLogado || null;
+});
 ipcMain.handle("login", async (event, { email, senha }) => {
   try {
-    const [rows] = await pool.execute("SELECT * FROM usuarios WHERE email = ?", [email]);
+    const [rows] = await pool.execute(
+      "SELECT * FROM usuarios WHERE email = ?",
+      [email]
+    );
     if (rows.length === 0) {
       throw new Error("Usuário não encontrado");
     }
@@ -29185,20 +29356,29 @@ ipcMain.handle("login", async (event, { email, senha }) => {
     if (!senhaOk) {
       throw new Error("Senha incorreta");
     }
+    const sessao = {
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      nivel: usuario.nivel,
+      empresa_id: usuario.empresa_id
+    };
+    global.usuarioLogado = sessao;
     return {
       sucesso: true,
-      usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
-        email: usuario.email,
-        nivel: usuario.nivel,
-        empresa_id: usuario.empresa_id
-      }
+      usuario: sessao
     };
   } catch (error) {
     console.error("Erro no login:", error);
-    return { sucesso: false, mensagem: error.message };
+    return {
+      sucesso: false,
+      mensagem: error.message
+    };
   }
+});
+ipcMain.handle("logout", async () => {
+  global.usuarioLogado = null;
+  return { sucesso: true };
 });
 ipcMain.handle("salvar-fabricante", async (_event, fabricante) => {
   await salvarFabricante(fabricante);
@@ -29711,6 +29891,9 @@ ipcMain.handle("financeiro:cadastrar-conta", async (_event, dados) => {
     conta,
     tipo_conta
   } = dados;
+  if (!nome) {
+    throw new Error("Nome da conta obrigatório");
+  }
   await pool.query(
     `
     INSERT INTO financeiro_contas
@@ -29720,5 +29903,107 @@ ipcMain.handle("financeiro:cadastrar-conta", async (_event, dados) => {
     [empresa_id, nome, tipo, saldo, banco_nome, banco_codigo, agencia, conta, tipo_conta]
   );
   return { success: true };
+});
+ipcMain.handle("carteira-digital", async () => {
+  const [caixa] = await pool.query(`
+    SELECT 
+      cs.id,
+      cs.valor_abertura
+      + IFNULL(SUM(CASE WHEN cm.tipo='entrada' THEN cm.valor ELSE 0 END),0)
+      - IFNULL(SUM(CASE WHEN cm.tipo='saida' THEN cm.valor ELSE 0 END),0) AS saldo
+    FROM caixa_sessoes cs
+    LEFT JOIN caixa_movimentos cm ON cm.caixa_id = cs.id
+    WHERE cs.status='aberto'
+    GROUP BY cs.id
+  `);
+  const [contas] = await pool.query(`
+    SELECT id, nome, tipo, saldo FROM financeiro_contas
+  `);
+  const [cofre] = await pool.query(`
+    SELECT IFNULL(SUM(saldo),0) saldo 
+    FROM financeiro_contas 
+    WHERE tipo ='cofre'
+  `);
+  const saldoCaixa = caixa.length ? Number(caixa[0].saldo) : 0;
+  const totalBanco = (Array.isArray(contas) ? contas : []).filter((c) => c.tipo === "banco").reduce((s, c) => s + Number(c.saldo || 0), 0);
+  const saldoCofre = cofre.length ? Number(cofre[0].saldo) : 0;
+  return {
+    saldos: {
+      caixa: saldoCaixa,
+      banco: totalBanco,
+      cofre: saldoCofre
+    },
+    contas
+  };
+});
+ipcMain.handle("carteira-transferir", async (e, dados) => {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+  try {
+    if (!dados.origem || !dados.destino) {
+      throw new Error("Informe origem e destino");
+    }
+    if (dados.origem == dados.destino) {
+      throw new Error("Origem e destino não podem ser iguais");
+    }
+    if (dados.valor <= 0) {
+      throw new Error("Valor inválido");
+    }
+    const [[origem]] = await conn.query(
+      `SELECT * FROM financeiro_contas WHERE id = ?`,
+      [dados.origem]
+    );
+    if (!origem) throw new Error("Conta origem não existe");
+    if (Number(origem.saldo) < dados.valor) {
+      throw new Error("Saldo insuficiente");
+    }
+    await conn.query(`
+      INSERT INTO financeiro_movimentos
+        (conta_id, tipo, valor, descricao, referencia_tipo)
+      VALUES (?, 'saida', ?, 'Transferência', 'transferencia')
+    `, [dados.origem, dados.valor]);
+    await conn.query(`
+      UPDATE financeiro_contas SET saldo = saldo - ? WHERE id = ?
+    `, [dados.valor, dados.origem]);
+    await conn.query(`
+      INSERT INTO financeiro_movimentos
+        (conta_id, tipo, valor, descricao, referencia_tipo)
+      VALUES (?, 'entrada', ?, 'Transferência', 'transferencia')
+    `, [dados.destino, dados.valor]);
+    await conn.query(`
+      UPDATE financeiro_contas SET saldo = saldo + ? WHERE id = ?
+    `, [dados.valor, dados.destino]);
+    await conn.commit();
+    return { ok: true };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+});
+ipcMain.handle("carteira-extrato", async (e, { conta_id, inicio, fim }) => {
+  let where = `WHERE conta_id = ?`;
+  const params = [conta_id];
+  if (inicio) {
+    where += ` AND DATE(criado_em) >= ?`;
+    params.push(inicio);
+  }
+  if (fim) {
+    where += ` AND DATE(criado_em) <= ?`;
+    params.push(fim);
+  }
+  const [movs] = await pool.query(`
+    SELECT 
+      id,
+      tipo,
+      valor,
+      descricao,
+      criado_em
+    FROM financeiro_movimentos
+    ${where}
+    ORDER BY criado_em ASC
+  `, params);
+  return movs;
 });
 app.whenReady().then(createWindow);

@@ -4,7 +4,7 @@ import Dashboard from './frontend/components/Dashboard';
 import Clientes from './frontend/components/clientes/Clientes';
 import Produtos from './frontend/components/Produtos';
 import Movimentacao from './frontend/components/Movimentacao';
-import Manutencao from './frontend/components/Manutencao';
+import Manutencao from './frontend/pages/Manutencao/Manutencao';
 
 export default function App() {
   const [page, setPage] = useState('dashboard');

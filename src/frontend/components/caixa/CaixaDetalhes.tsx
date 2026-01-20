@@ -13,6 +13,7 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
   const [resumo, setResumo] = useState<any>(null);
   const [movimentos, setMovimentos] = useState<any[]>([]);
   const [colaborador, setColaborador] = useState<any>(null);
+  const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
   // ESTADOS DO FECHAMENTO
   const [valorContado, setValorContado] = useState<string>("");
   const [motivoDiferenca, setMotivoDiferenca] = useState("");
@@ -261,6 +262,7 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
                     caixa_id: dados.id,
                     valor_fechamento_informado: Number(valorContado),
                     motivo_diferenca: motivoDiferenca || null,
+                    empresa_id : usuarioLogado.empresa_id
                   });
 
                   toast.success("Caixa fechado com sucesso!");

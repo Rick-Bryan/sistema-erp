@@ -5,7 +5,7 @@ import Clientes from './components/clientes/Clientes';
 import Produtos from './components/Produtos/Produtos';
 import ProdutoDetalhes from './components/produtos/ProdutoDetalhes';
 import Movimentacao from './pages/Movimentacao/Movimentacao';
-import Manutencao from './components/Manutencao';
+import Manutencao from './pages/Manutencao/Manutencao';
 import CadastrosPage from './pages/cadastros/CadastrosPage';
 import Fabricantes from './components/fabricantes/Fabricantes';
 import Colaboradores from './components/colaboradores/Colaboradores';
@@ -24,6 +24,8 @@ import ContasReceber from './components/financeiro/ContasReceber';
 import ParcelasReceber from './components/financeiro/ParcelasReceber';
 import ContasPagar from './components/financeiro/ContasPagar';
 import FinanceiroContas from './components/financeiro/FinanceiroContas';
+import CarteiraDigital from './components/carteiradigital/CarteiraDigital';
+import ExtratoConta from './components/carteiradigital/ExtratoConta';
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
@@ -37,11 +39,18 @@ export default function App() {
 
   }, [])
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await window.ipcRenderer.invoke("logout");
+    } catch (err) {
+      console.error("Erro ao deslogar:", err);
+    }
+
     localStorage.clear();
     setUsuario(null);
+    setPage("dashboard");
+  };
 
-  }
   // 🔒 Se não estiver logado, mostra tela de login
   if (!usuario) {
     return (
@@ -54,6 +63,10 @@ export default function App() {
   const renderPage = () => {
 
 
+    if (page.startsWith("carteira/extrato/")) {
+      const id = page.split("/")[2];
+      return <ExtratoConta setPage={setPage} params={{ id }} />;
+    }
 
     if (page.startsWith("financeiro")) {
       const parts = page.split("/");
@@ -123,6 +136,8 @@ export default function App() {
         return <Caixa setPage={setPage} setCaixaSelecionado={setCaixaSelecionado} />
       case "movimentacao-estoque":
         return <EstoqueMovimentos setPage={setPage} />;
+      case "carteira-digital":
+        return <CarteiraDigital setPage={setPage} />;
       case 'caixa-detalhes':
         return (
           <CaixaDetalhes

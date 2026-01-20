@@ -1,7 +1,7 @@
 // caixa.service.js
 // Módulo otimizado para operações de Caixa / Fluxo
 // Requisitos: pool exportado de ./connection (mysql2/promise)
-
+import { registrarMovimentoFinanceiro } from './financeiro';
 import pool from './connection';
 
 /**
@@ -98,25 +98,123 @@ export async function getCaixaAberto(usuario_id, empresa_id = null, pdv_id = nul
  * @param {{usuario_id:number, valor_abertura:number, observacoes:string, empresa_id?:number, pdv_id?:number}} param0
  * @returns {Promise<{id:number}>}
  */
-export async function abrirCaixa({ usuario_id, valor_abertura = 0, observacoes = '', empresa_id = null, pdv_id = null }) {
+export async function abrirCaixa({
+  usuario_id,
+  valor_abertura = 0,
+  observacoes = '',
+  pdv_id = null
+}) {
   if (!isPositiveInt(usuario_id)) throw new Error('usuario_id inválido');
 
-  const [verify] = await pool.query(
-    'SELECT id FROM caixa_sessoes WHERE usuario_id = ? AND (? IS NULL OR empresa_id = ?) AND (? IS NULL OR pdv_id = ?) AND status = "Aberto"',
-    [usuario_id, empresa_id, empresa_id, pdv_id, pdv_id]
-  );
-
-  if (verify.length > 0) {
-    throw new Error('O colaborador já possui um caixa aberto nesta empresa/PDV');
+  if (!global.usuarioLogado) {
+    throw new Error("Sessão expirada");
   }
 
-  const [result] = await pool.query(
-    'INSERT INTO caixa_sessoes (usuario_id, empresa_id, pdv_id, valor_abertura, observacoes, status, criado_em) VALUES (?, ?, ?, ?, ?, "Aberto", NOW())',
-    [usuario_id, empresa_id, pdv_id, Number(valor_abertura) || 0, observacoes || '']
-  );
+  const empresa_id = global.usuarioLogado.empresa_id;
 
-  return { id: result.insertId };
-};
+  if (!empresa_id) {
+    throw new Error("Empresa não identificada");
+  }
+
+  const conn = await pool.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    const [verify] = await conn.query(
+      `
+      SELECT id 
+      FROM caixa_sessoes 
+      WHERE usuario_id = ?
+        AND empresa_id = ?
+        AND (? IS NULL OR pdv_id = ?)
+        AND status = 'aberto'
+      `,
+      [usuario_id, empresa_id, pdv_id, pdv_id]
+    );
+
+    if (verify.length > 0) {
+      throw new Error('O colaborador já possui um caixa aberto nesta empresa/PDV');
+    }
+
+    const valor = Number(valor_abertura) || 0;
+
+    if (valor < 0) {
+      throw new Error("Valor de abertura inválido");
+    }
+
+    let cofre = null; // ✅ fora do if
+
+    // 🔥 Retira do cofre
+    if (valor > 0) {
+      const [rows] = await conn.query(
+        `
+        SELECT id, saldo 
+        FROM financeiro_contas 
+        WHERE empresa_id = ? AND tipo = 'cofre'
+        LIMIT 1
+        `,
+        [empresa_id]
+      );
+
+      if (!rows.length) {
+        throw new Error("Cofre não encontrado");
+      }
+
+      cofre = rows[0]; // ✅ salva
+
+      if (Number(cofre.saldo) < valor) {
+        throw new Error("Saldo insuficiente no cofre");
+      }
+
+
+    }
+
+    const [result] = await conn.query(
+      `
+      INSERT INTO caixa_sessoes 
+        (usuario_id, empresa_id, pdv_id, valor_abertura, observacoes, status, criado_em) 
+      VALUES (?, ?, ?, ?, ?, 'aberto', NOW())
+      `,
+      [usuario_id, empresa_id, pdv_id, valor, observacoes || '']
+    );
+
+    const caixaSessaoId = result.insertId; // ✅ guarda id
+
+    // ✅ REGISTRA MOVIMENTO FINANCEIRO
+    if (valor > 0) {
+
+      // depois do INSERT do caixa_sessoes
+
+      if (valor > 0) {
+        await registrarMovimentoFinanceiro({
+          origem: "cofre",
+          conta_id: cofre.id,
+          tipo: "saida",
+          valor: valor,
+          descricao: "Abertura de caixa",
+          forma_pagamento: "dinheiro",
+          usuario_id,
+          referencia_tipo: "caixa_sessao",
+          referencia_id: caixaSessaoId,
+          tipo_pagamento: "avista",
+        });
+      }
+
+    }
+
+    await conn.commit(); // ✅ só depois de tudo
+
+    return { id: caixaSessaoId };
+
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
 
 /**
  * Insere um movimento no caixa. Garante caixa aberto e usa transação para consistência.
@@ -344,61 +442,107 @@ export async function fecharCaixa({
   caixa_id,
   valor_fechamento_informado = null,
   motivo_diferenca = null,
+
 }) {
   if (!caixa_id || isNaN(Number(caixa_id))) {
     throw new Error("ID do caixa inválido!");
   }
-
-  // Resumo com o saldo esperado
-  const resumo = await resumoCaixa(caixa_id);
-  if (!resumo) throw new Error("Caixa não encontrado!");
-
-  const valorEsperado = Number(resumo.saldo_esperado);
-
-  // Valor contado pelo usuário
-  const valorFinal = valor_fechamento_informado !== null
-    ? Number(valor_fechamento_informado)
-    : valorEsperado;
-
-  // Calcula diferença
-  const diferenca = Number(valorFinal) - Number(valorEsperado);
-
-
-  // Se houver diferença e nenhum motivo, impede o fechamento
-  if (diferenca !== 0 && (!motivo_diferenca || motivo_diferenca.trim() === "")) {
-    throw new Error("É obrigatório informar o motivo da diferença!");
+  if (!global.usuarioLogado) {
+    throw new Error("Sessão expirada");
   }
-  if (valorFinal < 0) {
-    throw new Error("Valor de fechamento não pode ser negativo!");
+  const usuario_id = global.usuarioLogado.id
+  const empresa_id = global.usuarioLogado.empresa_id;
+
+  if (!empresa_id) {
+    throw new Error("Empresa não identificada");
   }
 
-  const [result] = await pool.query(
-    `
-      UPDATE caixa_sessoes
-      SET
-        fechado_em = NOW(),
-        valor_fechamento = ?,
-        valor_fechamento_informado = ?,
-        diferenca = ?,
-        motivo_diferenca = ?,
-        status = 'fechado',
-        atualizado_em = NOW()
-      WHERE id = ?
-    `,
-    [
-      valorFinal,                     // valor calculado/contado
-      valor_fechamento_informado,     // valor informado pelo usuário (ou null)
-      diferenca,                      // diferença registrada
-      motivo_diferenca,               // motivo, se houver
-      caixa_id,
-    ]
-  );
+  const conn = await pool.getConnection();
 
-  return {
-    alterados: result.affectedRows,
-    valor_fechamento: valorFinal,
-    esperado: valorEsperado,
-    diferenca,
-    motivo_diferenca,
-  };
+  try {
+    await conn.beginTransaction();
+
+    const resumo = await resumoCaixa(caixa_id);
+    if (!resumo) throw new Error("Caixa não encontrado!");
+
+    const valorEsperado = Number(resumo.saldo_esperado);
+
+    const valorFinal = valor_fechamento_informado !== null
+      ? Number(valor_fechamento_informado)
+      : valorEsperado;
+
+    const diferenca = valorFinal - valorEsperado;
+
+    if (diferenca !== 0 && (!motivo_diferenca || motivo_diferenca.trim() === "")) {
+      throw new Error("É obrigatório informar o motivo da diferença!");
+    }
+
+    if (valorFinal < 0) {
+      throw new Error("Valor de fechamento não pode ser negativo!");
+    }
+
+    const [result] = await conn.query(
+      `
+        UPDATE caixa_sessoes
+        SET
+          fechado_em = NOW(),
+          valor_fechamento = ?,
+          valor_fechamento_informado = ?,
+          diferenca = ?,
+          motivo_diferenca = ?,
+          status = 'fechado',
+          atualizado_em = NOW()
+        WHERE id = ?
+      `,
+      [
+        valorFinal,
+        valor_fechamento_informado,
+        diferenca,
+        motivo_diferenca,
+        caixa_id,
+      ]
+    );
+    const caixaSessaoId = result.insertId; // ✅ guarda id
+    const [rows] = await conn.query(
+      `SELECT id, saldo FROM financeiro_contas 
+       WHERE empresa_id = ? AND tipo = 'cofre' 
+       LIMIT 1`,
+      [empresa_id]
+    );
+
+    if (!rows.length) {
+      throw new Error("Cofre não encontrado para esta empresa!");
+    }
+
+    const cofre = rows[0];
+
+    await registrarMovimentoFinanceiro({
+      origem: "cofre",
+      conta_id: cofre.id,
+      tipo: "entrada",
+      valor: valorFinal,
+      descricao: "Fechamento de caixa",
+      forma_pagamento: "dinheiro",
+      usuario_id,
+      referencia_tipo: "caixa_sessao",
+      referencia_id: caixaSessaoId,
+      tipo_pagamento: "avista",
+    });
+
+    await conn.commit();
+
+    return {
+      alterados: result.affectedRows,
+      valor_fechamento: valorFinal,
+      esperado: valorEsperado,
+      diferenca,
+      motivo_diferenca,
+    };
+
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }

@@ -59,7 +59,7 @@ app.on('window-all-closed', () => {
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow()
 })
-//Cadastro de produtos
+//Produtos
 ipcMain.handle('get-produtos', async () => {
   try {
 
@@ -85,16 +85,43 @@ ipcMain.handle('salvar-produto', async (_, produto) => {
   const produtos = await listarProdutos();
   return produtos;
 });
-//Cadastro de fabricantes
+//fabricantes
 // Listar fabricantes
 ipcMain.handle('get-fabricantes', async () => {
   return await listarFabricantes();
+});
+function withSession(handler) {
+  return async (event, payload = {}) => {
+    try {
+      const usuario = global.usuarioLogado;
+
+      if (!usuario) {
+        throw new Error("Sessão expirada. Faça login novamente.");
+      }
+
+      payload.usuario_id = usuario.id;
+      payload.empresa_id = usuario.empresa_id;
+      payload.nivel = usuario.nivel;
+
+      return await handler(payload, event);
+    } catch (err) {
+      console.error("IPC Error:", err.message);
+      throw new Error(err.message || "Erro interno");
+    }
+  };
+}
+ipcMain.handle("session:get", () => {
+  return global.usuarioLogado || null;
 });
 
 //Login
 ipcMain.handle("login", async (event, { email, senha }) => {
   try {
-    const [rows] = await pool.execute("SELECT * FROM usuarios WHERE email = ?", [email]);
+    const [rows] = await pool.execute(
+      "SELECT * FROM usuarios WHERE email = ?",
+      [email]
+    );
+
     if (rows.length === 0) {
       throw new Error("Usuário não encontrado");
     }
@@ -106,22 +133,35 @@ ipcMain.handle("login", async (event, { email, senha }) => {
       throw new Error("Senha incorreta");
     }
 
-    // Retorna os dados necessários da sessão
+    const sessao = {
+      id: usuario.id,
+      nome: usuario.nome,
+      email: usuario.email,
+      nivel: usuario.nivel,
+      empresa_id: usuario.empresa_id,
+    };
+
+    // ✅ SALVA A SESSÃO
+    global.usuarioLogado = sessao;
+
     return {
       sucesso: true,
-      usuario: {
-        id: usuario.id,
-        nome: usuario.nome,
-        email: usuario.email,
-        nivel: usuario.nivel,
-        empresa_id: usuario.empresa_id
-      },
+      usuario: sessao,
     };
   } catch (error) {
     console.error("Erro no login:", error);
-    return { sucesso: false, mensagem: error.message };
+    return {
+      sucesso: false,
+      mensagem: error.message,
+    };
   }
 });
+
+ipcMain.handle("logout", async () => {
+  global.usuarioLogado = null;
+  return { sucesso: true };
+});
+
 // Handler para salvar um fabricante
 ipcMain.handle('salvar-fabricante', async (_event, fabricante: Fabricante) => {
   await salvarFabricante(fabricante);
@@ -132,7 +172,7 @@ ipcMain.handle('criar-fabricante', async (_event, fabricante: Fabricante) => {
   return true;
 });
 
-//Cadastro de Clientes
+//Clientes
 // Listar clientes
 ipcMain.handle("get-clientes", async () => {
   const clientes = await listarClientes();
@@ -366,7 +406,7 @@ ipcMain.handle('delete-fornecedor', async (_event, { CodigoFornecedor, usuario }
   }
 });
 
-
+//VENDAS
 
 // Listar
 ipcMain.handle('get-vendas', async () => {
@@ -732,18 +772,149 @@ ipcMain.handle("financeiro:cadastrar-conta", async (_event, dados) => {
     conta,
     tipo_conta
   } = dados;
-
+  if(!nome){
+    throw new Error("Nome da conta obrigatório");
+  }
   await pool.query(
     `
     INSERT INTO financeiro_contas
       (empresa_id,nome,tipo,saldo,banco_nome,banco_codigo,agencia,conta,tipo_conta)
     VALUES (?, ?, ?, ?, ? ,? , ?, ?,?)
     `,
-    [empresa_id,nome,tipo,saldo,banco_nome,banco_codigo,agencia,conta,tipo_conta]
+    [empresa_id, nome, tipo, saldo, banco_nome, banco_codigo, agencia, conta, tipo_conta]
   );
 
   return { success: true };
 });
+ipcMain.handle("carteira-digital", async () => {
+  const [caixa] = await pool.query(`
+    SELECT 
+      cs.id,
+      cs.valor_abertura
+      + IFNULL(SUM(CASE WHEN cm.tipo='entrada' THEN cm.valor ELSE 0 END),0)
+      - IFNULL(SUM(CASE WHEN cm.tipo='saida' THEN cm.valor ELSE 0 END),0) AS saldo
+    FROM caixa_sessoes cs
+    LEFT JOIN caixa_movimentos cm ON cm.caixa_id = cs.id
+    WHERE cs.status='aberto'
+    GROUP BY cs.id
+  `);
+
+  const [contas] = await pool.query(`
+    SELECT id, nome, tipo, saldo FROM financeiro_contas
+  `);
+
+  const [cofre] = await pool.query(`
+    SELECT IFNULL(SUM(saldo),0) saldo 
+    FROM financeiro_contas 
+    WHERE tipo ='cofre'
+  `);
+
+  const saldoCaixa = caixa.length ? Number(caixa[0].saldo) : 0;
+
+  const totalBanco = (Array.isArray(contas) ? contas : [])
+    .filter(c => c.tipo === 'banco')
+    .reduce((s, c) => s + Number(c.saldo || 0), 0);
+
+  const saldoCofre = cofre.length ? Number(cofre[0].saldo) : 0;
+
+  return {
+    saldos: {
+      caixa: saldoCaixa,
+      banco: totalBanco,
+      cofre: saldoCofre
+    },
+    contas
+  };
+});
+ipcMain.handle("carteira-transferir", async (e, dados) => {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+
+  try {
+    if (!dados.origem || !dados.destino) {
+      throw new Error("Informe origem e destino");
+    }
+
+    if (dados.origem == dados.destino) {
+      throw new Error("Origem e destino não podem ser iguais");
+    }
+
+    if (dados.valor <= 0) {
+      throw new Error("Valor inválido");
+    }
+
+    const [[origem]] = await conn.query(
+      `SELECT * FROM financeiro_contas WHERE id = ?`,
+      [dados.origem]
+    );
+
+    if (!origem) throw new Error("Conta origem não existe");
+
+    if (Number(origem.saldo) < dados.valor) {
+      throw new Error("Saldo insuficiente");
+    }
+
+    // SAÍDA
+    await conn.query(`
+      INSERT INTO financeiro_movimentos
+        (conta_id, tipo, valor, descricao, referencia_tipo)
+      VALUES (?, 'saida', ?, 'Transferência', 'transferencia')
+    `, [dados.origem, dados.valor]);
+
+    await conn.query(`
+      UPDATE financeiro_contas SET saldo = saldo - ? WHERE id = ?
+    `, [dados.valor, dados.origem]);
+
+    // ENTRADA
+    await conn.query(`
+      INSERT INTO financeiro_movimentos
+        (conta_id, tipo, valor, descricao, referencia_tipo)
+      VALUES (?, 'entrada', ?, 'Transferência', 'transferencia')
+    `, [dados.destino, dados.valor]);
+
+    await conn.query(`
+      UPDATE financeiro_contas SET saldo = saldo + ? WHERE id = ?
+    `, [dados.valor, dados.destino]);
+
+    await conn.commit();
+    return { ok: true };
+
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+});
+ipcMain.handle("carteira-extrato", async (e, { conta_id, inicio, fim }) => {
+  let where = `WHERE conta_id = ?`;
+  const params = [conta_id];
+
+  if (inicio) {
+    where += ` AND DATE(criado_em) >= ?`;
+    params.push(inicio);
+  }
+
+  if (fim) {
+    where += ` AND DATE(criado_em) <= ?`;
+    params.push(fim);
+  }
+
+  const [movs] = await pool.query(`
+    SELECT 
+      id,
+      tipo,
+      valor,
+      descricao,
+      criado_em
+    FROM financeiro_movimentos
+    ${where}
+    ORDER BY criado_em ASC
+  `, params);
+
+  return movs;
+});
+
 
 app.whenReady().then(createWindow)
 

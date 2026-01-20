@@ -436,32 +436,30 @@ WHERE id = ?
 async function atualizarStatusContaPagar(contaId, conn = pool) {
   const [[res]] = await conn.query(`
     SELECT
-      SUM(valor) AS total,
-      SUM(valor_pago) AS pago
+      ROUND(SUM(valor),2) AS total,
+      ROUND(SUM(valor_pago),2) AS pago
     FROM parcelas_pagar
     WHERE conta_pagar_id = ?
   `, [contaId]);
 
-  let status = "aberto";
-  res.total = fixMoney(res.total || 0);
-  res.pago = fixMoney(res.pago || 0);
+  const total = fixMoney(res.total || 0);
+  const pago  = fixMoney(res.pago || 0);
 
-  if (res.pago >= res.total) status = "pago";
-  else if (res.pago > 0) status = "parcial";
+  let status = "aberto";
+  if (pago >= total) status = "pago";
+  else if (pago > 0) status = "parcial";
 
   await conn.query(`
-  UPDATE contas_pagar
-  SET 
-    status = ?,
-    valor_pago = (
-      SELECT ROUND(SUM(valor_pago),2)
-      FROM parcelas_pagar
-      WHERE conta_pagar_id = ?
-    )
-  WHERE id = ?
-`, [status, contaId, contaId]);
-
+    UPDATE contas_pagar
+    SET 
+      status = ?,
+      valor_pago = ?
+    WHERE id = ?
+  `, [status, pago, contaId]);
 }
+
+
+
 export async function listarParcelasPagar(contaId, conn = pool) {
   const [rows] = await conn.query(`
       SELECT *
@@ -473,49 +471,42 @@ export async function listarParcelasPagar(contaId, conn = pool) {
   return rows;
 }
 export async function registrarMovimentoFinanceiro({
+  origem,
   conta_id,
-  tipo, // 'entrada' | 'saida'
+  tipo,
   valor,
   descricao,
-  forma_pagamento,
+  forma_pagamento = null,
   usuario_id,
-  referencia_tipo,
-  referencia_id,
-}: {
-  conta_id: number;
-  tipo: "entrada" | "saida";
-  valor: number;
-  descricao: string;
-  forma_pagamento?: string;
-  usuario_id: number;
-  referencia_tipo?: string;
-  referencia_id?: number;
+  referencia_tipo = null,
+  referencia_id = null,
+  tipo_pagamento = "avista",
 }) {
   const conn = await pool.getConnection();
 
   try {
     await conn.beginTransaction();
 
-    // 1️⃣ Registrar movimento
     await conn.query(
       `
       INSERT INTO financeiro_movimentos
-        (conta_id, tipo, descricao, valor, forma_pagamento, usuario_id, referencia_tipo, referencia_id, criado_em)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        (origem, conta_id, tipo, descricao, valor, forma_pagamento, usuario_id, referencia_tipo, referencia_id, criado_em, tipo_pagamento)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)
       `,
       [
+        origem,
         conta_id,
         tipo,
         descricao,
         valor,
-        forma_pagamento || null,
+        forma_pagamento,
         usuario_id,
-        referencia_tipo || null,
-        referencia_id || null,
+        referencia_tipo,
+        referencia_id,
+        tipo_pagamento,
       ]
     );
 
-    // 2️⃣ Atualizar saldo
     const operador = tipo === "entrada" ? "+" : "-";
 
     await conn.query(
@@ -528,7 +519,7 @@ export async function registrarMovimentoFinanceiro({
     );
 
     await conn.commit();
-    return { success: true };
+    return true;
 
   } catch (err) {
     await conn.rollback();
@@ -537,6 +528,7 @@ export async function registrarMovimentoFinanceiro({
     conn.release();
   }
 }
+
 export async function atualizarSaldoConta(
   conn: any,
   conta_id: number,

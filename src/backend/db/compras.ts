@@ -1,6 +1,7 @@
 // src/backend/compras.ts
 import pool from './connection';
 import { registrarMovimentoEstoque } from './estoque_movimento';
+import { fixMoney } from './financeiro';
 import { atualizarSaldoConta } from './financeiro';
 // ------------------------
 // LISTAR COMPRAS
@@ -250,34 +251,52 @@ export async function salvarCompraCompleta(dados: {
       }
 
       const totalParcelas = dados.parcelas;
-      const valorParcela = Number(
+      /*const valorParcela = Number(
         (dados.valor_total / totalParcelas).toFixed(2)
       );
-
+    */
       const dataBase = new Date(dados.vencimento);
 
       if (isNaN(dataBase.getTime())) {
         throw new Error("Data de vencimento inválida.");
       }
 
+
+      if (isNaN(dataBase.getTime())) {
+        throw new Error("Data de vencimento inválida.");
+      }
+
+      const base = fixMoney(dados.valor_total / totalParcelas);
+      let acumulado = 0;
+
       for (let i = 1; i <= totalParcelas; i++) {
         const vencimento = new Date(dataBase);
         vencimento.setMonth(dataBase.getMonth() + (i - 1));
 
+        let valor = base;
+
+        // ✅ última parcela ajusta diferença
+        if (i === totalParcelas) {
+          valor = fixMoney(dados.valor_total - acumulado);
+        }
+
+        acumulado = fixMoney(acumulado + valor);
+
         await conn.query(
           `
-      INSERT INTO parcelas_pagar
-        (conta_pagar_id, numero_parcela, valor, valor_pago, data_vencimento, status)
-      VALUES (?, ?, ?, 0, ?, 'aberto')
-      `,
+    INSERT INTO parcelas_pagar
+      (conta_pagar_id, numero_parcela, valor, valor_pago, data_vencimento, status)
+    VALUES (?, ?, ?, 0, ?, 'aberto')
+    `,
           [
             conta_pagar_id,
             i,
-            valorParcela,
-            vencimento.toISOString().slice(0, 10)
+            valor,
+            vencimento.toISOString().slice(0, 10),
           ]
         );
       }
+
     }
     if (dados.tipo_pagamento === "avista") {
       await conn.query(

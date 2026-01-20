@@ -1,22 +1,22 @@
-import { Card, CardContent } from "../../components/ui/card";
 import { useEffect, useState } from "react";
+import { Card } from "../../components/ui/card";
 import { toastErro } from "../helpers/toastErro";
-
-interface Conta {
-    id: number;
-    nome: string;
-    tipo: "cofre" | "banco";
-    saldo: number;
-    ativo: number;
-}
 interface Props {
     setPage: (page: string) => void;
 }
-export default function FinanceiroContas({ setPage }: Props) {
-    const [contas, setContas] = useState<Conta[]>([]);
-    const [modalAberto, setModalAberto] = useState(false);
-    const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
+export default function CarteiraDigital({ setPage }: Props) {
+    const [saldos, setSaldos] = useState<any>({});
+    const [contas, setContas] = useState<any[]>([]);
+    const [modalAberto, setModalAberto] = useState(false);
+    const [nomeCofre, setNomeCofre] = useState("");
+    const [saldoInicial, setSaldoInicial] = useState("0");
+    const [modalTransferir, setModalTransferir] = useState(false);
+    const [origem, setOrigem] = useState("");
+    const [destino, setDestino] = useState("");
+    const [valorTransferencia, setValorTransferencia] = useState("");
+    const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+    console.log(usuarioLogado)
     const [novaConta, setNovaConta] = useState({
         empresa_id: usuarioLogado.empresa_id,
         nome: "",
@@ -29,100 +29,114 @@ export default function FinanceiroContas({ setPage }: Props) {
         conta: '',
         tipo_conta: "corrente" as "corrente" | "poupanca" | 'pagamento',
     });
-    console.log(usuarioLogado)
-    useEffect(() => {
-        async function carregarContas() {
-            try {
-                const dados = await window.ipcRenderer.invoke(
-                    "financeiro:listar-contas"
-                );
-
-                if (dados.tipo !== "banco") {
-                    dados.banco_nome = null;
-                    dados.banco_codigo = null;
-                    dados.agencia = null;
-                    dados.conta = null;
-                    dados.tipo_conta = null;
-                }
-                setContas(dados);
-            } catch (err) {
-                console.error("Erro ao carregar contas", err);
-                toastErro(err)
+    async function criarConta() {
+        try {
+            await window.ipcRenderer.invoke(
+                "financeiro:cadastrar-conta",
+                novaConta
+            );
+            if (!novaConta.empresa_id) {
+                toastErro("Empresa nao identificada")
+                return
             }
+
+            setModalAberto(false);
+            setNovaConta({ nome: "", tipo: "cofre", saldo: 0 });
+
+            const dados = await window.ipcRenderer.invoke(
+                "financeiro:listar-contas"
+            );
+            setContas(dados);
+        } catch (err: any) {
+
+            toastErro(err);
         }
 
-        carregarContas();
+    }
+    useEffect(() => {
+        carregar();
     }, []);
 
-    console.log(contas)
+    async function carregar() {
+        const res = await window.ipcRenderer.invoke("carteira-digital");
+        setSaldos(res.saldos);
+        setContas(res.contas);
+    }
+
     return (
-        <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
-            <button
-                onClick={() => setPage('financeiro')}
-                style={{
-                    backgroundColor: '#e5e7eb',
-                    color: '#1e3a8a',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '8px 16px',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    marginBottom: '20px',
-                }}
-            >
+        <div style={{ padding: 20 }}>
+            <button onClick={() => setPage("movimentacao")} style={btnVoltar}>
                 ← Voltar
             </button>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ color: '#1e3a8a' }}>Contas financeiras</h2>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button
-                        onClick={() => setModalAberto(true)}
-                        style={{
-                            backgroundColor: "#1e3a8a",
-                            color: "#fff",
-                            border: "none",
-                            borderRadius: 6,
-                            padding: "8px 14px",
-                            cursor: "pointer",
-                            fontWeight: 600,
-                        }}
-                    >
-                        ＋ Cadastrar conta
-                    </button>
+            <h2>Carteira Digital</h2>
 
-                </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16 }}>
+                <Card>
+                    <h3>Caixas</h3>
+                    <strong>R$ {Number(saldos.caixa || 0).toFixed(2)}</strong>
+                </Card>
+
+                <Card>
+                    <h3>Contas bancarias</h3>
+                    <strong>R$ {Number(saldos.banco || 0).toFixed(2)}</strong>
+                </Card>
+
+                <Card>
+                    <h3>Cofres</h3>
+                    <strong>R$ {Number(saldos.cofre || 0).toFixed(2)}</strong>
+                </Card>
+
+                <Card>
+                    <h3>Total</h3>
+                    <strong>
+                        R$ {Number((saldos.caixa || 0) + (saldos.banco || 0) + (saldos.cofre || 0)).toFixed(2)}
+                    </strong>
+                </Card>
             </div>
 
-            <Card>
-                <CardContent>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                        <thead style={theadRow}>
-                            <tr >
-                                <th style={th} align="left">Conta</th>
-                                <th style={th} >Tipo</th>
-                                <th style={th} align="right">Saldo</th>
-                                <th style={th} >Status</th>
-                            </tr>
-                        </thead>
+            {/* CONTAS */}
+            <div style={{ marginTop: 30 }}>
+                <h3>Contas</h3>
+                <button
+                    onClick={() => setModalAberto(true)}
+                    style={buttonPrimary}
+                >
+                    + Nova conta
+                </button>
+                <button
+                    onClick={() => setModalTransferir(true)}
+                    style={btnTransferir}
+                >
+                    ⇄ Transferir
+                </button>
 
-                        <tbody>
-                            {contas.map((c) => (
-                                <tr key={c.id} >
-                                    <td style={td}>{c.nome}</td>
-                                    <td style={{ ...td, textTransform: "capitalize" }}>{c.tipo}</td>
-                                    <td style={td} align="right">
-                                        R$ {Number(c.saldo).toFixed(2)}
-                                    </td>
-                                    <td style={td}>
-                                        {c.ativo ? "Ativa" : "Inativa"}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </CardContent>
-            </Card>
+                <table width="100%">
+                    <thead style={theadRow}>
+                        <tr>
+                            <th style={th}>Nome</th>
+                            <th style={th}>Tipo</th>
+                            <th style={th}>Saldo</th>
+                            <th style={th}>Ações</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {contas.map(c => (
+                            <tr key={c.id}>
+                                <td style={td}>{c.nome}</td>
+                                <td style={td}>{c.tipo}</td>
+                                <td style={td}>R$ {Number(c.saldo).toFixed(2)}</td>
+                                <td style={td}>
+                                    <button onClick={() => setPage(`carteira/extrato/${c.id}`)}>
+                                        Extrato
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
             {modalAberto && (
                 <div
                     style={{
@@ -292,28 +306,75 @@ export default function FinanceiroContas({ setPage }: Props) {
                             </button>
 
                             <button
-                                onClick={async () => {
-                                    try {
-                                        await window.ipcRenderer.invoke(
-                                            "financeiro:cadastrar-conta",
-                                            novaConta
-                                        );
-
-                                        setModalAberto(false);
-                                        setNovaConta({ nome: "", tipo: "cofre", saldo: 0 });
-
-                                        const dados = await window.ipcRenderer.invoke(
-                                            "financeiro:listar-contas"
-                                        );
-                                        setContas(dados);
-                                    } catch (err) {
-                                        console.error("Erro ao criar conta", err);
-                                        toastErro(err)
-                                    }
-                                }}
+                                onClick={criarConta}
                                 style={buttonPrimary}
                             >
                                 Salvar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {modalTransferir && (
+                <div style={overlay}>
+                    <div style={modal}>
+                        <h3>Transferir</h3>
+
+                        <select value={origem} onChange={e => setOrigem(e.target.value)} style={input}>
+                            <option value="">Conta origem</option>
+                            {contas.map(c => (
+                                <option key={c.id} value={c.id}>
+                                    {c.nome} ({c.tipo})
+                                </option>
+                            ))}
+                        </select>
+
+                        <select value={destino} onChange={e => setDestino(e.target.value)} style={input}>
+                            <option value="">Conta destino</option>
+                            {contas.map(c => (
+                                <option key={c.id} value={c.id}>
+                                    {c.nome} ({c.tipo})
+                                </option>
+                            ))}
+                        </select>
+
+                        <input
+                            type="number"
+                            placeholder="Valor"
+                            value={valorTransferencia}
+                            onChange={e => setValorTransferencia(e.target.value)}
+                            style={input}
+                        />
+
+                        <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
+                            <button onClick={() => setModalTransferir(false)} style={btnCancelar}>
+                                Cancelar
+                            </button>
+
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        await window.ipcRenderer.invoke("carteira-transferir", {
+                                            origem,
+                                            destino,
+                                            valor: Number(valorTransferencia)
+                                        });
+                                        setModalTransferir(false);
+                                        setOrigem("");
+                                        setDestino("");
+                                        setValorTransferencia("");
+                                        carregar();
+                                    }
+                                    catch (err) {
+                                        toastErro(err)
+                                    }
+
+
+
+                                }}
+                                style={btnSalvar}
+                            >
+                                Transferir
                             </button>
                         </div>
                     </div>
@@ -323,13 +384,92 @@ export default function FinanceiroContas({ setPage }: Props) {
         </div>
     );
 }
+const btnTransferir = {
+    background: "#2563eb",
+    color: "#fff",
+    padding: "8px 14px",
+    borderRadius: 6,
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 600
+};
+
+
+const overlay = {
+    position: "fixed" as const,
+    inset: 0,
+    background: "rgba(0,0,0,0.4)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center"
+};
+
+const modal = {
+    background: "#fff",
+    padding: 20,
+    borderRadius: 8,
+    width: 300
+};
+
 const input = {
     width: "100%",
     padding: 8,
-    boxSizing: 'border-box',
-    borderRadius: '8px'
-
+    marginTop: 10,
+    borderRadius: 6,
+    border: "1px solid #ddd",
+    boxSizing: 'border-box'
 };
+
+const btnCancelar = {
+    background: "#e5e7eb",
+    border: "none",
+    padding: "8px 12px",
+    borderRadius: 6,
+    cursor: "pointer"
+};
+
+const btnSalvar = {
+    background: "#2563eb",
+    color: "#fff",
+    padding: "8px 14px",
+    borderRadius: 6,
+    border: "none",
+    cursor: "pointer",
+    fontWeight: 600
+};
+
+
+const btnVoltar = {
+    background: "#e5e7eb",
+    color: "#7c2d12",
+    border: "none",
+    borderRadius: "6px",
+    padding: "8px 16px",
+    cursor: "pointer",
+    fontWeight: 600,
+    marginBottom: "20px",
+};
+
+
+const theadRow = {
+    backgroundColor: "#e5e7eb",
+    color: "#7c2d12",
+};
+
+const th: React.CSSProperties = {
+    padding: 10,
+    fontWeight: 600,
+    textAlign: "center",
+};
+
+const td = {
+    padding: "12px 8px",
+    borderBottom: "1px solid #e5e7eb",
+    fontSize: "14px",
+    textAlign: "center",
+    color: "#374151",
+};
+
 const pageContainer: React.CSSProperties = {
     backgroundColor: "#ffffff",
     borderRadius: "12px",
@@ -350,32 +490,7 @@ const formContainer: React.CSSProperties = {
     marginTop: 20,
 };
 
-const modalOverlay: React.CSSProperties = {
-    position: "fixed",
-    inset: 0,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 999,
-};
 
-const theadRow = {
-    backgroundColor: "#e5e7eb",
-    color: "#7c2d12",
-};
-const th: React.CSSProperties = {
-    padding: 10,
-    fontWeight: 600,
-    textAlign: "center",
-};
-const td = {
-    padding: "12px 8px",
-    borderBottom: "1px solid #e5e7eb",
-    fontSize: "14px",
-    textAlign: "center",
-    color: "#374151",
-};
 const label: React.CSSProperties = {
     fontSize: 13,
     fontWeight: 600,
