@@ -3,6 +3,7 @@ import pool from './connection';
 import { registrarMovimentoEstoque } from './estoque_movimento';
 import { fixMoney } from './financeiro';
 import { atualizarSaldoConta } from './financeiro';
+import { pagarCompraComCaixa } from './caixa';
 // ------------------------
 // LISTAR COMPRAS
 // ------------------------

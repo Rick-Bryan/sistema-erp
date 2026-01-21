@@ -14,15 +14,18 @@ export default function ExtratoConta({ setPage, params }: any) {
       fim
     });
 
-    let saldo = 0;
+    const { saldoInicial, movimentos } = res;
 
-    const formatado = res.map((m: any) => {
+    let saldo = Number(saldoInicial || 0);
+
+    const formatado = (movimentos || []).map((m: any) => {
       saldo += m.tipo === "entrada" ? Number(m.valor) : -Number(m.valor);
       return { ...m, saldo };
     });
 
     setMovs(formatado);
   }
+
 
   useEffect(() => {
     carregar();
@@ -74,38 +77,30 @@ export default function ExtratoConta({ setPage, params }: any) {
   );
 }
 const btnVoltar = {
-    background: "#e5e7eb",
-    color: "#7c2d12",
-    border: "none",
-    borderRadius: "6px",
-    padding: "8px 16px",
-    cursor: "pointer",
-    fontWeight: 600,
-    marginBottom: "20px",
+  background: "#e5e7eb",
+  color: "#7c2d12",
+  border: "none",
+  borderRadius: "6px",
+  padding: "8px 16px",
+  cursor: "pointer",
+  fontWeight: 600,
+  marginBottom: "20px",
 };
 const theadRow = {
-    backgroundColor: "#e5e7eb",
-    color: "#7c2d12",
+  backgroundColor: "#e5e7eb",
+  color: "#7c2d12",
 };
 const th: React.CSSProperties = {
-    padding: 10,
-    fontWeight: 600,
-    textAlign: "center",
+  padding: 10,
+  fontWeight: 600,
+  textAlign: "center",
 };
 const td = {
-    padding: "12px 8px",
-    borderBottom: "1px solid #e5e7eb",
-    fontSize: "14px",
-    textAlign: "center",
-    color: "#374151",
+  padding: "12px 8px",
+  borderBottom: "1px solid #e5e7eb",
+  fontSize: "14px",
+  textAlign: "center",
+  color: "#374151",
 };
-const buttonBase: React.CSSProperties = {
-    padding: '10px 22px',
-    borderRadius: '8px',
-    border: 'none',
-    cursor: 'pointer',
-    fontWeight: 600,
-    fontSize: '15px',
-    transition: '0.2s all ease',
-};
+
 

@@ -429,6 +429,49 @@ export async function resumoCaixa(caixa_id) {
   };
 
 }
+export async function pagarCompraComCaixa({
+  usuario_id,
+  empresa_id,
+  valor,
+  descricao,
+  referencia_id
+}) {
+  const conn = await pool.getConnection();
+
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(`
+      SELECT id 
+      FROM caixa_sessoes
+      WHERE usuario_id = ?
+        AND empresa_id = ?
+        AND status = 'aberto'
+      LIMIT 1
+    `, [usuario_id, empresa_id]);
+
+    if (!rows.length) {
+      throw new Error("Nenhum caixa aberto");
+    }
+
+    const caixa = rows[0];
+
+    // registra saída no caixa
+    await conn.query(`
+      INSERT INTO caixa_movimentos
+        (caixa_id, tipo, valor, descricao, criado_em)
+      VALUES (?, 'saida', ?, ?, NOW())
+    `, [caixa.id, valor, descricao]);
+
+    await conn.commit();
+
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
 
 /**
  * Fecha o caixa. Se valor_fechamento não informado, usa cálculo automático.

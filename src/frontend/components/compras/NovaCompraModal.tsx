@@ -134,7 +134,7 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
           <label style={label}>Fornecedor</label>
           <select
             value={compra.fornecedor_id}
-            onChange={(e) => setCompra({ ...compra, fornecedor_id:  Number(e.target.value) || null})}
+            onChange={(e) => setCompra({ ...compra, fornecedor_id: Number(e.target.value) || null })}
             style={input}
           >
             <option value="">Selecione...</option>
@@ -191,9 +191,8 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
               <option value="boleto">Boleto</option>
             </select>
           </div>
+
         )}
-
-
         {compra.tipo_pagamento === "parcelado" && (
           <>
             <div style={{ marginBottom: 15 }}>

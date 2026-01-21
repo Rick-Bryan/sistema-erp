@@ -29983,6 +29983,17 @@ ipcMain.handle("carteira-transferir", async (e, dados) => {
   }
 });
 ipcMain.handle("carteira-extrato", async (e, { conta_id, inicio, fim }) => {
+  const [[conta]] = await pool.query(
+    `
+    SELECT saldo 
+    FROM financeiro_contas 
+    WHERE id = ?
+    `,
+    [conta_id]
+  );
+  if (!conta) {
+    throw new Error("Conta não encontrada");
+  }
   let where = `WHERE conta_id = ?`;
   const params = [conta_id];
   if (inicio) {
@@ -29993,7 +30004,8 @@ ipcMain.handle("carteira-extrato", async (e, { conta_id, inicio, fim }) => {
     where += ` AND DATE(criado_em) <= ?`;
     params.push(fim);
   }
-  const [movs] = await pool.query(`
+  const [movs] = await pool.query(
+    `
     SELECT 
       id,
       tipo,
@@ -30003,7 +30015,18 @@ ipcMain.handle("carteira-extrato", async (e, { conta_id, inicio, fim }) => {
     FROM financeiro_movimentos
     ${where}
     ORDER BY criado_em ASC
-  `, params);
-  return movs;
+    `,
+    params
+  );
+  let saldoInicial = Number(conta.saldo || 0);
+  for (let i = movs.length - 1; i >= 0; i--) {
+    const m = movs[i];
+    if (m.tipo === "entrada") saldoInicial -= Number(m.valor);
+    else saldoInicial += Number(m.valor);
+  }
+  return {
+    saldoInicial,
+    movimentos: movs
+  };
 });
 app.whenReady().then(createWindow);
