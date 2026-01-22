@@ -10,7 +10,13 @@ declare global {
             getSubGrupos: () => Promise<any[]>;
             getSubGruposByGrupo: (codigoGrupo: number) => Promise<any[]>;
             getFabricanteById: (CodigoFabricante: number) => Promise<any[]>
+            getProdutos: () => Promise<any[]>;
 
+            addGrupo: (nome: string) => Promise<void>;
+
+            addSubGrupo: (nome: string) => Promise<void>;
+
+            atualizarGrupo: () => Promise<any[]>;
         };
     }
 }
@@ -34,6 +40,7 @@ interface Produto {
     CEST?: string;
     CodigoBeneficio?: string;
     EstoqueAtual?: number;
+    
 }
 
 const maxLength: Record<string, number> = {
@@ -51,12 +58,168 @@ const maxLength: Record<string, number> = {
 export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
     const [produto, setProduto] = useState<Produto>({
         DataCadastro: new Date().toISOString().split("T")[0],
+        CodigoGrupo: undefined,
+        CodigoSubGrupo: undefined,
     });
 
+    const [produtos, setProdutos] = useState<any[]>([]);
     const [fabricantes, setFabricantes] = useState<any[]>([]);
-    const [grupos, setGrupos] = useState<any[]>([]);
-    const [subGrupos, setSubGrupos] = useState<any[]>([]);
+
     const [fabricanteSelecionado, setFabricanteSelecionado] = useState(null)
+    const [modalGrupo, setModalGrupo] = useState(false);
+    const [modalSubGrupo, setModalSubGrupo] = useState(false);
+    const [comissaoGrupo, setComissaoGrupo] = useState("");
+
+    // DADOS INTERNOS
+    const [grupos, setGrupos] = useState<any[]>([]);
+    const [grupoSelecionado, setGrupoSelecionado] = useState<number | "">("");
+    const [subGrupos, setSubGrupos] = useState<any[]>([]);
+
+    const [novoGrupo, setNovoGrupo] = useState("");
+    const [novoSubGrupo, setNovoSubGrupo] = useState("");
+
+    const [produtoSelecionado, setProdutoSelecionado] = useState<any | null>(null);
+    const [modoCadastro, setModoCadastro] = useState(false);
+    const [grupoEditando, setGrupoEditando] = useState(null);
+    const [subGrupoEditando, setSubGrupoEditando] = useState(null);
+
+
+
+
+    // DADOS INTERNOS
+
+
+    console.log("Grupos", grupos)
+    console.log("SubGrupos", subGrupos)
+    const carregarProdutos = async () => {
+        setProdutos(await window.electronAPI.getProdutos());
+    };
+
+    const carregarGrupos = async () => {
+        setGrupos(await window.electronAPI.getGrupos());
+    };
+
+    const carregarSubGrupos = async () => {
+        setSubGrupos(await window.electronAPI.getSubGrupos());
+    };
+
+    const adicionarGrupo = async (novoGrupo, comissaoGrupo) => {
+        try {
+            const result = await window.electronAPI.addGrupo(novoGrupo, comissaoGrupo);
+            setNovoGrupo("");
+            setComissaoGrupo("");
+            carregarGrupos();
+            toast.success("grupo foi cadastrado com sucesso")
+            return result;
+        }
+        catch (err) {
+            toast.error("erro ao cadastrar grupo")
+        }
+
+
+    }
+
+
+
+    const atualizarGrupo = async () => {
+        await window.electronAPI.atualizarGrupo(
+            grupoEditando.id,
+            novoGrupo,
+            comissaoGrupo
+        );
+
+        toast.success("Grupo atualizado com sucesso!");
+        setGrupoEditando(null);
+        setNovoGrupo("");
+        setComissaoGrupo("");
+        setModalGrupo(false);
+        carregarGrupos();
+    };
+
+    const excluirGrupo = async (id) => {
+
+        try {
+            await window.electronAPI.excluirGrupo(id);
+            toast.success("Grupo excluído!");
+            carregarGrupos();
+        } catch (err) {
+            toast.error("Erro ao excluir grupo");
+        }
+    };
+
+    const adicionarSubGrupo = async () => {
+        try {
+            if (!novoSubGrupo.trim()) {
+                toast.error("Informe o nome do subgrupo");
+                return;
+            }
+
+            if (!grupoSelecionado) {
+                toast.error("Selecione um grupo antes de cadastrar um subgrupo");
+                return;
+            }
+
+            await window.electronAPI.addSubGrupo(novoSubGrupo, Number(grupoSelecionado));
+
+            setNovoSubGrupo("");
+            carregarSubGrupos();
+
+            toast.success("Subgrupo cadastrado com sucesso!");
+        } catch (err) {
+            toast.error("Erro ao cadastrar subgrupo");
+        }
+    };
+    const atualizarSubGrupo = async () => {
+        try {
+            await window.electronAPI.atualizarSubGrupo(
+                subGrupoEditando.id,
+                novoSubGrupo,
+                grupoSelecionado
+            );
+
+            toast.success("Subgrupo atualizado!");
+
+            setSubGrupoEditando(null);
+            setNovoSubGrupo("");
+            setGrupoSelecionado("");
+
+            carregarSubGrupos();
+        } catch (err) {
+            toast.error("Erro ao atualizar subgrupo");
+        }
+    };
+
+    const excluirSubgrupo = async (id) => {
+
+        try {
+            await window.electronAPI.excluirSubGrupo(id);
+            toast.success("Subgrupo excluído!");
+            carregarSubGrupos();
+        } catch (err) {
+            toast.error("Erro ao excluir subgrupo");
+        }
+    };
+
+    useEffect(() => {
+        const carregarSubPorGrupo = async () => {
+            if (!grupoSelecionado) {
+                setSubGrupos([]);
+                return;
+            }
+
+            const lista = await window.electronAPI.getSubGruposByGrupo(Number(grupoSelecionado));
+            setSubGrupos(lista);
+        };
+
+        carregarSubPorGrupo();
+    }, [grupoSelecionado]);
+
+
+    useEffect(() => {
+        carregarProdutos();
+        carregarGrupos();
+        carregarSubGrupos();
+    }, []);
 
     // 📌 Buscar dados do banco ao abrir o formulário
     useEffect(() => {
@@ -167,6 +330,210 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
                 ← Voltar
             </button>
             <h2 style={titulo}>🆕 Cadastrar Produto</h2>
+            {/* Cabeçalho */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 style={{ color: '#1e3a8a' }}>Produtos</h2>
+
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    {/* Botão Grupo */}
+                    <button
+                        onClick={() => setModalGrupo(true)}
+                        style={btnAzul}
+                    >
+                        ＋ Cadastrar Grupo
+                    </button>
+
+                    {/* Botão SubGrupo */}
+                    <button
+                        onClick={() => setModalSubGrupo(true)}
+                        style={btnAzul}
+                    >
+                        ＋ Cadastrar Subgrupo
+                    </button>
+
+                    {/* Botão Produto */}
+                  
+                </div>
+            </div>
+
+            {/* ------------------- MODAL GRUPO ------------------- */}
+            {modalGrupo && (
+                <Modal>
+                    <h3>Cadastrar Grupo</h3>
+
+                    <input
+                        style={inputModal}
+                        placeholder="Nome do grupo"
+                        value={novoGrupo}
+                        onChange={(e) => setNovoGrupo(e.target.value)}
+                    />
+                    <input
+                        style={inputModal}
+                        placeholder="Comissao"
+                        value={comissaoGrupo}
+                        onChange={(e) => setComissaoGrupo(e.target.value)}
+                    />
+
+
+
+                    <h4>Grupos cadastrados:</h4>
+
+                    <div style={boxTabelaModal}>
+                        <table style={tabelaModal}>
+                            <thead>
+                                <tr>
+                                    <th style={thModal}>Nome</th>
+                                    <th style={thModal}>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {grupos.map((g, index) => (
+                                    <tr key={g.id} style={index % 2 === 0 ? linhaPar : linhaImpar}>
+                                        <td style={tdModal}>{g.nome}</td>
+                                        <td style={tdModal}>
+                                            <button
+                                                onClick={() => {
+                                                    setGrupoEditando(g);
+                                                    setNovoGrupo(g.nome);
+                                                    setComissaoGrupo(g.Comissao || "");
+                                                }}
+                                            >
+                                                Editar
+                                            </button>
+                                            <button onClick={() => excluirGrupo(g.id)}>
+                                                Excluir
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+
+                        </table>
+                    </div>
+
+                    <button
+                        style={btnSalvar}
+                        onClick={() =>
+                            grupoEditando
+                                ? atualizarGrupo()
+                                : adicionarGrupo(novoGrupo, comissaoGrupo)
+                        }
+                    >
+                        {grupoEditando ? "Atualizar" : "Salvar"}
+                    </button>
+                    <button onClick={() => {
+                        setModalGrupo(false)
+                        setGrupoEditando(null);
+                        setNovoGrupo("");
+                        setComissaoGrupo("");
+                    }} style={btnFechar}>Fechar</button>
+                </Modal>
+            )}
+
+            {/* ------------------- MODAL SUBGRUPO ------------------- */}
+            {modalSubGrupo && (
+                <Modal>
+                    <h3>Cadastrar Subgrupo</h3>
+
+                    <input
+                        style={inputModal}
+                        placeholder="Nome do subgrupo"
+                        value={novoSubGrupo}
+                        onChange={(e) => {
+                            const valor = e.target.value
+                            setNovoSubGrupo(valor)
+                            if (valor.trim() === '') {
+                                setGrupoEditando(null)
+
+                            }
+                        }
+                        }
+                    />
+
+                    <select
+                        style={inputStyle}
+                        value={grupoSelecionado ?? ""}
+                        onChange={(e) => {
+                            const valor = e.target.value;
+
+                            setGrupoSelecionado(valor || null);
+
+                            // Se voltou para "Selecione..."
+                            if (!valor) {
+                                setSubGrupoEditando(null);
+                                setNovoSubGrupo("");
+                            }
+                        }}
+                    >
+                        <option value="">Selecione...</option>
+                        {grupos.map((g) => (
+                            <option key={g.id} value={g.id}>
+                                {g.nome}
+                            </option>
+                        ))}
+                    </select>
+
+
+
+                    {grupoSelecionado && (
+                        <>
+                            <h4>SubGrupos cadastrados:</h4>
+
+                            <div style={boxTabelaModal}>
+                                <table style={tabelaModal}>
+                                    <thead>
+                                        <tr>
+                                            <th style={thModal}>Nome</th>
+                                            <th style={thModal}>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {subGrupos.map((s, index) => (
+                                            <tr key={s.id} style={index % 2 === 0 ? linhaPar : linhaImpar}>
+                                                <td style={tdModal}>{s.nome}</td>
+                                                <td style={tdModal}>
+                                                    <button
+                                                        onClick={() => {
+                                                            setSubGrupoEditando(s);
+                                                            setNovoSubGrupo(s.nome);
+                                                        }}
+                                                    >
+                                                        ✏️
+                                                    </button>
+                                                    <button onClick={() => excluirSubgrupo(s.id)}>
+                                                        🗑️
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+
+                                </table>
+                            </div>
+                        </>)}
+                    <button
+                        style={btnSalvar}
+                        onClick={() =>
+                            subGrupoEditando
+                                ? atualizarSubGrupo()
+                                : adicionarSubGrupo(novoSubGrupo, grupoSelecionado)
+                        }
+                    >
+                        {subGrupoEditando ? "Atualizar" : "Salvar"}
+                    </button>
+                    <button onClick={() => {
+                        setModalSubGrupo(false)
+                        setSubGrupoEditando(null);
+                        setNovoSubGrupo("");
+                    }
+
+
+
+
+                    } style={btnFechar}>Fechar</button>
+                </Modal>
+            )
+            }
 
             <div style={formContainer}>
                 {Object.keys({
@@ -363,4 +730,115 @@ const buttonSecondary: React.CSSProperties = {
     ...buttonBase,
     backgroundColor: '#6b7280',
     color: '#fff',
+};
+
+
+
+/* ------------ COMPONENTE MODAL GENERICO ------------- */
+function Modal({ children }: { children: any }) {
+    return (
+        <div style={modalFundo}>
+            <div style={modalBox}>
+                {children}
+            </div>
+        </div>
+    );
+}
+
+
+const btnAzul: React.CSSProperties = {
+    backgroundColor: '#1e3a8a',
+    color: '#fff',
+    border: 'none',
+    padding: '8px 14px',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontWeight: 600,
+};
+
+
+const inputModal: React.CSSProperties = {
+    width: '100%',
+    padding: '10px',
+    marginBottom: '10px',
+    borderRadius: '6px',
+    border: '1px solid #ccc',
+    boxSizing: 'border-box'
+};
+
+const btnSalvar: React.CSSProperties = {
+    ...btnAzul,
+    width: '100%',
+    marginBottom: '15px'
+};
+
+const btnFechar: React.CSSProperties = {
+    backgroundColor: '#b91c1c',
+    color: 'white',
+    padding: '8px 14px',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    width: '100%'
+};
+
+const modalFundo: React.CSSProperties = {
+    position: "fixed",
+    top: 0,
+    left: 0,
+    width: "100vw",
+    height: "100vh",
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center",
+};
+
+const modalBox: React.CSSProperties = {
+    background: "#fff",
+    padding: "25px",
+    borderRadius: "8px",
+    width: "450px",
+    boxShadow: "0 4px 20px rgba(0,0,0,0.2)"
+};
+
+
+/* -------- MELHOR ESTILO DAS TABELAS DO MODAL -------- */
+
+const boxTabelaModal: React.CSSProperties = {
+    maxHeight: "200px",
+    overflowY: "auto",
+    backgroundColor: "#f9fafb",
+    borderRadius: "8px",
+    border: "1px solid #e5e7eb",
+    marginTop: "10px",
+    marginBottom: "10px"
+};
+
+const tabelaModal: React.CSSProperties = {
+    width: "100%",
+    borderCollapse: "collapse",
+};
+
+const thModal: React.CSSProperties = {
+    backgroundColor: "#1e3a8a",
+    color: "white",
+    padding: "10px",
+    textAlign: "left",
+    fontWeight: 600,
+    position: "sticky",
+    top: 0,
+};
+
+const tdModal: React.CSSProperties = {
+    padding: "10px",
+    borderBottom: "1px solid #e5e7eb",
+};
+
+const linhaPar: React.CSSProperties = {
+    backgroundColor: "#ffffff",
+};
+
+const linhaImpar: React.CSSProperties = {
+    backgroundColor: "#f3f4f6",
 };

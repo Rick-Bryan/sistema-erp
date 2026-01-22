@@ -149,7 +149,7 @@ export async function getCompraById(id: number) {
 export async function salvarCompraCompleta(dados: {
   fornecedor_id: number;
   usuario_id: number;
-  empresa_id: number;
+
   valor_total: number;
   tipo_pagamento: "avista" | "parcelado";
   forma_pagamento: "dinheiro" | "pix" | "cartao" | "boleto";
@@ -163,13 +163,15 @@ export async function salvarCompraCompleta(dados: {
   vencimento?: string;
   parcelas?: number;
   conta_id?: number;
+  origem_pagamento?: string;
 
   // qtde de parcelas (se a prazo)
 }) {
   const conn = await pool.getConnection();
-
+  const empresa_id = global.usuarioLogado.empresa_id
   try {
     await conn.beginTransaction();
+
 
     // 🔎 Validações
     if (!dados.itens || dados.itens.length === 0) {
@@ -184,30 +186,39 @@ export async function salvarCompraCompleta(dados: {
     if (!dados.usuario_id) {
       throw new Error("Usuário não identificado para o movimento financeiro");
     }
-    if (!dados.conta_id) {
-      throw new Error("Conta financeira não informada para a compra à vista");
+    if (dados.tipo_pagamento === "avista") {
+      if (!dados.origem_pagamento) {
+        throw new Error("Origem do pagamento não informada");
+      }
+
+      if (dados.origem_pagamento === "conta" && !dados.conta_id) {
+        throw new Error("Conta financeira não informada.");
+      }
     }
+
     if (!["avista", "parcelado"].includes(dados.tipo_pagamento)) {
       throw new Error("Tipo de pagamento inválido");
     }
 
+
     // 1️⃣ Criar compra
-    const [compra]: any = await conn.query(
-      `
-      INSERT INTO compras
-        (fornecedor_id, usuario_id, valor_total, tipo_pagamento,forma_pagamento, status, observacoes)
-      VALUES (?, ?, ?, ?, ?, ?,?)
-      `,
-      [
-        dados.fornecedor_id,
-        dados.usuario_id,
-        dados.valor_total,
-        dados.tipo_pagamento,
-        dados.forma_pagamento,
-        dados.status || "aberta",
-        dados.observacoes || null
-      ]
-    );
+    const [compra]: any = await conn.query(`
+  INSERT INTO compras
+    (fornecedor_id, usuario_id, valor_total, tipo_pagamento, forma_pagamento, origem_pagamento, caixa_id, conta_id, status, observacoes)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, [
+      dados.fornecedor_id,
+      dados.usuario_id,
+      dados.valor_total,
+      dados.tipo_pagamento,
+      dados.forma_pagamento,
+      dados.origem_pagamento,
+      null, // caixa_id depois se for caixa
+      dados.origem_pagamento === "conta" ? dados.conta_id : null,
+      dados.status || "aberta",
+      dados.observacoes || null
+    ]);
+
 
     const compra_id = compra.insertId;
 
@@ -231,7 +242,7 @@ export async function salvarCompraCompleta(dados: {
       VALUES (?, ?, ?, ?, ?, 'aberto', NOW())
       `,
       [
-        dados.empresa_id,
+        empresa_id,
         compra_id,
         dados.fornecedor_id,
         `Compra #${compra_id}`,
@@ -300,27 +311,95 @@ export async function salvarCompraCompleta(dados: {
 
     }
     if (dados.tipo_pagamento === "avista") {
+
+      if (!dados.origem_pagamento) {
+        throw new Error("Origem do pagamento não informada");
+      }
+
+      // ✅ Marca conta a pagar como paga
       await conn.query(
-        `
-    UPDATE contas_pagar
-    SET status = 'pago'
-    WHERE id = ?
-    `,
+        `UPDATE contas_pagar SET status = 'pago' WHERE id = ?`,
         [conta_pagar_id]
       );
 
-      await conn.query(`INSERT INTO financeiro_movimentos
-(conta_id, tipo, valor,forma_pagamento, descricao, referencia_tipo, referencia_id, usuario_id)
-VALUES (?, 'saida', ?,?, 'Compra', 'compra', ?, ?)`, [dados.conta_id, dados.valor_total, dados.forma_pagamento, compra_id, dados.usuario_id])
-      // 🔥 DESCONTA DO SALDO DA CONTA
-      await atualizarSaldoConta(
-        conn,
-        dados.conta_id,
-        dados.valor_total,
-        'saida'
-      );
+      // =========================
+      // ✅ PAGAMENTO PELO CAIXA
+      // =========================
+      if (dados.origem_pagamento === "caixa") {
+
+        const [rows]: any = await conn.query(`
+      SELECT id 
+      FROM caixa_sessoes
+      WHERE usuario_id = ?
+        AND empresa_id = ?
+        AND status = 'aberto'
+      LIMIT 1
+    `, [dados.usuario_id, empresa_id]);
+
+        if (!rows.length) {
+          throw new Error("Nenhum caixa aberto para este usuário.");
+        }
+
+        const caixa_id = rows[0].id;
+
+        // ✅ atualiza compra com caixa
+        await conn.query(`
+      UPDATE compras 
+      SET origem_pagamento = 'caixa', caixa_id = ?
+      WHERE id = ?
+    `, [caixa_id, compra_id]);
+
+        await conn.query(`
+      INSERT INTO caixa_movimentos
+        (caixa_id, tipo, valor, descricao, origem, forma_pagamento, usuario_id, criado_em)
+      VALUES (?, 'saida', ?, ?, 'compra', ?, ?, NOW())
+    `, [
+          caixa_id,
+          dados.valor_total,
+          `Compra #${compra_id}`,
+          dados.forma_pagamento,
+          dados.usuario_id
+        ]);
+
+      }
+
+      // =========================
+      // ✅ PAGAMENTO POR CONTA
+      // =========================
+      if (dados.origem_pagamento === "conta") {
+
+        if (!dados.conta_id) {
+          throw new Error("Conta financeira não informada.");
+        }
+
+        await conn.query(`
+      UPDATE compras 
+      SET origem_pagamento = 'conta', conta_id = ?
+      WHERE id = ?
+    `, [dados.conta_id, compra_id]);
+
+        await conn.query(`
+      INSERT INTO financeiro_movimentos
+        (conta_id, tipo, valor, forma_pagamento, descricao, referencia_tipo, referencia_id, usuario_id)
+      VALUES (?, 'saida', ?, ?, 'Compra', 'compra', ?, ?)
+    `, [
+          dados.conta_id,
+          dados.valor_total,
+          dados.forma_pagamento,
+          compra_id,
+          dados.usuario_id
+        ]);
+
+        await atualizarSaldoConta(
+          conn,
+          dados.conta_id,
+          dados.valor_total,
+          'saida'
+        );
+      }
 
     }
+
 
 
     await conn.commit();
@@ -362,6 +441,15 @@ export async function finalizarCompra(compraId: number) {
         item.produto_id
       ]
     );
+    await registrarMovimentoEstoque({
+      produto_id: item.produto_id,
+      quantidade: item.quantidade,
+      custo_unitario: item.custo_unitario,
+      documento_id: compraId,
+      observacao: `Compra #${compraId}`,
+      tipo: 'entrada',
+      origem: 'compra'
+    });
   }
 
   // 3️⃣ Finalizar compra
@@ -369,7 +457,9 @@ export async function finalizarCompra(compraId: number) {
     "UPDATE compras SET status = 'finalizada', atualizado_em = NOW() WHERE id = ?",
     [compraId]
   );
+  const [compra] = await pool.query(`SELECT * FROM compras WHERE id = ? `, [compraId]
 
-
+  )
+  registrarMovimentoEstoque
   return { success: true };
 }

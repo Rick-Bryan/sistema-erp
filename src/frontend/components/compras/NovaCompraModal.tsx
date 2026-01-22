@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@mui/material";
 import toast from "react-hot-toast";
-
+import { toastErro } from "../helpers/toastErro";
 declare global {
   interface Window {
     electronAPI: {
@@ -35,6 +35,8 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
     parcelas: 1,
     vencimento: "",
     conta_id: null as number | null, // ✅ CORRETO
+    origem_pagamento: ""
+
   });
 
   console.log(usuario)
@@ -120,7 +122,7 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
 
     } catch (e) {
       console.error(e);
-      toast.error("Erro ao salvar compra.");
+      toastErro(e);
     }
   };
 
@@ -155,44 +157,10 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
             <option value="parcelado">A prazo</option>
           </select>
         </div>
-        <div style={{ marginBottom: 15 }}>
-          <label style={label}>Conta de pagamento</label>
-          <select
-            value={compra.conta_id}
-            onChange={(e) =>
-              setCompra({ ...compra, conta_id: Number(e.target.value) || null })
-            }
 
-            style={input}
-          >
-            <option value="">Selecione...</option>
-            {contas.map((c) => (
-              <option key={c.id} value={c.id}>{c.nome}</option>
-            ))}
-          </select>
-        </div>
-        {compra.tipo_pagamento === "avista" && (
-          <div style={{ marginBottom: 15 }}>
-            <label style={label}>Forma de pagamento</label>
-            <select
-              value={compra.forma_pagamento}
-              onChange={(e) =>
-                setCompra({
-                  ...compra,
-                  forma_pagamento: e.target.value as "dinheiro" | "pix" | "cartao" | "boleto",
-                })
-              }
-              style={input}
-            >
-              <option value="">Selecione...</option>
-              <option value="dinheiro">Dinheiro</option>
-              <option value="pix">Pix</option>
-              <option value="cartao">Cartão</option>
-              <option value="boleto">Boleto</option>
-            </select>
-          </div>
 
-        )}
+  
+
         {compra.tipo_pagamento === "parcelado" && (
           <>
             <div style={{ marginBottom: 15 }}>
@@ -221,7 +189,63 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
             </div>
           </>
         )}
+        {compra.tipo_pagamento === "avista" && (
+          <div style={{ marginBottom: 15 }}>
 
+             <label style={label}>Origem do pagamento</label>
+            <select
+              value={compra.origem_pagamento}
+              onChange={(e) =>
+                setCompra({ ...compra, origem_pagamento: e.target.value as "caixa" | "conta" })
+              }
+              style={input}
+            >
+              <option value="">Selecione...</option>
+              <option value="caixa">Caixa (PDV)</option>
+              <option value="conta">Conta financeira</option>
+            </select>
+            <label style={label}>Forma de pagamento</label>
+            <select
+              value={compra.forma_pagamento}
+              onChange={(e) =>
+                setCompra({
+                  ...compra,
+                  forma_pagamento: e.target.value as "dinheiro" | "pix" | "cartao" | "boleto",
+                })
+              }
+              style={input}
+            >
+              <option value="">Selecione...</option>
+              <option value="dinheiro">Dinheiro</option>
+              <option value="pix">Pix</option>
+              <option value="cartao">Cartão</option>
+              <option value="boleto">Boleto</option>
+            </select>
+
+           
+          </div>
+
+
+
+        )}
+        {compra.origem_pagamento === "conta" && (
+          <div style={{ marginBottom: 15 }}>
+            <label style={label}>Conta de pagamento</label>
+            <select
+              value={compra.conta_id}
+              onChange={(e) =>
+                setCompra({ ...compra, conta_id: Number(e.target.value) || null })
+              }
+
+              style={input}
+            >
+              <option value="">Selecione...</option>
+              {contas.map((c) => (
+                <option key={c.id} value={c.id}>{c.nome}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div style={{ marginBottom: 15 }}>
           <label style={label}>Observações</label>
           <textarea

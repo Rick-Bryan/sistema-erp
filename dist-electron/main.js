@@ -20025,27 +20025,21 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-var hasRequiredField_flags;
-function requireField_flags() {
-  if (hasRequiredField_flags) return field_flags;
-  hasRequiredField_flags = 1;
-  field_flags.NOT_NULL = 1;
-  field_flags.PRI_KEY = 2;
-  field_flags.UNIQUE_KEY = 4;
-  field_flags.MULTIPLE_KEY = 8;
-  field_flags.BLOB = 16;
-  field_flags.UNSIGNED = 32;
-  field_flags.ZEROFILL = 64;
-  field_flags.BINARY = 128;
-  field_flags.ENUM = 256;
-  field_flags.AUTO_INCREMENT = 512;
-  field_flags.TIMESTAMP = 1024;
-  field_flags.SET = 2048;
-  field_flags.NO_DEFAULT_VALUE = 4096;
-  field_flags.ON_UPDATE_NOW = 8192;
-  field_flags.NUM = 32768;
-  return field_flags;
-}
+field_flags.NOT_NULL = 1;
+field_flags.PRI_KEY = 2;
+field_flags.UNIQUE_KEY = 4;
+field_flags.MULTIPLE_KEY = 8;
+field_flags.BLOB = 16;
+field_flags.UNSIGNED = 32;
+field_flags.ZEROFILL = 64;
+field_flags.BINARY = 128;
+field_flags.ENUM = 256;
+field_flags.AUTO_INCREMENT = 512;
+field_flags.TIMESTAMP = 1024;
+field_flags.SET = 2048;
+field_flags.NO_DEFAULT_VALUE = 4096;
+field_flags.ON_UPDATE_NOW = 8192;
+field_flags.NUM = 32768;
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20109,7 +20103,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = requireField_flags();
+    const fiedFlags = field_flags;
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23165,7 +23159,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = requireField_flags();
+const FieldFlags$1 = field_flags;
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23354,7 +23348,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = requireField_flags();
+const FieldFlags = field_flags;
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -29125,6 +29119,7 @@ async function getCompraById(id) {
 }
 async function salvarCompraCompleta(dados) {
   const conn = await pool.getConnection();
+  const empresa_id = global.usuarioLogado.empresa_id;
   try {
     await conn.beginTransaction();
     if (!dados.itens || dados.itens.length === 0) {
@@ -29138,28 +29133,34 @@ async function salvarCompraCompleta(dados) {
     if (!dados.usuario_id) {
       throw new Error("Usuário não identificado para o movimento financeiro");
     }
-    if (!dados.conta_id) {
-      throw new Error("Conta financeira não informada para a compra à vista");
+    if (dados.tipo_pagamento === "avista") {
+      if (!dados.origem_pagamento) {
+        throw new Error("Origem do pagamento não informada");
+      }
+      if (dados.origem_pagamento === "conta" && !dados.conta_id) {
+        throw new Error("Conta financeira não informada.");
+      }
     }
     if (!["avista", "parcelado"].includes(dados.tipo_pagamento)) {
       throw new Error("Tipo de pagamento inválido");
     }
-    const [compra] = await conn.query(
-      `
-      INSERT INTO compras
-        (fornecedor_id, usuario_id, valor_total, tipo_pagamento,forma_pagamento, status, observacoes)
-      VALUES (?, ?, ?, ?, ?, ?,?)
-      `,
-      [
-        dados.fornecedor_id,
-        dados.usuario_id,
-        dados.valor_total,
-        dados.tipo_pagamento,
-        dados.forma_pagamento,
-        dados.status || "aberta",
-        dados.observacoes || null
-      ]
-    );
+    const [compra] = await conn.query(`
+  INSERT INTO compras
+    (fornecedor_id, usuario_id, valor_total, tipo_pagamento, forma_pagamento, origem_pagamento, caixa_id, conta_id, status, observacoes)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+`, [
+      dados.fornecedor_id,
+      dados.usuario_id,
+      dados.valor_total,
+      dados.tipo_pagamento,
+      dados.forma_pagamento,
+      dados.origem_pagamento,
+      null,
+      // caixa_id depois se for caixa
+      dados.origem_pagamento === "conta" ? dados.conta_id : null,
+      dados.status || "aberta",
+      dados.observacoes || null
+    ]);
     const compra_id = compra.insertId;
     for (const item of dados.itens) {
       await conn.query(
@@ -29178,7 +29179,7 @@ async function salvarCompraCompleta(dados) {
       VALUES (?, ?, ?, ?, ?, 'aberto', NOW())
       `,
       [
-        dados.empresa_id,
+        empresa_id,
         compra_id,
         dados.fornecedor_id,
         `Compra #${compra_id}`,
@@ -29227,23 +29228,70 @@ async function salvarCompraCompleta(dados) {
       }
     }
     if (dados.tipo_pagamento === "avista") {
+      if (!dados.origem_pagamento) {
+        throw new Error("Origem do pagamento não informada");
+      }
       await conn.query(
-        `
-    UPDATE contas_pagar
-    SET status = 'pago'
-    WHERE id = ?
-    `,
+        `UPDATE contas_pagar SET status = 'pago' WHERE id = ?`,
         [conta_pagar_id]
       );
-      await conn.query(`INSERT INTO financeiro_movimentos
-(conta_id, tipo, valor,forma_pagamento, descricao, referencia_tipo, referencia_id, usuario_id)
-VALUES (?, 'saida', ?,?, 'Compra', 'compra', ?, ?)`, [dados.conta_id, dados.valor_total, dados.forma_pagamento, compra_id, dados.usuario_id]);
-      await atualizarSaldoConta(
-        conn,
-        dados.conta_id,
-        dados.valor_total,
-        "saida"
-      );
+      if (dados.origem_pagamento === "caixa") {
+        const [rows] = await conn.query(`
+      SELECT id 
+      FROM caixa_sessoes
+      WHERE usuario_id = ?
+        AND empresa_id = ?
+        AND status = 'aberto'
+      LIMIT 1
+    `, [dados.usuario_id, empresa_id]);
+        if (!rows.length) {
+          throw new Error("Nenhum caixa aberto para este usuário.");
+        }
+        const caixa_id = rows[0].id;
+        await conn.query(`
+      UPDATE compras 
+      SET origem_pagamento = 'caixa', caixa_id = ?
+      WHERE id = ?
+    `, [caixa_id, compra_id]);
+        await conn.query(`
+      INSERT INTO caixa_movimentos
+        (caixa_id, tipo, valor, descricao, origem, forma_pagamento, usuario_id, criado_em)
+      VALUES (?, 'saida', ?, ?, 'compra', ?, ?, NOW())
+    `, [
+          caixa_id,
+          dados.valor_total,
+          `Compra #${compra_id}`,
+          dados.forma_pagamento,
+          dados.usuario_id
+        ]);
+      }
+      if (dados.origem_pagamento === "conta") {
+        if (!dados.conta_id) {
+          throw new Error("Conta financeira não informada.");
+        }
+        await conn.query(`
+      UPDATE compras 
+      SET origem_pagamento = 'conta', conta_id = ?
+      WHERE id = ?
+    `, [dados.conta_id, compra_id]);
+        await conn.query(`
+      INSERT INTO financeiro_movimentos
+        (conta_id, tipo, valor, forma_pagamento, descricao, referencia_tipo, referencia_id, usuario_id)
+      VALUES (?, 'saida', ?, ?, 'Compra', 'compra', ?, ?)
+    `, [
+          dados.conta_id,
+          dados.valor_total,
+          dados.forma_pagamento,
+          compra_id,
+          dados.usuario_id
+        ]);
+        await atualizarSaldoConta(
+          conn,
+          dados.conta_id,
+          dados.valor_total,
+          "saida"
+        );
+      }
     }
     await conn.commit();
     return { sucesso: true, compra_id };
@@ -29279,9 +29327,22 @@ async function finalizarCompra(compraId) {
         item.produto_id
       ]
     );
+    await registrarMovimentoEstoque({
+      produto_id: item.produto_id,
+      quantidade: item.quantidade,
+      custo_unitario: item.custo_unitario,
+      documento_id: compraId,
+      observacao: `Compra #${compraId}`,
+      tipo: "entrada",
+      origem: "compra"
+    });
   }
   await pool.query(
     "UPDATE compras SET status = 'finalizada', atualizado_em = NOW() WHERE id = ?",
+    [compraId]
+  );
+  const [compra] = await pool.query(
+    `SELECT * FROM compras WHERE id = ? `,
     [compraId]
   );
   return { success: true };
