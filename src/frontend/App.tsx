@@ -4,6 +4,7 @@ import Dashboard from './components/Dashboard';
 import Clientes from './components/clientes/Clientes';
 import Produtos from './components/Produtos/Produtos';
 import ProdutoDetalhes from './components/produtos/ProdutoDetalhes';
+import DefinicoesDeAcesso from './components/definicoesDeAcesso/DefinicoesDeAcesso';
 import Movimentacao from './pages/Movimentacao/Movimentacao';
 import Manutencao from './pages/Manutencao/Manutencao';
 import CadastrosPage from './pages/cadastros/CadastrosPage';
@@ -119,7 +120,7 @@ export default function App() {
       case 'produto-detalhes':
         return <ProdutoDetalhes produtoSelecionado={produtoSelecionado} voltar={() => setPage('produtos')} />;
       case 'movimentacao': return <Movimentacao setPage={setPage} />;
-      case 'manutencao': return <Manutencao />;
+      case 'manutencao': return <Manutencao setPage={setPage} />;
       case 'colaboradores': return <Colaboradores setPage={setPage} />
       case 'fabricantes':
         return <Fabricantes setPage={setPage} />;
@@ -145,6 +146,8 @@ export default function App() {
             voltar={() => setPage('caixa')}
           />
         );
+      case 'definicoes-acesso':
+        return <DefinicoesDeAcesso setPage={setPage}/>
 
 
 

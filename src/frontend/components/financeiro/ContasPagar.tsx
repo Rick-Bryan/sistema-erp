@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card } from "../../components/ui/card";
-
+import {boxTabela} from '../styles/styles'
 interface Props {
   setPage: (page: string) => void;
 }
@@ -68,7 +68,7 @@ export default function ContasPagar({ setPage }: Props) {
 
       {loading && <p>Carregando...</p>}
 
-      <div style={card}>
+      <div style={boxTabela}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead style={theadRow}>
             <tr>

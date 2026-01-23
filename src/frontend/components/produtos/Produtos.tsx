@@ -424,12 +424,7 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
 
       {/* ------------------- TABELA PRODUTOS ------------------- */}
       <div
-        style={{
-          backgroundColor: '#fff',
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          padding: '20px',
-        }}
+        style={boxTabelaModal}
       >
         <SearchBar
           canal="buscar-produtos"
@@ -583,8 +578,11 @@ const modalBox: React.CSSProperties = {
   padding: "25px",
   borderRadius: "8px",
   width: "450px",
+  maxHeight: "80vh",
+  overflow: "hidden",
   boxShadow: "0 4px 20px rgba(0,0,0,0.2)"
 };
+
 
 const th = { padding: "10px", fontWeight: 600 };
 const td = { padding: "10px" };
@@ -610,7 +608,7 @@ const inputStyle: React.CSSProperties = {
 /* -------- MELHOR ESTILO DAS TABELAS DO MODAL -------- */
 
 const boxTabelaModal: React.CSSProperties = {
-  maxHeight: "200px",
+  height: '100%',
   overflowY: "auto",
   backgroundColor: "#f9fafb",
   borderRadius: "8px",

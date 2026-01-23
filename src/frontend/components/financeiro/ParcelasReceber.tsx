@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@mui/material";
 import { Card, CardHeader, CardContent } from "../../components/ui/card";
 import { Modal } from "../ui/Modal";
+import {boxTabela} from '../styles/styles'
 interface Props {
   contaId: number;
   setPage: (page: string) => void;
@@ -60,7 +61,7 @@ export default function ParcelasReceber({ contaId, setPage }: Props) {
       <h2>Parcelas</h2>
 
       {parcelas.map((p) => (
-        <Card key={p.id} style={{ padding: 12, marginBottom: 8, maxWidth: '300px' }}>
+        <div key={p.id} style={boxTabela}>
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <div>
               <p>ID {p.id}</p>
@@ -90,7 +91,7 @@ export default function ParcelasReceber({ contaId, setPage }: Props) {
               )}
             </div>
           </div>
-        </Card>
+        </div>
       ))}
 
       {parcelaSelecionada && (
@@ -156,25 +157,7 @@ export default function ParcelasReceber({ contaId, setPage }: Props) {
     </div>
   );
 }
-const btnEditar: React.CSSProperties = {
-  backgroundColor: "#3b82f6",
-  color: "white",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-};
 
-const btnExcluir: React.CSSProperties = {
-  backgroundColor: "#dc2626",
-  color: "white",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-};
 const btnAzul: React.CSSProperties = {
   backgroundColor: '#1e3a8a',
   color: '#fff',
@@ -185,19 +168,7 @@ const btnAzul: React.CSSProperties = {
   fontWeight: 600,
 };
 
-const boxTabela: React.CSSProperties = {
-  backgroundColor: '#fff',
-  borderRadius: '8px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-  padding: '20px',
-  marginTop: '20px'
-};
 
-const tabela: React.CSSProperties = {
-  marginTop: '10px',
-  width: '100%',
-  borderCollapse: 'collapse'
-};
 
 const inputModal: React.CSSProperties = {
   width: '100%',
@@ -224,36 +195,6 @@ const btnFechar: React.CSSProperties = {
 
 };
 
-const modalFundo: React.CSSProperties = {
-  position: "fixed",
-  top: 0,
-  left: 0,
-  width: "100vw",
-  height: "100vh",
-  background: "rgba(0,0,0,0.6)",
-  display: "flex",
-  justifyContent: "center",
-  alignItems: "center",
-};
-
-const modalBox: React.CSSProperties = {
-  background: "#fff",
-  padding: "25px",
-  borderRadius: "8px",
-  width: "450px",
-  boxShadow: "0 4px 20px rgba(0,0,0,0.2)"
-};
-
-const th = { padding: "10px", fontWeight: 600 };
-const td = { padding: "10px" };
-const btnVer = {
-  backgroundColor: "#1e3a8a",
-  color: "#fff",
-  border: "none",
-  padding: "6px 12px",
-  borderRadius: "4px",
-  cursor: "pointer"
-};
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '10px 14px',
@@ -267,40 +208,5 @@ const inputStyle: React.CSSProperties = {
 };
 /* -------- MELHOR ESTILO DAS TABELAS DO MODAL -------- */
 
-const boxTabelaModal: React.CSSProperties = {
-  maxHeight: "200px",
-  overflowY: "auto",
-  backgroundColor: "#f9fafb",
-  borderRadius: "8px",
-  border: "1px solid #e5e7eb",
-  marginTop: "10px",
-  marginBottom: "10px"
-};
 
-const tabelaModal: React.CSSProperties = {
-  width: "100%",
-  borderCollapse: "collapse",
-};
 
-const thModal: React.CSSProperties = {
-  backgroundColor: "#1e3a8a",
-  color: "white",
-  padding: "10px",
-  textAlign: "left",
-  fontWeight: 600,
-  position: "sticky",
-  top: 0,
-};
-
-const tdModal: React.CSSProperties = {
-  padding: "10px",
-  borderBottom: "1px solid #e5e7eb",
-};
-
-const linhaPar: React.CSSProperties = {
-  backgroundColor: "#ffffff",
-};
-
-const linhaImpar: React.CSSProperties = {
-  backgroundColor: "#f3f4f6",
-};

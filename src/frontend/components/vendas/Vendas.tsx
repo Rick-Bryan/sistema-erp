@@ -3,7 +3,7 @@ import toast from "react-hot-toast";
 import VendaDetalhes from "./VendaDetalhes";
 import VendaCadastro from "./VendaCadastro";
 import SearchBar from "../../components/ui/SearchBar";
-
+import {boxTabela} from '../styles/styles'
 interface Venda {
     id: number;
     cliente_id: number;
@@ -135,12 +135,7 @@ export default function Vendas({ setPage }: VendasProps) {
             </div>
 
             <div
-                style={{
-                    backgroundColor: "#fff",
-                    borderRadius: "8px",
-                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                    padding: "20px",
-                }}
+                style={boxTabela}
             >
                 <SearchBar
                     canal="get-vendas"

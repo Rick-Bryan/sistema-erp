@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import SearchBar from "../../components/ui/SearchBar";
-
+import {boxTabela} from '../styles/styles'
 
 declare global {
   interface Window {
@@ -108,7 +108,7 @@ export default function EstoqueMovimentos({ setPage }) {
 
       </div>
 
-      <div style={card}>
+      <div style={boxTabela}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={theadRow}>

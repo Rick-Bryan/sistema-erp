@@ -40,7 +40,7 @@ interface Produto {
     CEST?: string;
     CodigoBeneficio?: string;
     EstoqueAtual?: number;
-    
+
 }
 
 const maxLength: Record<string, number> = {
@@ -84,6 +84,26 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
     const [subGrupoEditando, setSubGrupoEditando] = useState(null);
 
 
+    const campos = [
+        "CodigoBarra",
+        "NomeProduto",
+        "EstoqueAtual",
+        "CodigoGrupo",
+        "CodigoSubGrupo",
+        "CodigoFabricante",
+        "DataCadastro",
+        "UnidadeEmbalagem",
+        "FracaoVenda",
+        "NCM",
+        "Eliminado",
+        "IPI",
+        "ReducaoIPI",
+        "PisCofinsCST",
+        "PisCofinsNatureza",
+        "PisCofinsCSTEntrada",
+        "CEST",
+        "CodigoBeneficio",
+    ];
 
 
     // DADOS INTERNOS
@@ -329,34 +349,116 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
             >
                 ← Voltar
             </button>
-            <h2 style={titulo}>🆕 Cadastrar Produto</h2>
-            {/* Cabeçalho */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 style={{ color: '#1e3a8a' }}>Produtos</h2>
+            <h2 style={titulo}>Cadastrar Produto</h2>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    {/* Botão Grupo */}
-                    <button
-                        onClick={() => setModalGrupo(true)}
-                        style={btnAzul}
-                    >
-                        ＋ Cadastrar Grupo
+            <div style={formContainer}>
+                {campos.map((key) => (
+                    <div key={key} style={inputGroup}>
+                        <label style={labelStyle}>{labels[key] ?? key}</label>
+
+
+                        {/* 🔽 SELECTs para os 3 campos */}
+                        {key === "CodigoFabricante" ? (
+                            <select
+                                style={inputStyle}
+                                name={key}
+                                value={produto[key] ?? ""}
+                                onChange={handleChange}
+                            >
+                                <option value="">Selecione...</option>
+                                {fabricantes.map((f) => (
+                                    <option key={f.CodigoFabricante} value={f.CodigoFabricante}>
+                                        {f.NomeFabricante}
+                                    </option>
+                                ))}
+                            </select>
+                        ) : key === "CodigoGrupo" ? (
+                            <>
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    {/* Botão Grupo */}
+
+                                    <select
+                                        style={inputStyle}
+                                        name={key}
+                                        value={produto[key] ?? ""}
+                                        onChange={handleChange}
+                                    >
+                                        <option value="">Selecione...</option>
+                                        {grupos.map((g) => (
+                                            <option key={g.id} value={g.id}>
+                                                {g.nome}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={() => setModalGrupo(true)}
+                                        style={btnAzul}
+                                    >
+                                        ＋
+                                    </button>
+
+                                </div>
+
+                            </>
+                        ) : key === "CodigoSubGrupo" ? (
+                            < >
+                                <div style={{ display: 'flex', gap: '10px' }}>
+                                    <select
+                                        style={inputStyle}
+                                        name={key}
+                                        value={produto[key] ?? ""}
+                                        onChange={handleChange}
+                                        disabled={!produto.CodigoGrupo} // evita subgrupo sem grupo
+                                    >
+                                        <option value="">
+                                            {produto.CodigoGrupo ? "Selecione..." : "Selecione um grupo primeiro"}
+                                        </option>
+                                        {subGrupos.map((s) => (
+                                            <option key={s.id} value={s.id}>
+                                                {s.nome}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={() => setModalSubGrupo(true)}
+                                        style={btnAzul}
+                                    >
+                                        ＋
+                                    </button>
+                                </div>
+                            </>
+                        ) : (
+
+                            // 🔁 Inputs normais
+                            <input
+                                style={inputStyle}
+                                name={key}
+                                value={maxLength[key]
+                                    ? (produto as any)[key]?.toString().slice(0, maxLength[key]) ?? ""
+                                    : (produto as any)[key] ?? ""}
+                                onChange={handleChange}
+                                type={
+                                    key === "DataCadastro"
+                                        ? "date"
+                                        : key === "EstoqueAtual"
+                                            ? "number"
+                                            : "text"
+                                }
+                                min={key === "EstoqueAtual" ? 0 : undefined}
+                            />
+                        )}
+                    </div>
+                ))}
+
+                <div style={botoesContainer}>
+                    <button onClick={handleSalvar} style={buttonPrimary}>
+                        Salvar
                     </button>
-
-                    {/* Botão SubGrupo */}
-                    <button
-                        onClick={() => setModalSubGrupo(true)}
-                        style={btnAzul}
-                    >
-                        ＋ Cadastrar Subgrupo
+                    <button onClick={voltar} style={buttonSecondary}>
+                        Voltar
                     </button>
-
-                    {/* Botão Produto */}
-                  
                 </div>
             </div>
-
-            {/* ------------------- MODAL GRUPO ------------------- */}
             {modalGrupo && (
                 <Modal>
                     <h3>Cadastrar Grupo</h3>
@@ -434,7 +536,28 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
             {modalSubGrupo && (
                 <Modal>
                     <h3>Cadastrar Subgrupo</h3>
+                    <select
+                        style={inputModal}
+                        value={grupoSelecionado ?? ""}
+                        onChange={(e) => {
+                            const valor = e.target.value;
 
+                            setGrupoSelecionado(valor || null);
+
+                            // Se voltou para "Selecione..."
+                            if (!valor) {
+                                setSubGrupoEditando(null);
+                                setNovoSubGrupo("");
+                            }
+                        }}
+                    >
+                        <option value="">Selecione o Grupo</option>
+                        {grupos.map((g) => (
+                            <option key={g.id} value={g.id}>
+                                {g.nome}
+                            </option>
+                        ))}
+                    </select>
                     <input
                         style={inputModal}
                         placeholder="Nome do subgrupo"
@@ -450,28 +573,7 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
                         }
                     />
 
-                    <select
-                        style={inputStyle}
-                        value={grupoSelecionado ?? ""}
-                        onChange={(e) => {
-                            const valor = e.target.value;
 
-                            setGrupoSelecionado(valor || null);
-
-                            // Se voltou para "Selecione..."
-                            if (!valor) {
-                                setSubGrupoEditando(null);
-                                setNovoSubGrupo("");
-                            }
-                        }}
-                    >
-                        <option value="">Selecione...</option>
-                        {grupos.map((g) => (
-                            <option key={g.id} value={g.id}>
-                                {g.nome}
-                            </option>
-                        ))}
-                    </select>
 
 
 
@@ -498,10 +600,10 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
                                                             setNovoSubGrupo(s.nome);
                                                         }}
                                                     >
-                                                        ✏️
+                                                        Editar
                                                     </button>
                                                     <button onClick={() => excluirSubgrupo(s.id)}>
-                                                        🗑️
+                                                        Excluir
                                                     </button>
                                                 </td>
                                             </tr>
@@ -534,110 +636,6 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
                 </Modal>
             )
             }
-
-            <div style={formContainer}>
-                {Object.keys({
-                    CodigoBarra: "",
-                    NomeProduto: "",
-                    EstoqueAtual: "",
-                    CodigoGrupo: "",
-                    CodigoSubGrupo: "",
-                    CodigoFabricante: "",
-                    DataCadastro: "",
-                    UnidadeEmbalagem: "",
-                    FracaoVenda: "",
-                    NCM: "",
-                    Eliminado: "",
-                    IPI: "",
-                    ReducaoIPI: "",
-                    PisCofinsCST: "",
-                    PisCofinsNatureza: "",
-                    PisCofinsCSTEntrada: "",
-                    CEST: "",
-                    CodigoBeneficio: "",
-                }).map((key) => (
-                    <div key={key} style={inputGroup}>
-                        <label style={labelStyle}>{labels[key] ?? key}</label>
-
-
-                        {/* 🔽 SELECTs para os 3 campos */}
-                        {key === "CodigoFabricante" ? (
-                            <select
-                                style={inputStyle}
-                                name={key}
-                                value={produto[key] ?? ""}
-                                onChange={handleChange}
-                            >
-                                <option value="">Selecione...</option>
-                                {fabricantes.map((f) => (
-                                    <option key={f.CodigoFabricante} value={f.CodigoFabricante}>
-                                        {f.NomeFabricante}
-                                    </option>
-                                ))}
-                            </select>
-                        ) : key === "CodigoGrupo" ? (
-                            <select
-                                style={inputStyle}
-                                name={key}
-                                value={produto[key] ?? ""}
-                                onChange={handleChange}
-                            >
-                                <option value="">Selecione...</option>
-                                {grupos.map((g) => (
-                                    <option key={g.id} value={g.id}>
-                                        {g.nome}
-                                    </option>
-                                ))}
-                            </select>
-                        ) : key === "CodigoSubGrupo" ? (
-                            <select
-                                style={inputStyle}
-                                name={key}
-                                value={produto[key] ?? ""}
-                                onChange={handleChange}
-                                disabled={!produto.CodigoGrupo} // evita subgrupo sem grupo
-                            >
-                                <option value="">
-                                    {produto.CodigoGrupo ? "Selecione..." : "Selecione um grupo primeiro"}
-                                </option>
-                                {subGrupos.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                        {s.nome}
-                                    </option>
-                                ))}
-                            </select>
-                        ) : (
-
-                            // 🔁 Inputs normais
-                            <input
-                                style={inputStyle}
-                                name={key}
-                                value={maxLength[key]
-                                    ? (produto as any)[key]?.toString().slice(0, maxLength[key]) ?? ""
-                                    : (produto as any)[key] ?? ""}
-                                onChange={handleChange}
-                                type={
-                                    key === "DataCadastro"
-                                        ? "date"
-                                        : key === "EstoqueAtual"
-                                            ? "number"
-                                            : "text"
-                                }
-                                min={key === "EstoqueAtual" ? 0 : undefined}
-                            />
-                        )}
-                    </div>
-                ))}
-
-                <div style={botoesContainer}>
-                    <button onClick={handleSalvar} style={buttonPrimary}>
-                        Salvar
-                    </button>
-                    <button onClick={voltar} style={buttonSecondary}>
-                        Voltar
-                    </button>
-                </div>
-            </div>
         </div>
     );
 }
@@ -695,6 +693,7 @@ const inputStyle: React.CSSProperties = {
     transition: '0.2s border-color',
     fontSize: '15px',
     boxSizing: 'border-box',
+  
 };
 
 const botoesContainer: React.CSSProperties = {
@@ -750,7 +749,7 @@ const btnAzul: React.CSSProperties = {
     backgroundColor: '#1e3a8a',
     color: '#fff',
     border: 'none',
-    padding: '8px 14px',
+    padding: '5px 10px',
     borderRadius: '6px',
     cursor: 'pointer',
     fontWeight: 600,

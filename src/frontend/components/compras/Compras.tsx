@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import SearchBar from "../../components/ui/SearchBar";
-
+import {boxTabela} from '../styles/styles'
 
 import CompraDetalhesModal from "./ComprasDetalhes";
 import NovaCompraModal from "./NovaCompraModal";
@@ -43,7 +43,7 @@ export default function Compras({ setPage }: { setPage: (p: string) => void }) {
         onResults={res => setSearch(res?.search || '')}
       />
 
-      <div style={card}>
+      <div style={boxTabela}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={theadRow}>
             <tr>

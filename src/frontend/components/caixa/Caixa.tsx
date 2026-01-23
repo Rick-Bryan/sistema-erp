@@ -102,12 +102,7 @@ export default function Caixa({ setPage, setCaixaSelecionado }: CaixaProps) {
       </div>
       {/* Tabela */}
       <div
-        style={{
-          backgroundColor: '#fff',
-          borderRadius: '8px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-          padding: '20px',
-        }}
+        style={boxTabelaModal}
       >
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -166,3 +161,14 @@ export default function Caixa({ setPage, setCaixaSelecionado }: CaixaProps) {
 
 const thStyle: React.CSSProperties = { padding: 10, textAlign: "left" };
 const tdStyle: React.CSSProperties = { padding: 10, borderBottom: "1px solid #ccc" };
+const boxTabelaModal: React.CSSProperties = {
+  maxHeight: '650px',
+  overflowY: "auto",
+  backgroundColor: "#f9fafb",
+  borderRadius: "8px",
+  border: "1px solid #e5e7eb",
+  marginTop: "10px",
+  marginBottom: "10px",
+  boxShadow: "inset 0 1px 3px rgba(0,0,0,0.1)"
+
+};

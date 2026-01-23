@@ -30090,4 +30090,67 @@ ipcMain.handle("carteira-extrato", async (e, { conta_id, inicio, fim }) => {
     movimentos: movs
   };
 });
+ipcMain.handle("permissoes:listar", async (_, usuario_id) => {
+  const [rows] = await pool.query(
+    `SELECT 
+      p.submodulo_id,
+      p.pode_consultar,
+      p.pode_usar
+     FROM permissoes_usuario p
+     WHERE p.usuario_id = ?`,
+    [usuario_id]
+  );
+  return rows;
+});
+ipcMain.handle("lojas:listarLojas", async () => {
+  const empresa_id = global.usuarioLogado.empresa_id;
+  const [rows] = await pool.query(
+    "SELECT id, nome FROM lojas WHERE empresa_id = ? ORDER BY nome",
+    [empresa_id]
+  );
+  return rows;
+});
+ipcMain.handle("cargos:listarCargos", async (_, loja_id) => {
+  const [rows] = await pool.query(
+    "SELECT id, nome FROM cargos WHERE loja_id = ? ORDER BY nome",
+    [loja_id]
+  );
+  return rows;
+});
+ipcMain.handle("usuarios:listarUsuariosPorCargo", async (_, cargo_id) => {
+  const [rows] = await pool.query(
+    "SELECT id, nome FROM usuarios WHERE cargo_id = ? ORDER BY nome",
+    [cargo_id]
+  );
+  return rows;
+});
+ipcMain.handle("modulos:listarComSub", async () => {
+  const [rows] = await pool.query(`
+    SELECT 
+      m.id AS modulo_id,
+      m.nome AS modulo_nome,
+      s.id AS sub_id,
+      s.nome AS sub_nome
+    FROM modulos m
+    LEFT JOIN submodulos s ON s.modulo_id = m.id
+    ORDER BY m.ordem, s.ordem
+  `);
+  const map = {};
+  rows.forEach((r) => {
+    if (!map[r.modulo_id]) {
+      map[r.modulo_id] = {
+        id: r.modulo_id,
+        nome: r.modulo_nome,
+        submodulos: []
+      };
+    }
+    if (r.sub_id) {
+      map[r.modulo_id].submodulos.push({
+        id: r.sub_id,
+        nome: r.sub_nome
+      });
+    }
+  });
+  return Object.values(map);
+});
 app.whenReady().then(createWindow);
