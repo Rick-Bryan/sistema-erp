@@ -1,6 +1,6 @@
 // src/renderer/components/CaixaDetalhes.tsx
 import React, { useEffect, useState } from "react";
-import { Button, Card, CardContent ,Dialog,DialogTitle,DialogContent,TextField,DialogActions} from "@mui/material";
+import { Button, Card, CardContent, Dialog, DialogTitle, DialogContent, TextField, DialogActions } from "@mui/material";
 import toast from "react-hot-toast";
 
 interface CaixaDetalhesProps {
@@ -37,7 +37,7 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
     if (!valorSangria) return toast.error("Informe o valor!");
 
     await window.electronAPI.addMovimentosCaixa({
-      usuario_id: dados.usuario_id,  
+      usuario_id: dados.usuario_id,
       caixa_id: dados.id,
       tipo: "saida",
       valor: Number(valorSangria),
@@ -48,7 +48,7 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
     carregarMovimentos();
     carregarResumo();
   }
-  
+
   console.log("DADOS ", dados)
 
   async function carregarColaborador() {
@@ -81,6 +81,7 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
     return <div style={{ padding: 20 }}>Carregando detalhes...</div>;
   }
 
+  console.log('DADOS DO CAIXA', dados)
   return (
     <div style={{ padding: 20 }}>
       <button
@@ -134,6 +135,9 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
 
           <div>
             <strong>Status:</strong> {dados.status}
+          </div>
+          <div>
+            <strong>Observações:</strong> {dados.observacoes}
           </div>
 
           <hr style={{ margin: "20px 0" }} />
@@ -262,7 +266,7 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
                     caixa_id: dados.id,
                     valor_fechamento_informado: Number(valorContado),
                     motivo_diferenca: motivoDiferenca || null,
-                    empresa_id : usuarioLogado.empresa_id
+                    empresa_id: usuarioLogado.empresa_id
                   });
 
                   toast.success("Caixa fechado com sucesso!");

@@ -20025,21 +20025,27 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-field_flags.NOT_NULL = 1;
-field_flags.PRI_KEY = 2;
-field_flags.UNIQUE_KEY = 4;
-field_flags.MULTIPLE_KEY = 8;
-field_flags.BLOB = 16;
-field_flags.UNSIGNED = 32;
-field_flags.ZEROFILL = 64;
-field_flags.BINARY = 128;
-field_flags.ENUM = 256;
-field_flags.AUTO_INCREMENT = 512;
-field_flags.TIMESTAMP = 1024;
-field_flags.SET = 2048;
-field_flags.NO_DEFAULT_VALUE = 4096;
-field_flags.ON_UPDATE_NOW = 8192;
-field_flags.NUM = 32768;
+var hasRequiredField_flags;
+function requireField_flags() {
+  if (hasRequiredField_flags) return field_flags;
+  hasRequiredField_flags = 1;
+  field_flags.NOT_NULL = 1;
+  field_flags.PRI_KEY = 2;
+  field_flags.UNIQUE_KEY = 4;
+  field_flags.MULTIPLE_KEY = 8;
+  field_flags.BLOB = 16;
+  field_flags.UNSIGNED = 32;
+  field_flags.ZEROFILL = 64;
+  field_flags.BINARY = 128;
+  field_flags.ENUM = 256;
+  field_flags.AUTO_INCREMENT = 512;
+  field_flags.TIMESTAMP = 1024;
+  field_flags.SET = 2048;
+  field_flags.NO_DEFAULT_VALUE = 4096;
+  field_flags.ON_UPDATE_NOW = 8192;
+  field_flags.NUM = 32768;
+  return field_flags;
+}
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20103,7 +20109,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = field_flags;
+    const fiedFlags = requireField_flags();
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23159,7 +23165,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = field_flags;
+const FieldFlags$1 = requireField_flags();
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23348,7 +23354,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = field_flags;
+const FieldFlags = requireField_flags();
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -30010,27 +30016,42 @@ ipcMain.handle("carteira-transferir", async (e, dados) => {
     if (dados.valor <= 0) {
       throw new Error("Valor inválido");
     }
-    const [[origem]] = await conn.query(
+    const [[origemConta]] = await conn.query(
       `SELECT * FROM financeiro_contas WHERE id = ?`,
       [dados.origem]
     );
-    if (!origem) throw new Error("Conta origem não existe");
-    if (Number(origem.saldo) < dados.valor) {
+    const [[destinoConta]] = await conn.query(
+      `SELECT * FROM financeiro_contas WHERE id = ?`,
+      [dados.destino]
+    );
+    if (!origemConta) throw new Error("Conta origem não existe");
+    if (!destinoConta) throw new Error("Conta destino não existe");
+    if (Number(origemConta.saldo) < dados.valor) {
       throw new Error("Saldo insuficiente");
     }
     await conn.query(`
       INSERT INTO financeiro_movimentos
-        (conta_id, tipo, valor, descricao, referencia_tipo)
-      VALUES (?, 'saida', ?, 'Transferência', 'transferencia')
-    `, [dados.origem, dados.valor]);
+        (origem, conta_id, tipo, valor, descricao, forma_pagamento, referencia_tipo, criado_em)
+      VALUES (?, ?, 'saida', ?, 'Transferência', 'transferencia', 'transferencia', NOW())
+    `, [
+      origemConta.tipo,
+      // AQUI
+      dados.origem,
+      dados.valor
+    ]);
     await conn.query(`
       UPDATE financeiro_contas SET saldo = saldo - ? WHERE id = ?
     `, [dados.valor, dados.origem]);
     await conn.query(`
       INSERT INTO financeiro_movimentos
-        (conta_id, tipo, valor, descricao, referencia_tipo)
-      VALUES (?, 'entrada', ?, 'Transferência', 'transferencia')
-    `, [dados.destino, dados.valor]);
+        (origem, conta_id, tipo, valor, descricao, forma_pagamento, referencia_tipo, criado_em)
+      VALUES (?, ?, 'entrada', ?, 'Transferência', 'transferencia', 'transferencia', NOW())
+    `, [
+      destinoConta.tipo,
+      // AQUI
+      dados.destino,
+      dados.valor
+    ]);
     await conn.query(`
       UPDATE financeiro_contas SET saldo = saldo + ? WHERE id = ?
     `, [dados.valor, dados.destino]);
@@ -30090,14 +30111,43 @@ ipcMain.handle("carteira-extrato", async (e, { conta_id, inicio, fim }) => {
     movimentos: movs
   };
 });
+ipcMain.handle("financeiro:dashboard-movimentacao", async () => {
+  const [rows] = await pool.query(`
+    SELECT
+      SUM(CASE WHEN tipo='entrada' THEN valor ELSE 0 END) AS total_entradas,
+      SUM(CASE WHEN tipo='saida' THEN valor ELSE 0 END) AS total_saidas,
+      SUM(CASE WHEN tipo='entrada' THEN valor ELSE -valor END) AS saldo
+    FROM financeiro_movimentos
+  `);
+  return rows[0];
+});
+ipcMain.handle("financeiro:listar-movimentacao", async () => {
+  const [rows] = await pool.query(`
+    SELECT 
+      id,
+      origem,
+      tipo,
+      descricao,
+      valor,
+      forma_pagamento,
+      tipo_pagamento,
+      criado_em
+    FROM financeiro_movimentos
+    ORDER BY criado_em DESC
+  `);
+  return rows;
+});
 ipcMain.handle("permissoes:listar", async (_, usuario_id) => {
   const [rows] = await pool.query(
     `SELECT 
-      p.submodulo_id,
-      p.pode_consultar,
-      p.pode_usar
-     FROM permissoes_usuario p
-     WHERE p.usuario_id = ?`,
+  p.submodulo_id,
+  s.slug,
+  p.pode_consultar,
+  p.pode_usar
+FROM permissoes_usuario p
+JOIN submodulos s ON s.id = p.submodulo_id
+WHERE p.usuario_id = ?
+`,
     [usuario_id]
   );
   return rows;
@@ -30152,5 +30202,46 @@ ipcMain.handle("modulos:listarComSub", async () => {
     }
   });
   return Object.values(map);
+});
+const SUBMODULO_DEFINICOES_ACESSO_ID = 20;
+ipcMain.handle("permissoes:salvar", async (e, dados) => {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+  try {
+    const { empresa_id, loja_id, usuario_id, permissoes } = dados;
+    const usuarioLogado = global.usuarioLogado;
+    const verificaBloquearProprioAcesso = permissoes.some(
+      (p) => Number(usuario_id) === Number(usuarioLogado.id) && p.submodulo_id === SUBMODULO_DEFINICOES_ACESSO_ID && p.pode_consultar === 0
+    );
+    if (verificaBloquearProprioAcesso) {
+      throw new Error("Definições de Acesso é obrigatorio para administrador.");
+    }
+    await conn.query(`
+      DELETE FROM permissoes_usuario
+      WHERE usuario_id = ? AND loja_id = ?
+    `, [usuario_id, loja_id]);
+    for (const p of permissoes) {
+      await conn.query(`
+        INSERT INTO permissoes_usuario
+          (empresa_id, loja_id, usuario_id, modulo_id, submodulo_id, pode_consultar, pode_usar, criado_em)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+      `, [
+        empresa_id,
+        loja_id,
+        usuario_id,
+        p.modulo_id,
+        p.submodulo_id,
+        p.pode_consultar,
+        p.pode_usar
+      ]);
+    }
+    await conn.commit();
+    return { ok: true };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 });
 app.whenReady().then(createWindow);

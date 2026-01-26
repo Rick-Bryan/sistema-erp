@@ -50,11 +50,10 @@ export default function Caixa({ setPage, setCaixaSelecionado }: CaixaProps) {
   if (modoCadastro) {
     return (
       <CaixaAbertura
-        onVoltar={() => {
-          setModoCadastro(false);
-
-        }}
+        onVoltar={() => setModoCadastro(false)}
+        onCarregarSessoes={carregarSessoes}
       />
+
     );
   }
   return (
@@ -74,7 +73,7 @@ export default function Caixa({ setPage, setCaixaSelecionado }: CaixaProps) {
       >
         ← Voltar
       </button>
-    
+
       <div
         style={{
           display: 'flex',

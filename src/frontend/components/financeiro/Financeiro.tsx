@@ -68,18 +68,19 @@ export default function Financeiro({ setPage }: Props) {
                 </Card>
                 <Card
                     className="cursor-pointer"
-                    onClick={() => setPage("caixa")}
+                    onClick={() => setPage("financeiro/movimentacao-financeiro")}
                 >
                     <CardHeader>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <BarChart style={{ width: 28, height: 28 }} />
-                            <strong>Fluxo de Caixa</strong>
+                            <strong>Movimentação Financeira</strong>
                         </div>
                     </CardHeader>
                     <CardContent>
-                        Entradas, saídas e saldo consolidado
+                        Entradas, saídas e saldo por caixa, banco e cofre
                     </CardContent>
                 </Card>
+
                 <Card
                     className="cursor-pointer"
                     onClick={() => setPage("financeiro/contas")}

@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 interface CaixaCadastroProps {
 
   onVoltar: () => void;
-
+  onCarregarSessoes: () => void;
 }
 interface CaixaSessao {
   id?: number;
@@ -14,11 +14,11 @@ interface CaixaSessao {
 }
 
 
-export default function CaixaAbertura({ onVoltar }: CaixaCadastroProps) {
+export default function CaixaAbertura({ onVoltar, onCarregarSessoes }: CaixaCadastroProps) {
   const [valorAbertura, setValorAbertura] = useState('');
   const [observacoes, setObservacoes] = useState('');
   const [usuarioId, setUsuarioId] = useState('');
-
+  const [sessoes, setSessoes] = useState([]);
   const [colaboradores, setColaboradores] = useState([])
 
   async function carregarColaboradores() {
@@ -29,6 +29,7 @@ export default function CaixaAbertura({ onVoltar }: CaixaCadastroProps) {
   useEffect(() => {
     carregarColaboradores();
   }, [])
+
 
   async function abrirCaixa() {
     if (!usuarioId || !valorAbertura) {
@@ -55,7 +56,7 @@ export default function CaixaAbertura({ onVoltar }: CaixaCadastroProps) {
       toast.success('Caixa aberto com sucesso!');
       setValorAbertura('');
       setObservacoes('');
-
+      onCarregarSessoes()
       // atualizar lista após abrir
     } catch (err: any) {
       console.error(err);
@@ -93,6 +94,7 @@ export default function CaixaAbertura({ onVoltar }: CaixaCadastroProps) {
         <div style={inputGroup}>
           <label style={labelStyle}>Colaborador</label>
           <select style={inputStyle} value={usuarioId} onChange={(e) => setUsuarioId(e.target.value)}>
+            <option value=''>Selecione...</option>
             {colaboradores.map((c) => (
 
               <option key={c.id} value={c.id}>{c.nome}</option>

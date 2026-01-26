@@ -27,18 +27,40 @@ import ContasPagar from './components/financeiro/ContasPagar';
 import FinanceiroContas from './components/financeiro/FinanceiroContas';
 import CarteiraDigital from './components/carteiradigital/CarteiraDigital';
 import ExtratoConta from './components/carteiradigital/ExtratoConta';
+import { toastErro } from './components/helpers/toastErro';
+import { setPermissoes as setCachePermissoes } from './components/helpers/verifyPerm';
+
 export default function App() {
   const [page, setPage] = useState('dashboard');
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
   const [usuario, setUsuario] = useState<any>(null);
   const [caixaSelecionado, setCaixaSelecionado] = useState<any>(null);
-
+  const token = localStorage.getItem('token');
+  const user = JSON.parse(localStorage.getItem('usuarioLogado') || '{}');
+  const [permissoes, setPermissoes] = useState<any>(null);
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('usuario');
+
     if (token && user) setUsuario(JSON.parse(user));
 
   }, [])
+
+  const carregarPermissoes = async () => {
+    try {
+      const list = await window.ipcRenderer.invoke("permissoes:listar", Number(user.id));
+
+      setPermissoes(list);
+      setCachePermissoes(list); // ✅ alimenta o verifyPerm
+    }
+    catch (err) {
+      toastErro(err);
+    }
+  };
+
+  useEffect(() => {
+    if (usuario) carregarPermissoes();
+  }, [usuario]);
+
+
 
   const handleLogout = async () => {
     try {
@@ -131,9 +153,9 @@ export default function App() {
       case 'compras':
         return <Compras setPage={setPage} />
       case 'vendas': return <Vendas setPage={setPage} />;
-      case 'cadastrosauxiliares':
+      case 'cadastros-auxiliares':
         return <CadastrosAuxiliares setPage={setPage} />
-      case 'caixa':
+      case 'caixa-fluxo':
         return <Caixa setPage={setPage} setCaixaSelecionado={setCaixaSelecionado} />
       case "movimentacao-estoque":
         return <EstoqueMovimentos setPage={setPage} />;
@@ -147,7 +169,7 @@ export default function App() {
           />
         );
       case 'definicoes-acesso':
-        return <DefinicoesDeAcesso setPage={setPage}/>
+        return <DefinicoesDeAcesso setPage={setPage} />
 
 
 

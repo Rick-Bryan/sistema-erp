@@ -159,7 +159,7 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
         </div>
 
 
-  
+
 
         {compra.tipo_pagamento === "parcelado" && (
           <>
@@ -192,7 +192,7 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
         {compra.tipo_pagamento === "avista" && (
           <div style={{ marginBottom: 15 }}>
 
-             <label style={label}>Origem do pagamento</label>
+            <label style={label}>Origem do pagamento</label>
             <select
               value={compra.origem_pagamento}
               onChange={(e) =>
@@ -205,24 +205,43 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
               <option value="conta">Conta financeira</option>
             </select>
             <label style={label}>Forma de pagamento</label>
-            <select
-              value={compra.forma_pagamento}
-              onChange={(e) =>
-                setCompra({
-                  ...compra,
-                  forma_pagamento: e.target.value as "dinheiro" | "pix" | "cartao" | "boleto",
-                })
-              }
-              style={input}
-            >
-              <option value="">Selecione...</option>
-              <option value="dinheiro">Dinheiro</option>
-              <option value="pix">Pix</option>
-              <option value="cartao">Cartão</option>
-              <option value="boleto">Boleto</option>
-            </select>
+            {compra.origem_pagamento === "caixa" && (
+              <select
+                value={compra.forma_pagamento}
+                onChange={(e) =>
+                  setCompra({
+                    ...compra,
+                    forma_pagamento: e.target.value as "dinheiro" | "pix" | "cartao" | "boleto",
+                  })
+                }
+                style={input}
+              >
+                <option value="">Selecione...</option>
+                <option value="dinheiro">Dinheiro</option>
+                <option value="pix">Pix</option>
+                <option value="cartao">Cartão</option>
 
-           
+              </select>)
+            }
+            {compra.origem_pagamento === "conta" && (
+              <select
+                value={compra.forma_pagamento}
+                onChange={(e) =>
+                  setCompra({
+                    ...compra,
+                    forma_pagamento: e.target.value as "dinheiro" | "pix" | "cartao" | "boleto",
+                  })
+                }
+                style={input}
+              >
+                <option value="">Selecione...</option>
+                <option value="pix">Pix</option>
+                <option value="cartao">Cartão</option>
+                <option value="boleto">Boleto</option>
+              </select>)
+            }
+
+
           </div>
 
 

@@ -772,7 +772,7 @@ ipcMain.handle("financeiro:cadastrar-conta", async (_event, dados) => {
     conta,
     tipo_conta
   } = dados;
-  if(!nome){
+  if (!nome) {
     throw new Error("Nome da conta obrigatório");
   }
   await pool.query(
@@ -843,34 +843,48 @@ ipcMain.handle("carteira-transferir", async (e, dados) => {
       throw new Error("Valor inválido");
     }
 
-    const [[origem]] = await conn.query(
+    const [[origemConta]] = await conn.query(
       `SELECT * FROM financeiro_contas WHERE id = ?`,
       [dados.origem]
     );
 
-    if (!origem) throw new Error("Conta origem não existe");
+    const [[destinoConta]] = await conn.query(
+      `SELECT * FROM financeiro_contas WHERE id = ?`,
+      [dados.destino]
+    );
 
-    if (Number(origem.saldo) < dados.valor) {
+    if (!origemConta) throw new Error("Conta origem não existe");
+    if (!destinoConta) throw new Error("Conta destino não existe");
+
+    if (Number(origemConta.saldo) < dados.valor) {
       throw new Error("Saldo insuficiente");
     }
 
-    // SAÍDA
+    // 👉 SAÍDA
     await conn.query(`
       INSERT INTO financeiro_movimentos
-        (conta_id, tipo, valor, descricao, referencia_tipo)
-      VALUES (?, 'saida', ?, 'Transferência', 'transferencia')
-    `, [dados.origem, dados.valor]);
+        (origem, conta_id, tipo, valor, descricao, forma_pagamento, referencia_tipo, criado_em)
+      VALUES (?, ?, 'saida', ?, 'Transferência', 'transferencia', 'transferencia', NOW())
+    `, [
+      origemConta.tipo,   // AQUI
+      dados.origem,
+      dados.valor
+    ]);
 
     await conn.query(`
       UPDATE financeiro_contas SET saldo = saldo - ? WHERE id = ?
     `, [dados.valor, dados.origem]);
 
-    // ENTRADA
+    // 👉 ENTRADA
     await conn.query(`
       INSERT INTO financeiro_movimentos
-        (conta_id, tipo, valor, descricao, referencia_tipo)
-      VALUES (?, 'entrada', ?, 'Transferência', 'transferencia')
-    `, [dados.destino, dados.valor]);
+        (origem, conta_id, tipo, valor, descricao, forma_pagamento, referencia_tipo, criado_em)
+      VALUES (?, ?, 'entrada', ?, 'Transferência', 'transferencia', 'transferencia', NOW())
+    `, [
+      destinoConta.tipo,  // AQUI
+      dados.destino,
+      dados.valor
+    ]);
 
     await conn.query(`
       UPDATE financeiro_contas SET saldo = saldo + ? WHERE id = ?
@@ -886,6 +900,8 @@ ipcMain.handle("carteira-transferir", async (e, dados) => {
     conn.release();
   }
 });
+
+
 ipcMain.handle("carteira-extrato", async (e, { conta_id, inicio, fim }) => {
   // 1️⃣ Buscar saldo atual da conta
   const [[conta]] = await pool.query(
@@ -945,14 +961,47 @@ ipcMain.handle("carteira-extrato", async (e, { conta_id, inicio, fim }) => {
     movimentos: movs,
   };
 });
+ipcMain.handle("financeiro:dashboard-movimentacao", async () => {
+  const [rows] = await pool.query(`
+    SELECT
+      SUM(CASE WHEN tipo='entrada' THEN valor ELSE 0 END) AS total_entradas,
+      SUM(CASE WHEN tipo='saida' THEN valor ELSE 0 END) AS total_saidas,
+      SUM(CASE WHEN tipo='entrada' THEN valor ELSE -valor END) AS saldo
+    FROM financeiro_movimentos
+  `);
+
+  return rows[0];
+});
+
+ipcMain.handle("financeiro:listar-movimentacao", async () => {
+  const [rows] = await pool.query(`
+    SELECT 
+      id,
+      origem,
+      tipo,
+      descricao,
+      valor,
+      forma_pagamento,
+      tipo_pagamento,
+      criado_em
+    FROM financeiro_movimentos
+    ORDER BY criado_em DESC
+  `);
+
+  return rows;
+});
+
 ipcMain.handle("permissoes:listar", async (_, usuario_id) => {
   const [rows] = await pool.query(
     `SELECT 
-      p.submodulo_id,
-      p.pode_consultar,
-      p.pode_usar
-     FROM permissoes_usuario p
-     WHERE p.usuario_id = ?`,
+  p.submodulo_id,
+  s.slug,
+  p.pode_consultar,
+  p.pode_usar
+FROM permissoes_usuario p
+JOIN submodulos s ON s.id = p.submodulo_id
+WHERE p.usuario_id = ?
+`,
     [usuario_id]
   );
 
@@ -1014,6 +1063,62 @@ ipcMain.handle("modulos:listarComSub", async () => {
 
   return Object.values(map);
 });
+const SUBMODULO_DEFINICOES_ACESSO_ID = 20; // ajuste com o ID real do submódulo
+
+
+ipcMain.handle("permissoes:salvar", async (e, dados) => {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+
+  try {
+    const { empresa_id, loja_id, usuario_id, permissoes } = dados;
+
+    const usuarioLogado = global.usuarioLogado; // ou outro jeito de pegar o user logado
+
+    // 🔒 Proteção contra auto-bloqueio
+    const verificaBloquearProprioAcesso = permissoes.some(p =>
+      Number(usuario_id) === Number(usuarioLogado.id) &&
+      p.submodulo_id === SUBMODULO_DEFINICOES_ACESSO_ID &&
+      p.pode_consultar === 0
+    );
+
+    if (verificaBloquearProprioAcesso) {
+      throw new Error("Definições de Acesso é obrigatorio para administrador.");
+    }
+
+    // DELETE + INSERT
+    await conn.query(`
+      DELETE FROM permissoes_usuario
+      WHERE usuario_id = ? AND loja_id = ?
+    `, [usuario_id, loja_id]);
+
+    for (const p of permissoes) {
+      await conn.query(`
+        INSERT INTO permissoes_usuario
+          (empresa_id, loja_id, usuario_id, modulo_id, submodulo_id, pode_consultar, pode_usar, criado_em)
+        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+      `, [
+        empresa_id,
+        loja_id,
+        usuario_id,
+        p.modulo_id,
+        p.submodulo_id,
+        p.pode_consultar,
+        p.pode_usar
+      ]);
+    }
+
+    await conn.commit();
+    return { ok: true };
+
+  } catch (err) {
+    await conn.rollback();
+    throw err; // 🔥 Aqui o frontend recebe o erro
+  } finally {
+    conn.release();
+  }
+});
+
 
 
 app.whenReady().then(createWindow)

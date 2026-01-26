@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { setPermissoes as setPermissoesGlobais, verifyPerm } from '../../components/helpers/verifyPerm';
+import { toastErro } from "../helpers/toastErro";
+
 
 interface DefinicoesProps {
     setPage: (page: string) => void;
@@ -8,21 +11,13 @@ interface DefinicoesProps {
 export default function DefinicoesDeAcesso({ setPage }: DefinicoesProps) {
     const [modulos, setModulos] = useState<any[]>([]);
     const [permissoes, setPermissoes] = useState<any>({});
-    const [empresas, setEmpresas] = useState([]);
     const [lojas, setLojas] = useState([]);
     const [cargos, setCargos] = useState([]);
     const [usuarios, setUsuarios] = useState([]);
-
-
-
     const [lojaId, setLojaId] = useState("");
     const [cargoId, setCargoId] = useState("");
     const [usuarioId, setUsuarioId] = useState("");
-
-
-
-
-
+    const user = JSON.parse(localStorage.getItem('usuarioLogado') || '{}');
     useEffect(() => {
 
         setLojaId("");
@@ -30,6 +25,7 @@ export default function DefinicoesDeAcesso({ setPage }: DefinicoesProps) {
         setUsuarioId("");
         window.ipcRenderer.invoke("lojas:listarLojas").then(setLojas);
     }, []);
+
 
     useEffect(() => {
         if (!lojaId) return;
@@ -60,10 +56,79 @@ export default function DefinicoesDeAcesso({ setPage }: DefinicoesProps) {
         });
     }, [usuarioId]);
 
-    const salvar = () => {
-        console.log(permissoes);
+    const salvar = async () => {
+        try{
+        if (!usuarioId || !lojaId) {
+            toast.error("Selecione loja, cargo e usuário");
+            return;
+        }
+        // 🛡 proteção contra auto-bloqueio
+        const idLogado = user?.id;
+        const submoduloDefAcesso = modulos
+            .flatMap(m => m.submodulos)
+            .find(s => s.slug === "definicoes-acesso");
+
+        if (Number(usuarioId) === idLogado && submoduloDefAcesso) {
+            const perm = permissoes[submoduloDefAcesso.id];
+
+            if (!perm?.consultar) {
+                toast.error("Você não pode remover seu próprio acesso às Definições de Acesso.");
+                return;
+            }
+        }
+        const payload: any[] = [];
+
+        modulos.forEach(m => {
+            m.submodulos.forEach((s: any) => {
+                const p = permissoes[s.id];
+                if (!p) return;
+
+                payload.push({
+                    modulo_id: m.id,
+                    submodulo_id: s.id,
+                    pode_consultar: p.consultar ? 1 : 0,
+                    pode_usar: p.usar ? 1 : 0,
+                });
+            });
+        });
+
+        await window.ipcRenderer.invoke("permissoes:salvar", {
+            empresa_id: 1, // depois você pode pegar do usuário logado
+            loja_id: Number(lojaId),
+            usuario_id: Number(usuarioId),
+            permissoes: payload
+        });
+        // 🔄 recarrega permissões do usuário logado
+        const novas = await window.ipcRenderer.invoke("permissoes:listar", Number(usuarioId));
+
+        // atualiza tela
+        const map = {};
+        novas.forEach(p => {
+            map[p.submodulo_id] = {
+                consultar: !!p.pode_consultar,
+                usar: !!p.pode_usar,
+            };
+        });
+
+        console.log("NOVAS PERMS:", novas);
+        console.log("verify:", verifyPerm("compras", "consultar"));
+
+        // ✅ atualiza cache global usado pelo sistema
+        // ✅ mantém os checkboxes
+        setPermissoes(map);     // estado da tela
+        setPermissoesGlobais(novas);    // 🔥 cache global do app
+
+
+
+
+
         toast.success("Permissões salvas!");
+        }catch(err){
+            toastErro(err)
+        }
+
     };
+
     const marcarTodosModulo = (modulo: any, tipo: "consultar" | "usar" | "ambos", valor: boolean) => {
         setPermissoes(prev => {
             const copia = { ...prev };
@@ -87,21 +152,21 @@ export default function DefinicoesDeAcesso({ setPage }: DefinicoesProps) {
                 {/* filtros */}
                 <div style={gridFiltros}>
                     <select style={input} value={lojaId} onChange={e => setLojaId(e.target.value)}>
-                        <option value="">Loja</option>
+                        <option value="">Selecione a loja...</option>
                         {lojas.map(l => (
                             <option key={l.id} value={l.id}>{l.nome}</option>
                         ))}
                     </select>
 
                     <select style={input} value={cargoId} onChange={e => setCargoId(e.target.value)} disabled={!lojaId}>
-                        <option value="">Cargo</option>
+                        <option value="">Selecione o cargo...</option>
                         {cargos.map(c => (
                             <option key={c.id} value={c.id}>{c.nome}</option>
                         ))}
                     </select>
 
                     <select style={input} value={usuarioId} onChange={e => setUsuarioId(e.target.value)} disabled={!cargoId}>
-                        <option value="">Usuário</option>
+                        <option value="">Selecione o usuario...</option>
                         {usuarios.map(u => (
                             <option key={u.id} value={u.id}>{u.nome}</option>
                         ))}
@@ -160,40 +225,55 @@ export default function DefinicoesDeAcesso({ setPage }: DefinicoesProps) {
 
 
                             <div style={accordionBody}>
-                                {m.submodulos.map(s => (
-                                    <div key={s.id} style={linhaPermissao}>
-                                        <span style={nomeSub}>{s.nome}</span>
+                                {m.submodulos.map(s => {
+                                    const bloqueado =
+                                        Number(usuarioId) === user?.id && s.slug === "definicoes-acesso";
 
-                                        <label style={checkItem}>
-                                            <input
-                                                type="checkbox"
-                                                checked={!!permissoes[s.id]?.consultar}
-                                                onChange={() =>
-                                                    setPermissoes(p => ({
-                                                        ...p,
-                                                        [s.id]: { ...p[s.id], consultar: !p[s.id]?.consultar }
-                                                    }))
-                                                }
-                                            />
-                                            Consultar
-                                        </label>
+                                    return (
+                                        <div key={s.id} style={linhaPermissao}>
+                                            <span style={nomeSub}>{s.nome}</span>
 
-                                        <label style={checkItem}>
-                                            <input
-                                                type="checkbox"
-                                                checked={!!permissoes[s.id]?.usar}
-                                                onChange={() =>
-                                                    setPermissoes(p => ({
-                                                        ...p,
-                                                        [s.id]: { ...p[s.id], usar: !p[s.id]?.usar }
-                                                    }))
-                                                }
-                                            />
-                                            Usar
-                                        </label>
-                                    </div>
-                                ))}
+                                            <label style={checkItem}>
+                                                <input
+                                                    type="checkbox"
+                                                    disabled={bloqueado} // 🔒 não permite alterar
+                                                    checked={bloqueado ? true : !!permissoes[s.id]?.consultar} // ✅ sempre marcado
+                                                    onChange={() =>
+                                                        setPermissoes(p => ({
+                                                            ...p,
+                                                            [s.id]: { ...p[s.id], consultar: !p[s.id]?.consultar }
+                                                        }))
+                                                    }
+                                                />
+                                                Consultar
+                                            </label>
+
+                                            <label style={checkItem}>
+                                                <input
+                                                    type="checkbox"
+                                                    disabled={bloqueado} // 🔒 não permite alterar
+                                                    checked={bloqueado ? true : !!permissoes[s.id]?.usar} // ✅ sempre marcado
+                                                    onChange={() =>
+                                                        setPermissoes(p => ({
+                                                            ...p,
+                                                            [s.id]: { ...p[s.id], usar: !p[s.id]?.usar }
+                                                        }))
+                                                    }
+                                                />
+                                                Usar
+                                            </label>
+
+
+                                            {bloqueado && (
+                                                <small style={{ color: "#999", marginLeft: 8 }}>
+                                                    🔒 Obrigatório para administradores
+                                                </small>
+                                            )}
+                                        </div>
+                                    );
+                                })}
                             </div>
+
                         </details>
                     ))}
                 </div>
@@ -207,11 +287,8 @@ export default function DefinicoesDeAcesso({ setPage }: DefinicoesProps) {
 
 }
 
-const label: React.CSSProperties = { fontWeight: 600, marginBottom: 5, display: 'block' };
 const input: React.CSSProperties = { padding: 8, borderRadius: 6, border: '1px solid #d1d5db', marginBottom: 10, width: '100%' };
-const itemRow: React.CSSProperties = { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 };
-const btnRemover: React.CSSProperties = { background: '#f87171', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' };
-const btnNovo: React.CSSProperties = { background: '#1e3a8a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' };
+
 const pageContainer: React.CSSProperties = {
     padding: 20,
     backgroundColor: "#f5f7fa",
@@ -227,7 +304,7 @@ const titulo: React.CSSProperties = {
 const acoesHeader: React.CSSProperties = {
     display: "flex",
     gap: 6,
-    float:'right',
+    float: 'right',
 };
 
 const btnMini: React.CSSProperties = {
