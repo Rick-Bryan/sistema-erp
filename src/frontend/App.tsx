@@ -29,6 +29,7 @@ import CarteiraDigital from './components/carteiradigital/CarteiraDigital';
 import ExtratoConta from './components/carteiradigital/ExtratoConta';
 import { toastErro } from './components/helpers/toastErro';
 import { setPermissoes as setCachePermissoes } from './components/helpers/verifyPerm';
+import Orcamentos from './components/orcamentos/Orcamentos';
 
 export default function App() {
   const [page, setPage] = useState('dashboard');
@@ -168,6 +169,8 @@ export default function App() {
             voltar={() => setPage('caixa')}
           />
         );
+      case 'orcamentos':
+        return <Orcamentos setPage={setPage}/>
       case 'definicoes-acesso':
         return <DefinicoesDeAcesso setPage={setPage} />
 

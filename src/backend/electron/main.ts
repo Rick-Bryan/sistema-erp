@@ -139,6 +139,7 @@ ipcMain.handle("login", async (event, { email, senha }) => {
       email: usuario.email,
       nivel: usuario.nivel,
       empresa_id: usuario.empresa_id,
+      loja_id : usuario.loja_id
     };
 
     // ✅ SALVA A SESSÃO
@@ -1118,8 +1119,47 @@ ipcMain.handle("permissoes:salvar", async (e, dados) => {
     conn.release();
   }
 });
+ipcMain.handle("orcamentos:listar", async () => {
+  const usuarioLogado = global.usuarioLogado;
 
+  console.log("USUARIO GLOBAL:", usuarioLogado);
+ 
+  if (!usuarioLogado || !usuarioLogado.loja_id) {
+    console.log("❌ Usuário ou loja_id não definido");
+    return [];
+  }
 
+  const [result] = await pool.query(
+    `SELECT o.*,c.nome AS cliente_nome,u.nome AS usuario_nome FROM orcamentos o
+
+JOIN clientes c ON c.id = o.cliente_id
+JOIN usuarios u ON u.id = o.usuario_id
+ WHERE o.loja_id = ?`,
+    [usuarioLogado.loja_id]
+  );
+
+  console.log("ORCAMENTOS DB:", result);
+
+ 
+  return result;
+});
+ipcMain.handle("orcamentos:criar",async (e,dados:{
+   cliente_id: Number , 
+    status: String,
+    valor_total: Number,
+    descontos:Number,
+    observacoes: String,
+    valor_final: Number,
+   itens: {
+    produto_id: Number;
+    quantidade: Number;
+    custo_unitario: Number;
+  }[];
+}) =>{
+  const usuarioLogado = global.usuarioLogado
+  const [result] = await pool.query(`INSERT INTO orcamentos (loja_id,cliente_id,usuario_id,valor_total,descontos,valor_final,status) VALUES(?,?,?,?,?,?,?)`,[usuarioLogado.loja_id,dados.cliente_id,usuarioLogado.id,dados.valor_total,dados.descontos,dados.valor_final,dados.status])
+  return result
+})
 
 app.whenReady().then(createWindow)
 
