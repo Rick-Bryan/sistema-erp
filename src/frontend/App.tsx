@@ -166,7 +166,7 @@ export default function App() {
         return (
           <CaixaDetalhes
             caixa={caixaSelecionado}     // ← envia o ID
-            voltar={() => setPage('caixa')}
+            voltar={() => setPage('caixa-fluxo')}
           />
         );
       case 'orcamentos':

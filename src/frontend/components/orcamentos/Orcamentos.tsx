@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { setPermissoes as setPermissoesGlobais, verifyPerm } from '../../components/helpers/verifyPerm';
 import { toastErro } from "../helpers/toastErro";
 import OrcamentoModal from "./OrcamentoModal";
+import OrcamentoDetalhes from "./OrcamentoDetalhes";
 
 
 interface OrcamentosProps {
@@ -13,6 +14,8 @@ interface OrcamentosProps {
 export default function Orcamentos({ setPage }: OrcamentosProps) {
     const [orcamentos, setOrcamentos] = useState<any[]>([]);
     const [abrirModal, setAbrirModal] = useState(false)
+    const [abrirModalDetalhes, setAbrirModalDetalhes] = useState(false)
+    const [orcamentoSelecionado, setOrcamentoSelecionado] = useState<any[]>([]);
     const carregarOrcamentos = async () => {
         try {
             const lista = await window.ipcRenderer.invoke('orcamentos:listar');
@@ -22,6 +25,7 @@ export default function Orcamentos({ setPage }: OrcamentosProps) {
             toastErro(err)
         }
     }
+
     useEffect(() => {
         carregarOrcamentos()
     }, [])
@@ -58,7 +62,6 @@ export default function Orcamentos({ setPage }: OrcamentosProps) {
                             const data = new Date();
                             return (
                                 <tr key={o.id} style={{ borderBottom: "1px solid #e5e7eb" }}>
-
                                     <td style={td}>{o.cliente_nome}</td>
                                     <td style={td}>{o.usuario_nome} </td>
                                     <td style={td}>R${o.valor_total}</td>
@@ -67,7 +70,7 @@ export default function Orcamentos({ setPage }: OrcamentosProps) {
                                     <td style={td}>{o.status}</td>
                                     <td style={td}> {data.toLocaleDateString(o.criado_em)}</td>
                                     <td style={td}>
-
+                                        <button  style={btnDetalhes} onClick={() => {setAbrirModalDetalhes(true); setOrcamentoSelecionado(o) }}>Detalhes</button>
                                     </td>
                                 </tr>
                             )
@@ -77,6 +80,9 @@ export default function Orcamentos({ setPage }: OrcamentosProps) {
             </div>
             {abrirModal && (
                 <OrcamentoModal onClose={() => setAbrirModal(false)} refresh={carregarOrcamentos} />
+            )}
+            {abrirModalDetalhes && orcamentoSelecionado && (
+                <OrcamentoDetalhes onClose={() => setAbrirModalDetalhes(false)} refresh={carregarOrcamentos} orcamento={orcamentoSelecionado} />
             )}
         </div>
     )
@@ -100,7 +106,7 @@ const btnVoltar = {
     marginBottom: "20px",
 };
 
-const btnParcelas = {
+const btnDetalhes = {
     background: "#e5e7eb",
     color: "#7c2d12",
     padding: "8px 16px",

@@ -33,10 +33,7 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
         observacoes: "",
         itens: [] as any[],
     });
-    const valorFinal = Math.max(
-        orcamento.valor_total - (orcamento.descontos || 0),
-        0
-    );
+
 
     const statusOrcamento = Object.freeze([
         { id: 1, value: 'aprovado', nome: "Aprovado" },
@@ -55,22 +52,33 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
         }
         carregarDados();
     }, []);
-
+    console.log(produtos)
     // Atualiza valor total automaticamente
     useEffect(() => {
-        const total = orcamento.itens.reduce(
-            (acc, item) => acc + item.quantidade * item.custo_unitario,
-            0
-        );
-        setOrcamento((prev) => ({ ...prev, valor_total: total }));
+        const total = orcamento.itens.reduce((acc, item) => {
+            return acc + (Number(item.subtotal) || 0);
+        }, 0);
+
+        setOrcamento(prev => ({ ...prev, valor_total: total }));
     }, [orcamento.itens]);
 
     const adicionarItem = () => {
-        setOrcamento((prev) => ({
+        setOrcamento(prev => ({
             ...prev,
-            itens: [...prev.itens, { produto_id: "", quantidade: 1, custo_unitario: 0 }]
+            itens: [
+                ...prev.itens,
+                {
+                    produto_id: null,
+                    quantidade: 1,
+                    custo_unitario: 0,
+                    preco_unitario: 0,
+                    preco_sugerido: 0,
+                    subtotal: 0
+                }
+            ]
         }));
     };
+
 
     const removerItem = (index: number) => {
         setOrcamento((prev) => ({
@@ -78,14 +86,25 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
             itens: prev.itens.filter((_, i) => i !== index)
         }));
     };
-
     const atualizarItem = (index: number, campo: string, valor: any) => {
-        setOrcamento((prev) => {
+        setOrcamento(prev => {
             const itensAtualizados = [...prev.itens];
-            itensAtualizados[index] = { ...itensAtualizados[index], [campo]: valor };
+
+            let item = { ...itensAtualizados[index], [campo]: valor };
+
+            const qtd = Number(item.quantidade) || 0;
+            const preco = Number(item.preco_unitario) || 0;
+
+            item.subtotal = qtd * preco;
+
+            itensAtualizados[index] = item;
+
             return { ...prev, itens: itensAtualizados };
         });
     };
+
+
+    console.log("Produtos ", produtos)
 
     const salvarCompra = async () => {
 
@@ -97,7 +116,7 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
             toast.error("Todos os itens precisam ter um produto selecionado!");
             return;
         }
-     
+
         if (orcamento.valor_total < orcamento.descontos || 0) {
             toast.error("Desconto nao pode ser maior que o valor Total")
             return;
@@ -120,7 +139,6 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
             toastErro(e);
         }
     };
-
 
     return (
         <div style={overlay}>
@@ -160,51 +178,99 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
 
                 </div>
 
-
-
-
-
-
-
-
                 <h3 style={{ color: "#1e3a8a", marginBottom: 10 }}>Itens</h3>
+                <button style={btnNovo} onClick={adicionarItem}>Adicionar Item</button>
                 {orcamento.itens.map((item, index) => (
                     <div key={index} style={itemRow}>
-                        <select
-                            value={item.produto_id || 0}
-                            onChange={(e) => atualizarItem(index, "produto_id", Number(e.target.value))}
-                            style={{ ...input, flex: 2 }}
-                        >
-                            <option value={0}>Produto...</option>
-                            {produtos.map((p) => (
-                                <option key={p.CodigoProduto} value={p.CodigoProduto}>
-                                    {p.NomeProduto}
-                                </option>
-                            ))}
-                        </select>
+
+                        {/* PRODUTO */}
+                        <div style={col}>
+                            <span style={smallLabel}>Produto</span>
+                            <select
+                                value={item.produto_id || 0}
+                                onChange={(e) => {
+                                    const produtoId = Number(e.target.value);
+                                    const produto = produtos.find(p => p.CodigoProduto === produtoId);
+
+                                    atualizarItem(index, "produto_id", produtoId);
+
+                                    if (produto) {
+                                        atualizarItem(index, "preco_sugerido", Number(produto.PrecoVenda));
+
+                                        atualizarItem(index, "custo_unitario", Number(produto.CustoMedio));
+                                        atualizarItem(index, "preco_unitario", Number(produto.PrecoVenda));
+
+                                    }
+                                }}
+                                style={input}
+                            >
+                                <option value={0}>Produto...</option>
+                                {produtos.map((p) => (
+                                    <option key={p.CodigoProduto} value={p.CodigoProduto}>
+                                        {p.NomeProduto}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* QUANTIDADE */}
+                        <div style={col}>
+                            <span style={smallLabel}>Qtd</span>
+                            <input
+                                type="number"
+                                min={1}
+                                step={1}
+                                value={item.quantidade}
+                                onChange={(e) => atualizarItem(index, "quantidade", Number(e.target.value))}
+                                style={input}
+                            />
+                        </div>
+
+                        {/* PREÇO */}
+                        <div style={col}>
+                            <span style={smallLabel}>
+                                Sugerido: R$ {Number(item.preco_sugerido || 0).toFixed(2)}
+                            </span>
 
 
-                        <input
-                            type="number"
-                            min={1}
-                            step={1}
-                            value={item.quantidade}
-                            onChange={(e) => atualizarItem(index, "quantidade", Number(e.target.value))}
-                            style={{ ...input, flex: 1 }}
-                        />
-                        <input
-                            type="number"
-                            min={0}
-                            step={0.01}
-                            value={item.custo_unitario}
-                            onChange={(e) => atualizarItem(index, "custo_unitario", Number(e.target.value))}
-                            style={{ ...input, flex: 1 }}
-                        />
-                        <button style={btnRemover} onClick={() => removerItem(index)}>X</button>
+                            {usuario.nivel == "administrador" ? (
+                                <input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    value={item.preco_unitario}
+                                    onChange={(e) =>
+                                        atualizarItem(index, "preco_unitario", Number(e.target.value))
+                                    }
+                                    style={input}
+                                />
+
+                            ) : (
+                                <input
+                                    type="number"
+                                    readOnly
+                                    min={0}
+                                    step={0.01}
+                                    value={item.preco_unitario}
+                                    onChange={(e) =>
+                                        atualizarItem(index, "preco_unitario", Number(e.target.value))
+                                    }
+                                    style={input}
+                                />
+                            )}
+
+                        </div>
+
+                        <button style={btnRemover} onClick={() => removerItem(index)}>
+                            ✕
+                        </button>
+
+
                     </div>
                 ))}
 
-                <button style={btnNovo} onClick={adicionarItem}>Adicionar Item</button>
+
+
 
                 <div style={{ marginTop: 20, fontWeight: 600 }}>
                     <div style={{ width: "100%" }}>Valor Bruto: R$ {orcamento.valor_total.toFixed(2)}</div>
@@ -219,7 +285,7 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
                         }
 
                     />
-                    <div style={{ width: "100%" }}>Valor Final: R$ {orcamento.valor_total - orcamento.descontos}</div>
+                    <div style={{ width: "100%" }}>Valor Final: R$ {Number(orcamento.valor_total.toFixed(2)) - Number(orcamento.descontos.toFixed(2))}</div>
                 </div>
 
                 <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
@@ -243,7 +309,48 @@ const modal: React.CSSProperties = {
 };
 
 const label: React.CSSProperties = { fontWeight: 600, marginBottom: 5, display: 'block' };
-const input: React.CSSProperties = { padding: 8, borderRadius: 6, border: '1px solid #d1d5db', marginBottom: 10, width: '100%' };
-const itemRow: React.CSSProperties = { display: 'flex', gap: 10, alignItems: 'center', marginBottom: 8 };
-const btnRemover: React.CSSProperties = { background: '#f87171', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 8px', cursor: 'pointer' };
-const btnNovo: React.CSSProperties = { background: '#1e3a8a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer' };
+const input: React.CSSProperties = {
+    padding: 8,
+    borderRadius: 6,
+    border: '1px solid #d1d5db',
+    width: '100%',
+    boxSizing: 'border-box'
+};
+const itemRow: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: '2fr 1fr 1.3fr 36px',
+    gap: 12,
+    alignItems: 'end',
+    marginBottom: 12
+};
+
+const col: React.CSSProperties = {
+    display: "flex",
+    flexDirection: "column",
+    gap: 4,
+    minWidth: 0
+};
+
+
+const smallLabel: React.CSSProperties = {
+    fontSize: 11,
+    color: "#6b7280",
+    fontWeight: 600
+};
+
+const btnRemover: React.CSSProperties = {
+    background: '#f87171',
+    color: '#fff',
+    border: 'none',
+    borderRadius: 6,
+    width: 32,
+    height: 32,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+
+};
+
+
+const btnNovo: React.CSSProperties = { background: '#1e3a8a', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 12px', cursor: 'pointer', margin: "10px 0px" };

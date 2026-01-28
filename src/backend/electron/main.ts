@@ -139,7 +139,7 @@ ipcMain.handle("login", async (event, { email, senha }) => {
       email: usuario.email,
       nivel: usuario.nivel,
       empresa_id: usuario.empresa_id,
-      loja_id : usuario.loja_id
+      loja_id: usuario.loja_id
     };
 
     // ✅ SALVA A SESSÃO
@@ -1123,7 +1123,7 @@ ipcMain.handle("orcamentos:listar", async () => {
   const usuarioLogado = global.usuarioLogado;
 
   console.log("USUARIO GLOBAL:", usuarioLogado);
- 
+
   if (!usuarioLogado || !usuarioLogado.loja_id) {
     console.log("❌ Usuário ou loja_id não definido");
     return [];
@@ -1138,26 +1138,90 @@ JOIN usuarios u ON u.id = o.usuario_id
     [usuarioLogado.loja_id]
   );
 
-  console.log("ORCAMENTOS DB:", result);
-
- 
   return result;
 });
-ipcMain.handle("orcamentos:criar",async (e,dados:{
-   cliente_id: Number , 
-    status: String,
-    valor_total: Number,
-    descontos:Number,
-    observacoes: String,
-    valor_final: Number,
-   itens: {
-    produto_id: Number;
-    quantidade: Number;
-    custo_unitario: Number;
+ipcMain.handle("orcamentos:listar-orcamento-selecionado", async (e, orcamento_id) => {
+
+  const usuarioLogado = global.usuarioLogado;
+
+  console.log("USUARIO GLOBAL:", usuarioLogado);
+
+  if (!usuarioLogado || !usuarioLogado.loja_id) {
+    console.log("❌ Usuário ou loja_id não definido");
+    return [];
+  }
+
+  const [rows] = await pool.query(
+    `SELECT o.*,c.nome AS cliente_nome,u.nome AS usuario_nome FROM orcamentos o
+
+JOIN clientes c ON c.id = o.cliente_id
+JOIN usuarios u ON u.id = o.usuario_id
+
+ WHERE o.id = ?`,
+    [orcamento_id]
+  );
+  const [itens] = await pool.query(
+    `
+  SELECT 
+    oi.*,
+    p.NomeProduto
+  FROM orcamento_itens oi
+  JOIN produto p ON p.CodigoProduto = oi.produto_id
+  WHERE oi.orcamentos_id = ?`, [orcamento_id]);
+
+
+
+
+  console.log("ORCAMENTOS DB:", rows);
+
+  if (!rows.length) return null;
+  const payload = {
+    ...rows[0], itens
+  }
+
+  return payload;
+
+})
+ipcMain.handle("orcamentos:criar", async (e, dados: {
+  cliente_id: Number,
+  status: String,
+  valor_total: Number,
+  descontos: Number,
+  observacoes: String,
+  valor_final: Number,
+  itens: {
+    produto_id: number;
+    quantidade: number;
+    custo_unitario: number;
+    preco_unitario: number; // ✅
   }[];
-}) =>{
+
+}) => {
   const usuarioLogado = global.usuarioLogado
-  const [result] = await pool.query(`INSERT INTO orcamentos (loja_id,cliente_id,usuario_id,valor_total,descontos,valor_final,status) VALUES(?,?,?,?,?,?,?)`,[usuarioLogado.loja_id,dados.cliente_id,usuarioLogado.id,dados.valor_total,dados.descontos,dados.valor_final,dados.status])
+  const [result] = await pool.query(`INSERT INTO orcamentos (loja_id,cliente_id,usuario_id,valor_total,descontos,valor_final,status) VALUES(?,?,?,?,?,?,?)`, [usuarioLogado.loja_id, dados.cliente_id, usuarioLogado.id, dados.valor_total, dados.descontos, dados.valor_final, dados.status])
+
+  
+ for (const item of dados.itens) {
+  const quantidade = Number(item.quantidade);
+  const preco = Number(item.preco_unitario); // ✅ usa preço
+  const subtotal = quantidade * preco;
+
+  await pool.query(
+    `INSERT INTO orcamento_itens
+     (orcamentos_id, produto_id, quantidade, preco_unitario, subtotal)
+     VALUES (?, ?, ?, ?, ?)`,
+    [
+      result.insertId,
+      item.produto_id,
+      quantidade,
+      preco,
+      subtotal
+    ]
+  );
+}
+
+
+
   return result
 })
 
