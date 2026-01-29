@@ -40,6 +40,7 @@ type Aba = {
 };
 
 export default function App() {
+  const [hoverAba, setHoverAba] = useState<string | null>(null);
 
   const [abas, setAbas] = useState<any[]>([]);
   const [abaAtiva, setAbaAtiva] = useState<string | null>(null);
@@ -99,6 +100,12 @@ export default function App() {
       return novas;
     });
   };
+  const fecharTodasAbas = () => {
+    setAbas([]);
+    setAbaAtiva(null);
+    setPage("dashboard");
+  };
+
 
   useEffect(() => {
     if (usuario) carregarPermissoes();
@@ -217,20 +224,24 @@ export default function App() {
 
 
       <div style={areaDireitaStyle}>
+
+
         {/* ABAS */}
         <div style={abasContainerStyle}>
           {abas.length > 0 && (
-            <div style={abasContainerStyle}>
+            <>
               {abas.map(aba => {
-                const ativa = abaAtiva === aba.id;
-
+                const ativa = aba.id === abaAtiva;
+                const isHover = hoverAba === aba.id;
                 const Icon = aba.Icon;
 
                 return (
                   <div
                     key={aba.id}
-                    style={abaStyle(ativa)}
+                    style={abaStyle(ativa, isHover)}
                     onClick={() => setAbaAtiva(aba.id)}
+                    onMouseEnter={() => setHoverAba(aba.id)}
+                    onMouseLeave={() => setHoverAba(null)}
                   >
                     {Icon && <Icon size={16} />}
                     {ativa && <span style={{ marginLeft: 6 }}>{aba.titulo}</span>}
@@ -247,14 +258,22 @@ export default function App() {
                       </span>
                     )}
                   </div>
-
                 );
               })}
-            </div>
+
+              {/* botão no canto direito */}
+              <button
+                onClick={fecharTodasAbas}
+                title="Fechar todas as abas"
+                style={closeAllStyle}
+              >
+                Fechar tudo
+              </button>
+            </>
           )}
-
-
         </div>
+
+
         {/* CONTEÚDO */}
 
         <main style={mainStyle}>
@@ -268,6 +287,7 @@ export default function App() {
         </main>
 
       </div>
+
     </div>
   );
 
@@ -289,14 +309,31 @@ const areaDireitaStyle: React.CSSProperties = {
 };
 const abasContainerStyle: React.CSSProperties = {
   height: 42,
-  display: 'flex',
-  alignItems: 'center',
-  background: '#fff',
-  borderBottom: '1px solid #ddd',
+  display: "flex",
+  alignItems: "center",
+  background: "#fff",
+  borderBottom: "1px solid #ddd",
   flexShrink: 0,
-  overflowX: 'auto'
+  padding: "0 8px",
 };
-const abaStyle = (ativa: boolean): React.CSSProperties => ({
+
+const closeAllStyle: React.CSSProperties = {
+  marginLeft: "auto", // <--- empurra para a direita
+  background: "#1e3a8a",
+  color: "#fff",
+  border: "none",
+  padding: "6px 10px",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 12,
+  fontWeight: 600,
+  whiteSpace: "nowrap"
+};
+
+
+
+
+const abaStyle = (ativa: boolean, isHover: boolean): React.CSSProperties => ({
   position: 'relative',
   width: ativa ? 140 : 42,   // só a ativa cresce
   height: '100%',
@@ -306,26 +343,16 @@ const abaStyle = (ativa: boolean): React.CSSProperties => ({
   justifyContent: ativa ? 'flex-start' : 'center',
   gap: ativa ? 8 : 0,
   paddingLeft: ativa ? 8 : 0,
-  background: ativa ? '#f5f7fa' : '#e9eef5',
+  background: ativa
+    ? '#f5f7fa'
+    : isHover
+      ? '#dde6f3'
+      : '#e9eef5',
   borderRight: '1px solid #ccc',
   transition: 'width .18s ease, background .18s ease'
 });
 
-const tooltipStyle: React.CSSProperties = {
-  position: 'absolute',
-  top: '50%',
-  left: '100%',
-  transform: 'translateY(-50%)',
-  marginLeft: 8,
-  padding: '4px 8px',
-  background: '#333',
-  color: '#fff',
-  fontSize: 12,
-  borderRadius: 4,
-  whiteSpace: 'nowrap',
-  pointerEvents: 'none',
-  zIndex: 10
-};
+
 const fecharStyle: React.CSSProperties = {
   position: 'absolute',
   top: 2,

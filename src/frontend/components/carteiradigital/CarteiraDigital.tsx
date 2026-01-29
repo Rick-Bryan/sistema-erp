@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { Card } from "../../components/ui/card";
 import { toastErro } from "../helpers/toastErro";
 interface Props {
-abrirAba: (page: string, titulo: string, params?: any) => void;}
+    abrirAba: (page: string, titulo: string, params?: any) => void;
+    voltar: () => void
+}
 
-export default function CarteiraDigital({ abrirAba }: Props) {
+export default function CarteiraDigital({ abrirAba, voltar }: Props) {
     const [saldos, setSaldos] = useState<any>({});
     const [contas, setContas] = useState<any[]>([]);
     const [modalAberto, setModalAberto] = useState(false);
@@ -64,7 +66,7 @@ export default function CarteiraDigital({ abrirAba }: Props) {
 
     return (
         <div style={{ padding: 20 }}>
-            <button onClick={() => abrirAba("movimentacao","Movimentacao")} style={btnVoltar}>
+            <button onClick={voltar} style={btnVoltar}>
                 ← Voltar
             </button>
 
