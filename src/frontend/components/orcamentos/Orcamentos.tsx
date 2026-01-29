@@ -8,10 +8,12 @@ import OrcamentoDetalhes from "./OrcamentoDetalhes";
 
 
 interface OrcamentosProps {
-    setPage: (page: string) => void;
+
+    abrirAba: (page: string, titulo: string, params?: any) => void;
+    voltar: () => void
 }
 
-export default function Orcamentos({ setPage }: OrcamentosProps) {
+export default function Orcamentos({ abrirAba, voltar }: OrcamentosProps) {
     const [orcamentos, setOrcamentos] = useState<any[]>([]);
     const [abrirModal, setAbrirModal] = useState(false)
     const [abrirModalDetalhes, setAbrirModalDetalhes] = useState(false)
@@ -33,7 +35,7 @@ export default function Orcamentos({ setPage }: OrcamentosProps) {
     return (
         <div style={pageContainer}>
             <button
-                onClick={() => setPage("movimentacao")}
+                onClick={voltar}
                 style={btnVoltar}
             >
                 ← Voltar
@@ -70,7 +72,7 @@ export default function Orcamentos({ setPage }: OrcamentosProps) {
                                     <td style={td}>{o.status}</td>
                                     <td style={td}> {data.toLocaleDateString(o.criado_em)}</td>
                                     <td style={td}>
-                                        <button  style={btnDetalhes} onClick={() => {setAbrirModalDetalhes(true); setOrcamentoSelecionado(o) }}>Detalhes</button>
+                                        <button style={btnDetalhes} onClick={() => { setAbrirModalDetalhes(true); setOrcamentoSelecionado(o) }}>Detalhes</button>
                                     </td>
                                 </tr>
                             )

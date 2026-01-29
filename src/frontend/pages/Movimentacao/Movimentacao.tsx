@@ -14,13 +14,21 @@ import {
   CreditCard,
   PackageCheck,
 } from 'lucide-react';
+import { ElementType } from 'react';
+
 import { verifyPerm, usePerm } from '../../components/helpers/verifyPerm';
 
 interface MovimentacaoProps {
-  setPage: (page: string) => void;
+  abrirAba: (
+    page: string,
+    titulo: string,
+    params?: any,
+    Icon?: ElementType
+  ) => void;
 }
 
-export default function Movimentacao({ setPage }: MovimentacaoProps) {
+
+export default function Movimentacao({ abrirAba }: MovimentacaoProps) {
   const CARDS = [
     {
       slug: "vendas",
@@ -140,7 +148,7 @@ export default function Movimentacao({ setPage }: MovimentacaoProps) {
           return (
             <Card
               key={c.slug}
-              onClick={() => setPage(c.page)}
+              onClick={() => abrirAba(c.page, c.titulo, undefined, c.icon)}
               className="cursor-pointer"
             >
               <CardHeader>

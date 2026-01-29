@@ -13,10 +13,13 @@ declare global {
 }
 
 interface FabricantesProps {
-  setPage: (page: string) => void;
+  
+    abrirAba: (page: string, titulo: string, params?: any) => void;
+    voltar: () => void
+  
 }
 
-export default function Fabricantes({ setPage }: FabricantesProps) {
+export default function Fabricantes({ abrirAba,voltar }: FabricantesProps) {
   const [fabricantes, setFabricantes] = useState<any[]>([]);
   const [fabricanteSelecionado, setFabricanteSelecionado] = useState<any | null>(null);
   const [modoCadastro, setModoCadastro] = useState(false);
@@ -57,7 +60,7 @@ export default function Fabricantes({ setPage }: FabricantesProps) {
     <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
       {/* 🔙 Botão de voltar */}
       <button
-        onClick={() => setPage('cadastros')}
+        onClick={voltar}
         style={{
           backgroundColor: '#e5e7eb',
           color: '#1e3a8a',

@@ -3,6 +3,7 @@ import ProdutoDetalhes from './ProdutoDetalhes';
 import ProdutoCadastro from './ProdutoCadastro';
 import SearchBar from "../../components/ui/SearchBar";
 import toast from 'react-hot-toast';
+import { ElementType } from 'react';
 declare global {
   interface Window {
     electronAPI: {
@@ -16,8 +17,12 @@ declare global {
     };
   }
 }
+interface ProdutosProps {
 
-export default function Produtos({ setPage }: { setPage: (page: string) => void }) {
+    abrirAba: (page: string, titulo: string, params?: any, Icon?: ElementType) => void;
+    voltar: () => void
+}
+export default function Produtos({ abrirAba,voltar }: ProdutosProps) {
   const [produtos, setProdutos] = useState<any[]>([]);
   const [produtoSelecionado, setProdutoSelecionado] = useState<any | null>(null);
   const [modoCadastro, setModoCadastro] = useState(false);
@@ -197,7 +202,7 @@ export default function Produtos({ setPage }: { setPage: (page: string) => void 
 
       {/* Botão Voltar */}
       <button
-        onClick={() => setPage('cadastros')}
+        onClick={voltar}
         style={{
           backgroundColor: '#e5e7eb',
           color: '#1e3a8a',

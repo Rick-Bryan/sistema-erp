@@ -9,8 +9,12 @@ declare global {
     };
   }
 }
+interface EstoqueMovimentosProps {
+  abrirAba: (page: string, titulo: string, params?: any) => void;
+   voltar: () => void
+}
 
-export default function EstoqueMovimentos({ setPage }) {
+export default function EstoqueMovimentos({ abrirAba,voltar } : EstoqueMovimentosProps) {
   const [movimentos, setMovimentos] = useState<any[]>([]);
   const [filtroTipo, setFiltroTipo] = useState('');
   const [filtroOrigem, setFiltroOrigem] = useState('')
@@ -54,7 +58,7 @@ export default function EstoqueMovimentos({ setPage }) {
 
   return (
     <div style={{ padding: '20px', background: '#f5f7fa', minHeight: '100vh' }}>
-      <button style={btnVoltar} onClick={() => setPage('movimentacao')}>← Voltar</button>
+      <button style={btnVoltar} onClick={voltar}>← Voltar</button>
 
       <div style={header}>
         <h2 style={{ color: '#1e3a8a' }}>Movimentações de Estoque</h2>

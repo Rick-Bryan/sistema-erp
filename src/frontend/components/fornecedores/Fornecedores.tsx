@@ -14,10 +14,12 @@ declare global {
 }
 
 interface FornecedoresProps {
-    setPage: (page: string) => void;
+
+    abrirAba: (page: string, titulo: string, params?: any) => void;
+    voltar: () => void
 }
 
-export default function Fornecedores({ setPage }: FornecedoresProps) {
+export default function Fornecedores({ abrirAba, voltar }: FornecedoresProps) {
     const [fornecedores, setFornecedores] = useState<any[]>([]);
     const [fornecedorSelecionado, setFornecedorSelecionado] = useState<any | null>(null);
     const [modoCadastro, setModoCadastro] = useState(false);
@@ -77,7 +79,7 @@ export default function Fornecedores({ setPage }: FornecedoresProps) {
         <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
             {/* 🔙 Botão de voltar */}
             <button
-                onClick={() => setPage('cadastros')}
+                onClick={voltar}
                 style={{
                     backgroundColor: '#e5e7eb',
                     color: '#1e3a8a',

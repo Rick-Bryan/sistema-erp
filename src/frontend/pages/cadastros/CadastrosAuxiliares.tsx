@@ -3,12 +3,28 @@ import { Card, CardContent, CardHeader } from '../../components/ui/card';
 import { Package, Factory, Layers, Boxes, User, Users } from 'lucide-react';
 
 interface CadastrosAuxiliaresProps {
-    setPage: (page: string) => void;
+    abrirAba: (page: string, titulo: string, params?: any) => void;
+    voltar: () => void
 }
 
-export default function CadastrosAuxiliares({ setPage }: CadastrosAuxiliaresProps) {
+export default function CadastrosAuxiliares({ abrirAba, voltar }: CadastrosAuxiliaresProps) {
     return (
         <div style={{ padding: 24 }}>
+            <button
+                onClick={voltar}
+                style={{
+                    backgroundColor: '#e5e7eb',
+                    color: '#1e3a8a',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    marginBottom: '20px',
+                }}
+            >
+                ← Voltar
+            </button>
             <h1 style={{ fontSize: 24, marginBottom: 16, color: '#1e3a8a' }}>Cadastros Auxiliares</h1>
             <h1 style={{ fontSize: 24, marginBottom: 16, marginTop: 16, color: '#1e3a8a' }}>Pessoas</h1>
 

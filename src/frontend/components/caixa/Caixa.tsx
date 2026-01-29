@@ -5,7 +5,6 @@ import CaixaDetalhes from "./CaixaDetalhes";
 import SearchBar from "../../components/ui/SearchBar";
 import CaixaAbertura from "./CaixaAbertura";
 
-
 interface Colaborador {
   id: number;
   nome: string;
@@ -16,11 +15,12 @@ interface Colaborador {
 }
 
 interface CaixaProps {
-  setPage: (page: string) => void;
+  abrirAba: (page: string, titulo: string, params?: any) => void;
   setCaixaSelecionado: (id: number) => void;
+  voltar: () => void;
 }
 
-export default function Caixa({ setPage, setCaixaSelecionado }: CaixaProps) {
+export default function Caixa({ abrirAba, setCaixaSelecionado, voltar }: CaixaProps) {
 
   const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
   const nivelUsuario = usuarioLogado?.nivel;
@@ -59,7 +59,7 @@ export default function Caixa({ setPage, setCaixaSelecionado }: CaixaProps) {
   return (
     <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
       <button
-        onClick={() => setPage('movimentacao')}
+        onClick={voltar}
         style={{
           backgroundColor: '#e5e7eb',
           color: '#1e3a8a',
@@ -133,7 +133,7 @@ export default function Caixa({ setPage, setCaixaSelecionado }: CaixaProps) {
                 <td style={tdStyle}><button
                   onClick={() => {
                     setCaixaSelecionado(s.id); // <-- manda tudo
-                    setPage("caixa-detalhes");
+                    abrirAba("caixa-detalhes", `Caixa ${s.id}`);
                   }}
                   style={{
                     backgroundColor: "#1e3a8a",

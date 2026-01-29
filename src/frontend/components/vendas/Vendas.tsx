@@ -17,9 +17,10 @@ interface Venda {
 }
 
 interface VendasProps {
-    setPage: (page: string) => void;
+     abrirAba: (page: string, titulo: string, params?: any) => void;
+     voltar : ()=>void
 }
-export default function Vendas({ setPage }: VendasProps) {
+export default function Vendas({ abrirAba ,voltar}: VendasProps) {
     const [vendas, setVendas] = useState<Venda[]>([]);
     const [vendaSelecionada, setVendaSelecionada] = useState<Venda | null>(null);
     const [modoCadastro, setModoCadastro] = useState(false);
@@ -94,7 +95,7 @@ export default function Vendas({ setPage }: VendasProps) {
     return (
         <div style={{ padding: "20px", backgroundColor: "#f5f7fa", minHeight: "100vh" }}>
             <button
-                onClick={() => setPage("movimentacao")}
+                onClick={voltar}
                 style={{
                     backgroundColor: "#e5e7eb",
                     color: "#1e3a8a",

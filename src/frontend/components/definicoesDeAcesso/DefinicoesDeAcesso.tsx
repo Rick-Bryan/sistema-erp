@@ -5,10 +5,12 @@ import { toastErro } from "../helpers/toastErro";
 
 
 interface DefinicoesProps {
-    setPage: (page: string) => void;
+
+    abrirAba: (page: string, titulo: string, params?: any) => void;
+    voltar: () => void
 }
 
-export default function DefinicoesDeAcesso({ setPage }: DefinicoesProps) {
+export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps) {
     const [modulos, setModulos] = useState<any[]>([]);
     const [permissoes, setPermissoes] = useState<any>({});
     const [lojas, setLojas] = useState([]);
@@ -57,73 +59,73 @@ export default function DefinicoesDeAcesso({ setPage }: DefinicoesProps) {
     }, [usuarioId]);
 
     const salvar = async () => {
-        try{
-        if (!usuarioId || !lojaId) {
-            toast.error("Selecione loja, cargo e usuário");
-            return;
-        }
-        // 🛡 proteção contra auto-bloqueio
-        const idLogado = user?.id;
-        const submoduloDefAcesso = modulos
-            .flatMap(m => m.submodulos)
-            .find(s => s.slug === "definicoes-acesso");
-
-        if (Number(usuarioId) === idLogado && submoduloDefAcesso) {
-            const perm = permissoes[submoduloDefAcesso.id];
-
-            if (!perm?.consultar) {
-                toast.error("Você não pode remover seu próprio acesso às Definições de Acesso.");
+        try {
+            if (!usuarioId || !lojaId) {
+                toast.error("Selecione loja, cargo e usuário");
                 return;
             }
-        }
-        const payload: any[] = [];
+            // 🛡 proteção contra auto-bloqueio
+            const idLogado = user?.id;
+            const submoduloDefAcesso = modulos
+                .flatMap(m => m.submodulos)
+                .find(s => s.slug === "definicoes-acesso");
 
-        modulos.forEach(m => {
-            m.submodulos.forEach((s: any) => {
-                const p = permissoes[s.id];
-                if (!p) return;
+            if (Number(usuarioId) === idLogado && submoduloDefAcesso) {
+                const perm = permissoes[submoduloDefAcesso.id];
 
-                payload.push({
-                    modulo_id: m.id,
-                    submodulo_id: s.id,
-                    pode_consultar: p.consultar ? 1 : 0,
-                    pode_usar: p.usar ? 1 : 0,
+                if (!perm?.consultar) {
+                    toast.error("Você não pode remover seu próprio acesso às Definições de Acesso.");
+                    return;
+                }
+            }
+            const payload: any[] = [];
+
+            modulos.forEach(m => {
+                m.submodulos.forEach((s: any) => {
+                    const p = permissoes[s.id];
+                    if (!p) return;
+
+                    payload.push({
+                        modulo_id: m.id,
+                        submodulo_id: s.id,
+                        pode_consultar: p.consultar ? 1 : 0,
+                        pode_usar: p.usar ? 1 : 0,
+                    });
                 });
             });
-        });
 
-        await window.ipcRenderer.invoke("permissoes:salvar", {
-            empresa_id: 1, // depois você pode pegar do usuário logado
-            loja_id: Number(lojaId),
-            usuario_id: Number(usuarioId),
-            permissoes: payload
-        });
-        // 🔄 recarrega permissões do usuário logado
-        const novas = await window.ipcRenderer.invoke("permissoes:listar", Number(usuarioId));
+            await window.ipcRenderer.invoke("permissoes:salvar", {
+                empresa_id: 1, // depois você pode pegar do usuário logado
+                loja_id: Number(lojaId),
+                usuario_id: Number(usuarioId),
+                permissoes: payload
+            });
+            // 🔄 recarrega permissões do usuário logado
+            const novas = await window.ipcRenderer.invoke("permissoes:listar", Number(usuarioId));
 
-        // atualiza tela
-        const map = {};
-        novas.forEach(p => {
-            map[p.submodulo_id] = {
-                consultar: !!p.pode_consultar,
-                usar: !!p.pode_usar,
-            };
-        });
+            // atualiza tela
+            const map = {};
+            novas.forEach(p => {
+                map[p.submodulo_id] = {
+                    consultar: !!p.pode_consultar,
+                    usar: !!p.pode_usar,
+                };
+            });
 
-        console.log("NOVAS PERMS:", novas);
-        console.log("verify:", verifyPerm("compras", "consultar"));
+            console.log("NOVAS PERMS:", novas);
+            console.log("verify:", verifyPerm("compras", "consultar"));
 
-        // ✅ atualiza cache global usado pelo sistema
-        // ✅ mantém os checkboxes
-        setPermissoes(map);     // estado da tela
-        setPermissoesGlobais(novas);    // 🔥 cache global do app
-
+            // ✅ atualiza cache global usado pelo sistema
+            // ✅ mantém os checkboxes
+            setPermissoes(map);     // estado da tela
+            setPermissoesGlobais(novas);    // 🔥 cache global do app
 
 
 
 
-        toast.success("Permissões salvas!");
-        }catch(err){
+
+            toast.success("Permissões salvas!");
+        } catch (err) {
             toastErro(err)
         }
 
@@ -146,8 +148,23 @@ export default function DefinicoesDeAcesso({ setPage }: DefinicoesProps) {
 
     return (
         <div style={pageContainer}>
+            <button
+                onClick={voltar}
+                style={{
+                    backgroundColor: '#e5e7eb',
+                    color: '#1e3a8a',
+                    border: 'none',
+                    borderRadius: '6px',
+                    padding: '8px 16px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    marginBottom: '20px',
+                }}
+            >
+                ← Voltar
+            </button>
             <h2 style={titulo}>Definições de Acesso</h2>
-
+            
             <div style={card}>
                 {/* filtros */}
                 <div style={gridFiltros}>

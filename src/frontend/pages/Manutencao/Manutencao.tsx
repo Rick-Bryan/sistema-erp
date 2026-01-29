@@ -1,12 +1,17 @@
 import { Card, CardContent, CardHeader } from '../../components/ui/card';
 import { Users, Settings } from 'lucide-react';
 import { usePerm, verifyPerm } from '../../components/helpers/verifyPerm';
-
+import { ElementType } from 'react';
 interface ManutencaoProps {
-  setPage: (page: string) => void;
+    abrirAba: (
+        page: string,
+        titulo: string,
+        params?: any,
+        Icon?: ElementType
+      ) => void;
 }
 
-export default function Manutencao({ setPage }: ManutencaoProps) {
+export default function Manutencao({ abrirAba, }: ManutencaoProps) {
 
   const CARDS = [
     {
@@ -40,7 +45,7 @@ export default function Manutencao({ setPage }: ManutencaoProps) {
           return (
             <Card
               key={c.slug}
-              onClick={() => setPage(c.page)}
+              onClick={() => abrirAba(c.page, c.titulo,undefined,c.icon)}
               className="cursor-pointer"
             >
               <CardHeader>

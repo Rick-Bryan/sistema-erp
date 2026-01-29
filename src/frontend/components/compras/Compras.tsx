@@ -1,12 +1,15 @@
 import React, { useEffect, useState } from "react";
 import SearchBar from "../../components/ui/SearchBar";
-import {boxTabela} from '../styles/styles'
+import { boxTabela } from '../styles/styles'
 
 import CompraDetalhesModal from "./ComprasDetalhes";
 import NovaCompraModal from "./NovaCompraModal";
+interface ComprasProps {
+  abrirAba: (page: string, titulo: string, params?: any) => void;
+  voltar: () => void
+}
 
-
-export default function Compras({ setPage }: { setPage: (p: string) => void }) {
+export default function Compras({ abrirAba,voltar }: ComprasProps) {
   const [compras, setCompras] = useState<any[]>([]);
   const [selecionada, setSelecionada] = useState<any>(null);
   const [abrirNovaCompra, setAbrirNovaCompra] = useState(false);
@@ -20,17 +23,15 @@ export default function Compras({ setPage }: { setPage: (p: string) => void }) {
   });
   async function carregar() {
     const dados = await window.ipcRenderer.invoke('compras:listar');
-
     setCompras(dados);
   }
   useEffect(() => {
-
     carregar();
   }, []);
 
   return (
     <div style={{ padding: '20px', background: '#f5f7fa', minHeight: '100vh' }}>
-      <button style={btnVoltar} onClick={() => setPage('movimentacao')}>← Voltar</button>
+      <button style={btnVoltar} onClick={voltar}>← Voltar</button>
 
       <div style={header}>
         <h2 style={{ color: '#1e3a8a' }}>Compras</h2>
@@ -71,7 +72,7 @@ export default function Compras({ setPage }: { setPage: (p: string) => void }) {
       </div>
 
       {selecionada && (
-        <CompraDetalhesModal compraId={selecionada} onClose={() => setSelecionada(null)}  refresh={carregar}/>
+        <CompraDetalhesModal compraId={selecionada} onClose={() => setSelecionada(null)} refresh={carregar} />
       )}
 
       {abrirNovaCompra && (

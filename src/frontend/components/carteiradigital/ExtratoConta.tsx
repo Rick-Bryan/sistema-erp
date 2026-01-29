@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-export default function ExtratoConta({ setPage, params }: any) {
+export default function ExtratoConta({ abrirAba, params }: any) {
   const contaId = params?.id;
 
   const [movs, setMovs] = useState<any[]>([]);
@@ -33,7 +33,7 @@ export default function ExtratoConta({ setPage, params }: any) {
 
   return (
     <div style={{ padding: 20 }}>
-      <button onClick={() => setPage("carteira-digital")} style={btnVoltar}>
+      <button onClick={() => abrirAba("carteira-digital")} style={btnVoltar}>
         ← Voltar
       </button>
 

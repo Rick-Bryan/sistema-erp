@@ -7,25 +7,37 @@ import {
   Settings,
   LogOut
 } from 'lucide-react';
-
+import { ReactElement, ElementType } from 'react';
 interface SidebarProps {
-  setPage: (page: 'dashboard' | 'movimentacao' | 'manutencao' | 'cadastros') => void;
+  abrirAba: (
+    page: string,
+    titulo: string,
+    params?: any,
+    Icon?: ElementType
+  ) => void;
+  onMenuClick: (page: string) => void;
   onLogout?: () => void;
 }
-export default function Sidebar({ setPage ,onLogout}: SidebarProps) {
+
+
+
+export default function Sidebar({ abrirAba, onMenuClick, onLogout }: SidebarProps) {
   const [active, setActive] = useState('dashboard');
 
   const menus = [
-    { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-    { key: 'movimentacao', label: 'Movimentação', icon: <DollarSign size={18} /> },
-    { key: 'cadastros', label: 'Cadastros', icon: <Users size={18} /> },
-    { key: 'manutencao', label: 'Manutenção', icon: <Settings size={18} /> },
+    { key: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    { key: 'movimentacao', label: 'Movimentação', icon: DollarSign },
+    { key: 'cadastros', label: 'Cadastros', icon: Users },
+    { key: 'manutencao', label: 'Manutenção', icon: Settings },
   ];
 
-  const handleClick = (page: string) => {
-    setActive(page);
-    setPage(page as any);
-  };
+const handleClick = (page: string, label: string, Icon: ElementType) => {
+  setActive(page);
+  onMenuClick(page); // 👈 navega base
+};
+
+
+
 
   return (
     <div
@@ -56,38 +68,44 @@ export default function Sidebar({ setPage ,onLogout}: SidebarProps) {
       </h2>
 
       <div style={{ flex: 1 }}>
-        {menus.map((item) => (
-          <button
-            key={item.key}
-            onClick={() => handleClick(item.key)}
-            style={{
-              ...btnStyle,
-              backgroundColor:
-                active === item.key ? 'rgba(255,255,255,0.25)' : 'transparent',
-              fontWeight: active === item.key ? 'bold' : 'normal',
-            }}
-            onMouseEnter={(e) =>
-              (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)')
-            }
-            onMouseLeave={(e) =>
+        {menus.map((item) => {
+          const Icon = item.icon;
+
+          return (
+            <button
+              key={item.key}
+              onClick={() => handleClick(item.key)}
+
+              style={{
+                ...btnStyle,
+                backgroundColor:
+                  active === item.key ? 'rgba(255,255,255,0.25)' : 'transparent',
+                fontWeight: active === item.key ? 'bold' : 'normal',
+              }}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.2)')
+              }
+              onMouseLeave={(e) =>
               (e.currentTarget.style.backgroundColor =
                 active === item.key ? 'rgba(255,255,255,0.25)' : 'transparent')
-            }
-          >
-            <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              {item.icon}
-              {item.label}
-            </span>
-          </button>
-        ))}
+              }
+            >
+              <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <Icon size={18} />
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
+
       </div>
-       {onLogout && (
+      {onLogout && (
         <button
           onClick={onLogout}
           style={{
             ...btnStyle,
             backgroundColor: 'rgba(255,255,255,0.15)',
-           margin:'5px 5px 30px 5px'
+            margin: '5px 5px 30px 5px'
           }}
           onMouseEnter={(e) =>
             (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)')
@@ -96,7 +114,7 @@ export default function Sidebar({ setPage ,onLogout}: SidebarProps) {
             (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.15)')
           }
         >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '10px',  marginBottom:'10px'}}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
             <LogOut size={18} />
             Sair
           </span>

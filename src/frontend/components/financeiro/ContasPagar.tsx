@@ -1,11 +1,26 @@
 import { useEffect, useState } from "react";
 import { Card } from "../../components/ui/card";
 import {boxTabela} from '../styles/styles'
+import { ElementType } from 'react';
+import {
+  LayoutDashboard,
+  Users,
+  Package,
+  DollarSign,
+  Settings,
+  LogOut
+} from 'lucide-react';
+
 interface Props {
-  setPage: (page: string) => void;
+ abrirAba: (
+    page: string,
+    titulo: string,
+    params?: any,
+    Icon?: ElementType) =>void
 }
 
-export default function ContasPagar({ setPage }: Props) {
+
+export default function ContasPagar({ abrirAba }: Props) {
   const [contas, setContas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState<any>({});
@@ -32,7 +47,7 @@ export default function ContasPagar({ setPage }: Props) {
   return (
     <div style={{ padding: "20px", background: "#f5f7fa", minHeight: "100vh" }}>
       <button
-        onClick={() => setPage("financeiro")}
+        onClick={() => abrirAba("financeiro","Financeiro")}
         style={btnVoltar}
       >
         ← Voltar
@@ -101,7 +116,7 @@ export default function ContasPagar({ setPage }: Props) {
                       style={btnParcelas}
                       onClick={() =>
 
-                        setPage(`financeiro/pagar/parcelas/${c.id}`)
+                        abrirAba(`financeiro/pagar/parcelas/${c.id}`, `Parcelas Compra ${c.id}`, undefined, DollarSign)
 
                       }
                     >

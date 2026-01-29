@@ -14,10 +14,11 @@ interface Colaborador {
 }
 
 interface ColaboradoresProps {
-  setPage: (page: string) => void;
+  abrirAba: (page: string, titulo: string, params?: any) => void;
+  voltar: () => void
 }
 
-export default function Colaboradores({ setPage }: ColaboradoresProps) {
+export default function Colaboradores({ abrirAba, voltar }: ColaboradoresProps) {
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [colaboradorSelecionado, setColaboradorSelecionado] = useState<Colaborador | null>(null);
   const [modoCadastro, setModoCadastro] = useState(false);
@@ -43,23 +44,23 @@ export default function Colaboradores({ setPage }: ColaboradoresProps) {
   };
 
   const excluirColaborador = async (id) => {
-        try {
-            const resposta = await window.ipcRenderer.invoke("delete-colaborador", {
-                id,
-                usuario: usuarioLogado, // ✅ nome correto
-            });
+    try {
+      const resposta = await window.ipcRenderer.invoke("delete-colaborador", {
+        id,
+        usuario: usuarioLogado, // ✅ nome correto
+      });
 
-            if (resposta.sucesso) {
-                toast.success("Fornecedor excluído com sucesso!");
-                carregarColaboradores();
-            } else {
-                toast.error(resposta.mensagem || "Falha ao excluir fornecedor");
-            }
-        } catch (err) {
-            console.error(err);
-            toast.error("Erro ao excluir fornecedor");
-        }
-    };
+      if (resposta.sucesso) {
+        toast.success("Fornecedor excluído com sucesso!");
+        carregarColaboradores();
+      } else {
+        toast.error(resposta.mensagem || "Falha ao excluir fornecedor");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao excluir fornecedor");
+    }
+  };
 
   useEffect(() => {
     carregarColaboradores();
@@ -91,7 +92,7 @@ export default function Colaboradores({ setPage }: ColaboradoresProps) {
   return (
     <div style={{ padding: "20px", backgroundColor: "#f5f7fa", minHeight: "100vh" }}>
       <button
-        onClick={() => setPage("cadastros")}
+        onClick={voltar}
         style={{
           backgroundColor: "#e5e7eb",
           color: "#1e3a8a",

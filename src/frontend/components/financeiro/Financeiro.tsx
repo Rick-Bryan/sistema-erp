@@ -4,14 +4,15 @@ import FinanceiroResumo from "./FinanceiroResumo";
 import FinanceiroVencimentosMes from "./FinanceiroVencimentoMes";
 
 interface Props {
-    setPage: (page: string) => void;
+  abrirAba: (page: string, titulo: string, params?: any) => void;
+  voltar: () => void;
 }
 
-export default function Financeiro({ setPage }: Props) {
+export default function Financeiro({ abrirAba ,voltar }: Props) {
     return (
         <div style={{ padding: 24 }}>
             <button
-                onClick={() => setPage('movimentacao')}
+                onClick={(voltar)}
                 style={{
                     backgroundColor: '#e5e7eb',
                     color: '#1e3a8a',
@@ -41,7 +42,7 @@ export default function Financeiro({ setPage }: Props) {
             >
                 <Card
                     className="cursor-pointer"
-                    onClick={() => setPage("financeiro/receber")}
+                    onClick={() => abrirAba("financeiro/receber", "Receber")}
                 >
                     <CardHeader>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -57,7 +58,7 @@ export default function Financeiro({ setPage }: Props) {
                 </Card>
 
 
-                <Card className="cursor-pointer" onClick={() => setPage("financeiro/pagar")}>
+                <Card className="cursor-pointer" onClick={() => abrirAba("financeiro/pagar", "Pagar")}>
                     <CardHeader>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <ArrowUpCircle style={{ width: 28, height: 28 }} />
@@ -68,7 +69,7 @@ export default function Financeiro({ setPage }: Props) {
                 </Card>
                 <Card
                     className="cursor-pointer"
-                    onClick={() => setPage("financeiro/movimentacao-financeiro")}
+                    onClick={() => abrirAba("financeiro/movimentacao-financeiro","Movimentacao-financeiro")}
                 >
                     <CardHeader>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -83,7 +84,7 @@ export default function Financeiro({ setPage }: Props) {
 
                 <Card
                     className="cursor-pointer"
-                    onClick={() => setPage("financeiro/contas")}
+                    onClick={() => abrirAba("financeiro/contas","Contas")}
                 >
                     <CardHeader>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -23,9 +23,10 @@ interface CardProps {
   value: string | number;
   subtitle?: string;
   onClick?: () => void;
+
 }
 
-function StatCard({ title, value, subtitle, onClick }: CardProps) {
+function StatCard({ title, value, subtitle, onClick}: CardProps) {
   return (
     <div
       onClick={onClick}
@@ -45,7 +46,7 @@ function StatCard({ title, value, subtitle, onClick }: CardProps) {
   );
 }
 
-export default function Dashboard({ setPage }: { setPage?: (p: string) => void }) {
+export default function Dashboard({ abrirAba }: { abrirAba?: (p: string) => void }) {
   const [produtos, setProdutos] = useState<any[]>([]);
   const [fabricantes, setFabricantes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -113,13 +114,13 @@ export default function Dashboard({ setPage }: { setPage?: (p: string) => void }
 
         <div style={{ display: "flex", gap: 10 }}>
           <button
-            onClick={() => setPage?.("cadastros")}
+            onClick={() => abrirAba?.("cadastros")}
             style={btnOutline}
           >
             Cadastros
           </button>
           <button
-            onClick={() => setPage?.("produtos")}
+            onClick={() => abrirAba?.("produtos")}
             style={btnPrimary}
           >
             Ver Produtos
@@ -129,8 +130,8 @@ export default function Dashboard({ setPage }: { setPage?: (p: string) => void }
 
       {/* Cards */}
       <section style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 24 }}>
-        <StatCard onClick={() => setPage?.("produtos")} title="Produtos" value={totalProdutos} subtitle="Total de SKUs cadastrados" />
-        <StatCard onClick={() => setPage?.("fabricantes")} title="Fabricantes" value={totalFabricantes} subtitle="Fornecedores cadastrados" />
+        <StatCard onClick={() => abrirAba?.("produtos")} title="Produtos" value={totalProdutos} subtitle="Total de SKUs cadastrados" />
+        <StatCard onClick={() => abrirAba?.("fabricantes")} title="Fabricantes" value={totalFabricantes} subtitle="Fornecedores cadastrados" />
         <StatCard title="Estoque total" value={estoqueTotal} subtitle="Unidades em estoque" />
         
       </section>

@@ -10,9 +10,11 @@ interface Conta {
     ativo: number;
 }
 interface Props {
-    setPage: (page: string) => void;
+  
+    abrirAba: (page: string, titulo: string, params?: any) => void;
+    voltar: () => void
 }
-export default function FinanceiroContas({ setPage }: Props) {
+export default function FinanceiroContas({ abrirAba }: Props) {
     const [contas, setContas] = useState<Conta[]>([]);
     const [modalAberto, setModalAberto] = useState(false);
     const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
@@ -58,7 +60,7 @@ export default function FinanceiroContas({ setPage }: Props) {
     return (
         <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
             <button
-                onClick={() => setPage('financeiro')}
+                onClick={() =>abrirAba('financeiro')}
                 style={{
                     backgroundColor: '#e5e7eb',
                     color: '#1e3a8a',

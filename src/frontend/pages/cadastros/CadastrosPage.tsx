@@ -2,11 +2,14 @@
 import { Card, CardContent, CardHeader } from '../../components/ui/card';
 import { Package, Factory, Layers, Boxes, Users, User } from 'lucide-react';
 import { verifyPerm, usePerm } from '../../components/helpers/verifyPerm';
+import { ElementType } from 'react';
 interface CadastrosPageProps {
-  setPage: (page: string) => void;
+
+    abrirAba: (page: string, titulo: string, params?: any, Icon?: ElementType) => void;
+    voltar: () => void
 }
 
-export default function CadastrosPage({ setPage }: CadastrosPageProps) {
+export default function CadastrosPage({ abrirAba }: CadastrosPageProps) {
 
 
   const CARDS = [
@@ -68,7 +71,7 @@ export default function CadastrosPage({ setPage }: CadastrosPageProps) {
 
           return (
 
-            <Card onClick={() => setPage(c.page)}>
+            <Card onClick={() => abrirAba(c.page,c.titulo,undefined,c.icon)}>
               <CardHeader>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <c.icon style={{ width: 28, height: 28 }}></c.icon>

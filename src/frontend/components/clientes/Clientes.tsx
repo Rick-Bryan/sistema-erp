@@ -9,10 +9,12 @@ interface Cliente {
 }
 
 interface ClientesProps {
-  setPage: (page: string) => void;
+  abrirAba: (page: string, titulo: string, params?: any) => void;
+
+    voltar: () => void
 }
 
-export default function Clientes({ setPage }: ClientesProps) {
+export default function Clientes({ abrirAba ,voltar}: ClientesProps) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSelecionado, setClienteSelecionado] = useState<any | null>(null);
   const [modoCadastro, setModoCadastro] = useState(false);
@@ -80,7 +82,7 @@ export default function Clientes({ setPage }: ClientesProps) {
   return (
     <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
       <button
-        onClick={() => setPage('cadastros')}
+        onClick={voltar}
         style={{
           backgroundColor: '#e5e7eb',
           color: '#1e3a8a',
