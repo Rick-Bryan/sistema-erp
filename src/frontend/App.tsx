@@ -51,10 +51,28 @@ export default function App() {
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('usuarioLogado') || '{}');
   const [permissoes, setPermissoes] = useState<any>(null);
+  const [ultimoUsuarioId, setUltimoUsuarioId] = useState<number | null>(null);
 
   useEffect(() => {
     if (token && user) setUsuario(JSON.parse(user));
   }, [])
+
+  useEffect(() => {
+    if (!usuario) return;
+
+    const atualId = Number(usuario.id);
+
+    if (ultimoUsuarioId !== atualId) {
+      // ✅ usuário mudou
+      setAbas([]);
+      setAbaAtiva(null);
+      setPage("dashboard");
+      setProdutoSelecionado(null);
+      setCaixaSelecionado(null);
+    }
+
+    setUltimoUsuarioId(atualId);
+  }, [usuario]);
 
   const carregarPermissoes = async () => {
     try {
@@ -71,15 +89,27 @@ export default function App() {
     setPage(page);
     setAbaAtiva(null);
   };
-  const goBack = (fallbackPage = 'dashboard') => {
-    if (abaAtiva) {
-      //fecharAba(abaAtiva);
-      navegarMenu(fallbackPage);
-    } else {
-      navegarMenu(fallbackPage);
+  const goBack = (fallbackPage: string) => {
+    if (!abaAtiva) {
+      setPage(fallbackPage);
+      return;
     }
-  };
 
+    setAbas(prev => {
+      const index = prev.findIndex(a => a.id === abaAtiva);
+      const novas = prev.filter(a => a.id !== abaAtiva);
+
+      if (novas.length > 0) {
+        const novoIndex = index > 0 ? index - 1 : 0;
+        setAbaAtiva(novas[novoIndex].id);
+      } else {
+        setAbaAtiva(null);
+        setPage(fallbackPage);
+      }
+
+      return novas;
+    });
+  };
 
   const abrirAba = (page: string, titulo: string, params?: any, Icon?: ElementType) => {
     setAbas(prev => {
@@ -91,7 +121,6 @@ export default function App() {
 
     setAbaAtiva(page);
   };
-
 
   const fecharAba = (id: string) => {
     setAbas(prev => {
@@ -105,8 +134,6 @@ export default function App() {
     setAbaAtiva(null);
     setPage("dashboard");
   };
-
-
   useEffect(() => {
     if (usuario) carregarPermissoes();
   }, [usuario]);
@@ -122,16 +149,7 @@ export default function App() {
     setUsuario(null);
 
   };
-
   // 🔒 Se não estiver logado, mostra tela de login
-  if (!usuario) {
-    return (
-      <>
-        <Toaster position="top-right" />
-        <Login onLoginSuccess={setUsuario} />
-      </>
-    );
-  }
 
   const renderAba = (aba: any) => {
     const page = aba.page;
@@ -147,11 +165,10 @@ export default function App() {
       if (parts.length === 1) return <Financeiro abrirAba={abrirAba} voltar={() => goBack('movimentacao')} />;
       if (parts[1] === "receber" && parts.length === 2) return <ContasReceber abrirAba={abrirAba} voltar={() => goBack('financeiro')} />; //FAlta ajustar o parcelas
       if (parts[1] === "contas") return <FinanceiroContas abrirAba={abrirAba} voltar={() => goBack('financeiro')} />;
-      if (parts[1] === "receber" && parts[2] === "parcelas") return <ParcelasReceber contaId={Number(parts[3])} />;
-      if (parts[1] === "pagar" && parts.length === 2) return <ContasPagar abrirAba={abrirAba} />;
-      if (parts[1] === "pagar" && parts[2] === "parcelas") return <ParcelasPagar contaId={Number(parts[3])} />;
+      if (parts[1] === "receber" && parts[2] === "parcelas") return <ParcelasReceber voltar={() => goBack("financeiro/receber")} contaId={Number(parts[3])} />;
+      if (parts[1] === "pagar" && parts.length === 2) return <ContasPagar abrirAba={abrirAba} voltar={() => goBack("financeiro")} />;
+      if (parts[1] === "pagar" && parts[2] === "parcelas") return <ParcelasPagar voltar={() => goBack("financeiro/pagar")} contaId={Number(parts[3])} />;
     }
-
     switch (page) {
       //Dashboard
       case 'dashboard': return <Dashboard abrirAba={abrirAba} />;
@@ -183,9 +200,6 @@ export default function App() {
             }}
           />
         );
-
-
-
       //Cadastros
 
       case 'cadastros-auxiliares': return <CadastrosAuxiliares abrirAba={abrirAba} voltar={() => goBack('cadastros')} />;
@@ -215,81 +229,103 @@ export default function App() {
   };
 
   return (
-    <div style={containerStyle}>
-      <Sidebar
-        abrirAba={abrirAba}
-        onMenuClick={navegarMenu}
-        onLogout={handleLogout}
+    <>
+      {/* ✅ TOASTER GLOBAL */}
+      <Toaster
+        position="top-right"
+        containerStyle={{
+          position: "fixed",
+          top: 70,
+          right: 20,
+          zIndex: 2147483647,
+        }}
+        toastOptions={{
+          duration: 4000,
+          style: {
+            zIndex: 2147483647,
+          },
+        }}
       />
 
+      {!usuario ? (
+        <Login onLoginSuccess={setUsuario} />
+      ) : (
+        <div style={containerStyle}>
+          <Sidebar
+            abrirAba={abrirAba}
+            onMenuClick={navegarMenu}
+            onLogout={handleLogout}
+          />
 
-      <div style={areaDireitaStyle}>
+          <div style={areaDireitaStyle}>
+            {/* ABAS */}
+            <div style={abasContainerStyle}>
+              {abas.length > 0 && (
+                <>
+                  {abas.map(aba => {
+                    const ativa = aba.id === abaAtiva;
+                    const isHover = hoverAba === aba.id;
+                    const Icon = aba.Icon;
 
-
-        {/* ABAS */}
-        <div style={abasContainerStyle}>
-          {abas.length > 0 && (
-            <>
-              {abas.map(aba => {
-                const ativa = aba.id === abaAtiva;
-                const isHover = hoverAba === aba.id;
-                const Icon = aba.Icon;
-
-                return (
-                  <div
-                    key={aba.id}
-                    style={abaStyle(ativa, isHover)}
-                    onClick={() => setAbaAtiva(aba.id)}
-                    onMouseEnter={() => setHoverAba(aba.id)}
-                    onMouseLeave={() => setHoverAba(null)}
-                  >
-                    {Icon && <Icon size={16} />}
-                    {ativa && <span style={{ marginLeft: 6 }}>{aba.titulo}</span>}
-
-                    {ativa && (
-                      <span
-                        style={fecharStyle}
-                        onClick={e => {
-                          e.stopPropagation();
-                          fecharAba(aba.id);
-                        }}
+                    return (
+                      <div
+                        key={aba.id}
+                        style={abaStyle(ativa, isHover)}
+                        onClick={() => setAbaAtiva(aba.id)}
+                        onMouseEnter={() => setHoverAba(aba.id)}
+                        onMouseLeave={() => setHoverAba(null)}
                       >
-                        ✕
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+                        {Icon && <Icon size={16} />}
+                        {ativa && <span style={{ marginLeft: 6 }}>{aba.titulo}</span>}
 
-              {/* botão no canto direito */}
-              <button
-                onClick={fecharTodasAbas}
-                title="Fechar todas as abas"
-                style={closeAllStyle}
-              >
-                Fechar tudo
-              </button>
-            </>
-          )}
+                        {ativa && (
+                          <span
+                            style={fecharStyle}
+                            onClick={e => {
+                              e.stopPropagation();
+                              fecharAba(aba.id);
+                            }}
+                          >
+                            ✕
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  <button
+                    onClick={fecharTodasAbas}
+                    title="Fechar todas as abas"
+                    style={closeAllStyle}
+                  >
+                    Fechar tudo
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* CONTEÚDO */}
+            <main style={mainStyle}>
+              {abas.map(aba => (
+                <div
+                  key={aba.id}
+                  style={{
+                    display: aba.id === abaAtiva ? "block" : "none",
+                    height: "100%",
+                  }}
+                >
+                  {renderAba(aba)}
+                </div>
+              ))}
+
+              {!abaAtiva && renderBase()}
+            </main>
+          </div>
         </div>
-
-
-        {/* CONTEÚDO */}
-
-        <main style={mainStyle}>
-          {abaAtiva ? (
-            abas.map(
-              aba => aba.id === abaAtiva && <div key={aba.id}>{renderAba(aba)}</div>
-            )
-          ) : (
-            renderBase()
-          )}
-        </main>
-
-      </div>
-
-    </div>
+      )}
+    </>
   );
+
 
 }
 const containerStyle: React.CSSProperties = {

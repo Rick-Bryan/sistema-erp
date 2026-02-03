@@ -3,11 +3,11 @@ import toast from "react-hot-toast";
 
 interface Props {
   contaId: number;
-  setPage: (page: string) => void;
+  voltar: () => void
 
 }
 
-export default function ParcelasPagar({ contaId, setPage }: Props) {
+export default function ParcelasPagar({ contaId, voltar }: Props) {
   const [parcelas, setParcelas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
@@ -118,7 +118,7 @@ console.log("LIDO caixa_id:", caixaAtual);
   return (
     <div style={{ padding: 20 }}>
       <button
-        onClick={() => setPage("financeiro/pagar")}
+        onClick={voltar}
         style={btnVoltar}
       >
         ← Voltar

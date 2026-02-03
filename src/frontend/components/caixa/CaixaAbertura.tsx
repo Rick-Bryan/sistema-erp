@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
+import { toastErro } from '../helpers/toastErro';
 interface CaixaCadastroProps {
 
   onVoltar: () => void;
@@ -60,13 +61,9 @@ export default function CaixaAbertura({ onVoltar, onCarregarSessoes }: CaixaCada
       // atualizar lista após abrir
     } catch (err: any) {
       console.error(err);
-
+      toastErro(err)
       // Se o backend enviou uma mensagem clara, exibe ela
-      if (err?.message) {
-        toast.error(err.message);
-      } else {
-        toast.error('Erro ao abrir caixa');
-      }
+     
     }
 
   }

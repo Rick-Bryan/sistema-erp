@@ -15,7 +15,7 @@ import { abrirCaixa, inserirMovimentoCaixa, listarMovimentosCaixa, listarSessoes
 import { entradaEstoque, saidaEstoque, registrarMovimentoEstoque, atualizarEstoqueECusto, atualizarEstoque, listarMovimentosEstoque } from '../db/estoque_movimento';
 import { listarCompras, criarCompra, criarItensCompra, criarContasPagar, salvarCompraCompleta, getCompraById, finalizarCompra } from '../db/compras';
 import { baixarParcelaReceber, listarContasReceber, obterContasReceber, listarParcelasReceber, listarContasPagar, dashboardFinanceiro, dashboardPagar, listarParcelasPagar, baixarParcelaPagar } from "../db/financeiro";
-
+import { checkPermissaoPorSlug } from '../db/perms';
 //import { listarClientes,criarClientes} from '../db/clientes'
 const require = createRequire(import.meta.url)
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -80,10 +80,18 @@ ipcMain.handle('add-produto', async (_, produto) => {
   return produtos;
 });
 ipcMain.handle('salvar-produto', async (_, produto) => {
+  try {
 
-  await salvarProduto(produto);
-  const produtos = await listarProdutos();
-  return produtos;
+
+    await salvarProduto(produto);
+    const produtos = await listarProdutos();
+    return produtos;
+
+  }
+  catch (err) {
+    throw err
+  }
+
 });
 //fabricantes
 // Listar fabricantes
@@ -165,12 +173,37 @@ ipcMain.handle("logout", async () => {
 
 // Handler para salvar um fabricante
 ipcMain.handle('salvar-fabricante', async (_event, fabricante: Fabricante) => {
-  await salvarFabricante(fabricante);
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "fabricantes",
+      acao: "usar",
+    });
+
+    await salvarFabricante(fabricante);
+    return true;
+
+  } catch (error) {
+    throw error
+  }
 });
 ipcMain.handle('criar-fabricante', async (_event, fabricante: Fabricante) => {
-  await criarFabricante(fabricante);
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "fabricantes",
+      acao: "usar",
+    });
+    await criarFabricante(fabricante);
+    return true;
+
+  } catch (error) {
+    throw error
+  }
 });
 
 //Clientes
@@ -187,7 +220,8 @@ ipcMain.handle('add-cliente', async (_event, cliente) => {
     return { sucesso: true, data: novo };
   } catch (err) {
     console.error(err);
-    return { sucesso: false, mensagem: 'Erro ao criar cliente.' };
+    throw err
+
   }
 });
 
@@ -198,7 +232,7 @@ ipcMain.handle('update-cliente', async (_event, cliente) => {
     return { sucesso: true };
   } catch (err) {
     console.error(err);
-    return { sucesso: false, mensagem: 'Erro ao atualizar cliente.' };
+    throw err
   }
 });
 
@@ -213,7 +247,7 @@ ipcMain.handle('delete-cliente', async (_event, dados) => {
       return { sucesso: true };
     } catch (err) {
       console.error(err);
-      return { sucesso: false, mensagem: 'Erro ao excluir cliente.' };
+      throw err
     }
   } else {
     return { sucesso: false, mensagem: 'Usuario nao tem permissão' };
@@ -223,6 +257,7 @@ ipcMain.handle('delete-cliente', async (_event, dados) => {
 
 //Pesquisa
 ipcMain.handle("buscar-produtos", async (event, termo) => {
+
   let sql = "SELECT * FROM produto";
   let params = [];
 
@@ -259,6 +294,14 @@ ipcMain.handle("buscar-fabricante-id", async (event, CodigoFabricante) => {
 
 ipcMain.handle('add-colaborador', async (_event, colaborador) => {
   try {
+
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario,
+      slug: "colaboradores",
+      acao: "usar"
+    });
+
     const resultado = await criarColaborador(colaborador);
     return { sucesso: true, data: resultado };
   } catch (error) {
@@ -267,18 +310,25 @@ ipcMain.handle('add-colaborador', async (_event, colaborador) => {
     if (error.message.includes("Duplicate entry")) {
       return { sucesso: false, mensagem: "Este e-mail já está em uso." };
     }
-
-    return { sucesso: false, mensagem: "Erro ao cadastrar colaborador." };
+    throw error
   }
 });
 
 ipcMain.handle('update-colaborador', async (_event, colaborador) => {
   try {
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario,
+      slug: "colaboradores",
+      acao: "usar"
+    });
+
     const resultado = await atualizarColaborador(colaborador);
     return { sucesso: true, data: resultado };
   } catch (error) {
     console.error("❌ Erro ao atualizar colaborador:", error);
-    return { sucesso: false, mensagem: "Erro ao atualizar colaborador." };
+    throw error
   }
 });
 
@@ -326,7 +376,7 @@ ipcMain.handle('delete-colaborador', async (_event, { id, usuario }) => {
     return { sucesso: true };
   } catch (error) {
     console.error("❌ Erro ao deletar colaborador:", error);
-    return { sucesso: false, mensagem: "Erro ao deletar colaborador." };
+    throw error
   }
 });
 
@@ -343,7 +393,7 @@ ipcMain.handle('add-fornecedor', async (_event, fornecedor) => {
       return { sucesso: false, mensagem: "Este CNPJ já está cadastrado." };
     }
 
-    return { sucesso: false, mensagem: "Erro ao cadastrar fornecedor." };
+    throw error
   }
 });
 ipcMain.handle('update-fornecedor', async (_event, fornecedor) => {
@@ -576,6 +626,14 @@ ipcMain.handle("getSubGrupos", async () => {
 });
 ipcMain.handle("addGrupo", async (_, nome, comissao) => {
   try {
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar",
+    });
+
     await pool.query(`
             INSERT INTO produto_grupo (NomeGrupo,Comissao, Ativo)
             VALUES (?,?, 1)
@@ -584,7 +642,7 @@ ipcMain.handle("addGrupo", async (_, nome, comissao) => {
     return { success: true };
   } catch (error) {
     console.error("Erro addGrupo:", error);
-    return { success: false, error };
+    throw error
   }
 });
 ipcMain.handle("addSubGrupo", async (_, nome, codigoGrupo) => {
@@ -598,7 +656,7 @@ ipcMain.handle("addSubGrupo", async (_, nome, codigoGrupo) => {
     return { success: true };
   } catch (error) {
     console.error("Erro addSubGrupo:", error);
-    return { success: false, error };
+    throw error
   }
 });
 ipcMain.handle("getSubGruposByGrupo", async (event, codigoGrupo) => {
@@ -609,19 +667,40 @@ ipcMain.handle("getSubGruposByGrupo", async (event, codigoGrupo) => {
   return rows;
 });
 ipcMain.handle("atualizarGrupo", async (event, dados) => {
-  return await atualizarGrupo(dados);
+  try {
+    return await atualizarGrupo(dados);
+  } catch (error) {
+    throw error
+  }
+
 });
 
 ipcMain.handle("atualizarSubGrupo", async (event, dados) => {
-  return await atualizarSubGrupo(dados);
+
+  try {
+    return await atualizarSubGrupo(dados);
+
+  } catch (error) {
+    throw error
+  }
 });
 
 ipcMain.handle("excluirGrupo", async (event, id) => {
-  return await excluirGrupo(id);
+  try {
+    return await excluirGrupo(id);
+  } catch (error) {
+    throw error
+  }
+
 });
 
 ipcMain.handle("excluirSubGrupo", async (event, id) => {
-  return await excluirSubGrupo(id);
+  try {
+    return await excluirSubGrupo(id);
+
+  } catch (error) {
+    throw error
+  }
 });
 
 
@@ -1200,25 +1279,25 @@ ipcMain.handle("orcamentos:criar", async (e, dados: {
   const usuarioLogado = global.usuarioLogado
   const [result] = await pool.query(`INSERT INTO orcamentos (loja_id,cliente_id,usuario_id,valor_total,descontos,valor_final,status) VALUES(?,?,?,?,?,?,?)`, [usuarioLogado.loja_id, dados.cliente_id, usuarioLogado.id, dados.valor_total, dados.descontos, dados.valor_final, dados.status])
 
-  
- for (const item of dados.itens) {
-  const quantidade = Number(item.quantidade);
-  const preco = Number(item.preco_unitario); // ✅ usa preço
-  const subtotal = quantidade * preco;
 
-  await pool.query(
-    `INSERT INTO orcamento_itens
+  for (const item of dados.itens) {
+    const quantidade = Number(item.quantidade);
+    const preco = Number(item.preco_unitario); // ✅ usa preço
+    const subtotal = quantidade * preco;
+
+    await pool.query(
+      `INSERT INTO orcamento_itens
      (orcamentos_id, produto_id, quantidade, preco_unitario, subtotal)
      VALUES (?, ?, ?, ?, ?)`,
-    [
-      result.insertId,
-      item.produto_id,
-      quantidade,
-      preco,
-      subtotal
-    ]
-  );
-}
+      [
+        result.insertId,
+        item.produto_id,
+        quantidade,
+        preco,
+        subtotal
+      ]
+    );
+  }
 
 
 

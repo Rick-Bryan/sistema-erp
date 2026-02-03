@@ -1,5 +1,5 @@
 import pool from './connection.js';
-
+import { checkPermissaoPorSlug } from './perms.js';
 /**
  * Lista todos os clientes
  */
@@ -12,29 +12,79 @@ export async function listarClientes() {
  * Cria um novo cliente
  */
 export async function criarCliente({ nome, email, telefone, endereco }) {
-  const [result] = await pool.query(
-    'INSERT INTO clientes (nome, email, telefone, endereco) VALUES (?, ?, ?, ?)',
-    [nome, email, telefone, endereco]
-  );
+  try {
+    if (!global.usuarioLogado) {
+      throw new Error("Sessão expirada");
+    }
 
-  return { id: result.insertId };
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "clientes",
+      acao: "usar",
+    });
+
+    const [result] = await pool.query(
+      "INSERT INTO clientes (nome, email, telefone, endereco) VALUES (?, ?, ?, ?)",
+      [nome, email, telefone, endereco]
+    );
+
+    return { id: result.insertId };
+  } catch (err) {
+    console.error("Erro ao criar cliente:", err);
+    throw err; // ✅ volta pro frontend
+  }
 }
+
 
 /**
  * Atualiza um cliente existente
  */
 export async function atualizarCliente({ id, nome, email, telefone, endereco }) {
-  await pool.query(
-    'UPDATE clientes SET nome = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?',
-    [nome, email, telefone, endereco, id]
-  );
-  return true;
+
+  try {
+
+
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "clientes",
+      acao: "usar",
+    });
+
+    await pool.query(
+      'UPDATE clientes SET nome = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?',
+      [nome, email, telefone, endereco, id]
+    );
+ 
+  }
+  catch (err) {
+    throw err
+  }
+
 }
 
 /**
  * Exclui um cliente
  */
 export async function deletarCliente(id) {
-  await pool.query('DELETE FROM clientes WHERE id = ?', [id]);
-  return true;
+  try {
+
+
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "clientes",
+      acao: "usar",
+    });
+
+    await pool.query('DELETE FROM clientes WHERE id = ?', [id]);
+
+  }
+  catch(err){
+    throw err
+  }
 }

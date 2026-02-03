@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import { toastErro } from '../helpers/toastErro';
 
 declare global {
   interface Window {
@@ -58,7 +59,7 @@ export default function FornecedorCadastro({ voltar }: { voltar: () => void }) {
       voltar();
     } catch (err) {
       console.error(err);
-      toast.error('❌ Erro ao cadastrar fornecedor.');
+      toastErro(err)
     }
   };
 

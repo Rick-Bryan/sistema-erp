@@ -1,5 +1,6 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
+import { toastErro } from "../helpers/toastErro";
 
 interface Cliente {
   id?: number;
@@ -42,8 +43,7 @@ export default function ClienteCadastro({ cliente, onVoltar, onSalvo }: ClienteC
         toast.error(resposta.mensagem || "Erro ao salvar cliente.");
       }
     } catch (err) {
-      console.error("❌ Erro ao salvar cliente:", err);
-      toast.error("Erro inesperado ao salvar cliente.");
+      toastErro(err)
     }
   };
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import toast from "react-hot-toast";
 import ClienteCadastro from './ClientesCadastro';
 import ClienteDetalhes from './ClientesDetalhes';
+import { toastErro } from '../helpers/toastErro';
 interface Cliente {
   id: number;
   nome: string;
@@ -11,10 +12,10 @@ interface Cliente {
 interface ClientesProps {
   abrirAba: (page: string, titulo: string, params?: any) => void;
 
-    voltar: () => void
+  voltar: () => void
 }
 
-export default function Clientes({ abrirAba ,voltar}: ClientesProps) {
+export default function Clientes({ abrirAba, voltar }: ClientesProps) {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSelecionado, setClienteSelecionado] = useState<any | null>(null);
   const [modoCadastro, setModoCadastro] = useState(false);
@@ -54,7 +55,7 @@ export default function Clientes({ abrirAba ,voltar}: ClientesProps) {
       }
     } catch (err) {
       console.error(err);
-      toast.error("Erro inesperado ao excluir cliente");
+      toastErro(err)
     }
   };
 
@@ -79,6 +80,7 @@ export default function Clientes({ abrirAba ,voltar}: ClientesProps) {
       />
     )
   }
+  console.log("nivel usuario" , nivelUsuario)
   return (
     <div style={{ padding: '20px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
       <button

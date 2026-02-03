@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Button } from "@mui/material";
 import { Card, CardHeader, CardContent } from "../../components/ui/card";
+
 interface Props {
     abrirAba: (page: string, titulo: string, params?: any) => void;
+    voltar :()=>void
 }
-export default function ContasReceber({ abrirAba }: Props) {
+export default function ContasReceber({ abrirAba,voltar}: Props) {
   const [contas, setContas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState<any[]>([]);
@@ -30,7 +32,7 @@ export default function ContasReceber({ abrirAba }: Props) {
   return (
     <div style={{ padding: '20px', background: '#f5f7fa', minHeight: '100vh' }}>
       <button
-        onClick={() => abrirAba('financeiro')}
+        onClick={voltar}
         style={{
           backgroundColor: '#e5e7eb',
           color: '#1e3a8a',
@@ -106,7 +108,7 @@ export default function ContasReceber({ abrirAba }: Props) {
                     <button
                       style={btnVoltar}
                       onClick={() =>
-                        setPage(`financeiro/receber/parcelas/${c.id}`)
+                        abrirAba(`financeiro/receber/parcelas/${c.id}`, `Parcela ${c.id}`)
                       }
                     >
                       Parcelas

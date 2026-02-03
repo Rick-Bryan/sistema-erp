@@ -1,6 +1,7 @@
 // src/components/fabricantes/FabricanteDetalhes.tsx
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import { toastErro } from '../helpers/toastErro';
 interface FabricanteDetalhesProps {
   fabricanteSelecionado: any;
   voltar: () => void;
@@ -28,7 +29,7 @@ export default function FabricanteDetalhes({ fabricanteSelecionado, voltar }: Fa
       voltar(); // volta para a lista de fabricantes
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao salvar o fabricante.');
+      toastErro(err)
     } finally {
       setSalvando(false);
     }

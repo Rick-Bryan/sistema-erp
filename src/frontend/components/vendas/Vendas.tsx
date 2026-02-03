@@ -3,7 +3,8 @@ import toast from "react-hot-toast";
 import VendaDetalhes from "./VendaDetalhes";
 import VendaCadastro from "./VendaCadastro";
 import SearchBar from "../../components/ui/SearchBar";
-import {boxTabela} from '../styles/styles'
+import { boxTabela } from '../styles/styles'
+import { toastErro } from "../helpers/toastErro";
 interface Venda {
     id: number;
     cliente_id: number;
@@ -17,15 +18,15 @@ interface Venda {
 }
 
 interface VendasProps {
-     abrirAba: (page: string, titulo: string, params?: any) => void;
-     voltar : ()=>void
+    abrirAba: (page: string, titulo: string, params?: any) => void;
+    voltar: () => void
 }
-export default function Vendas({ abrirAba ,voltar}: VendasProps) {
+export default function Vendas({ abrirAba, voltar }: VendasProps) {
     const [vendas, setVendas] = useState<Venda[]>([]);
     const [vendaSelecionada, setVendaSelecionada] = useState<Venda | null>(null);
     const [modoCadastro, setModoCadastro] = useState(false);
     const usuarioLogado = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
-    const nivelUsuario = usuarioLogado?.nivel;      
+    const nivelUsuario = usuarioLogado?.nivel;
     console.log(vendaSelecionada)
     const carregarVendas = async () => {
         try {
@@ -58,7 +59,7 @@ export default function Vendas({ abrirAba ,voltar}: VendasProps) {
             }
         } catch (err) {
             console.error(err);
-            toast.error("Erro ao excluir venda");
+            toastErro(err)
         }
     };
 
@@ -77,7 +78,7 @@ export default function Vendas({ abrirAba ,voltar}: VendasProps) {
             />
         );
     }
-    console.log("Venda Selecionada",vendaSelecionada)
+    console.log("Venda Selecionada", vendaSelecionada)
     // 🔁 Tela de detalhes
     if (vendaSelecionada) {
         return (

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import { toastErro } from '../helpers/toastErro';
 
 declare global {
   interface Window {
@@ -43,7 +44,7 @@ export default function ColaboradorCadastro({ voltar }: { voltar: () => void }) 
       voltar();
     } catch (err) {
       console.error(err);
-      toast.error('❌ Erro ao cadastrar colaborador.');
+      toastErro(err)
     }
   };
 

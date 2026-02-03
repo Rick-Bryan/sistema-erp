@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@mui/material";
 import toast from "react-hot-toast";
+import { toastErro } from "../helpers/toastErro";
 
 declare global {
   interface Window {
@@ -52,7 +53,7 @@ export default function CompraDetalhes({ compraId, onClose, refresh }: CompraDet
       refresh()
     } catch (e) {
       console.error(e);
-      toast.error("Erro ao finalizar compra.");
+      toastErro(e)
     }
   };
 

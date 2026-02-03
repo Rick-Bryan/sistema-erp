@@ -1,5 +1,7 @@
 import pool from './connection';
 import { entradaEstoque, saidaEstoque } from "./estoque_movimento";
+import { checkPermissaoPorSlug } from './perms';
+
 export interface Produto {
   CodigoProduto?: number;
   CodigoBarra?: string;
@@ -58,6 +60,16 @@ export async function criarProduto(produto: Produto) {
     let codigoSubGrupoValido = await subgrupoExiste(produto.CodigoSubGrupo) ? produto.CodigoSubGrupo : null;
     let codigoFabricanteValido = await fabricanteExiste(produto.CodigoFabricante) ? produto.CodigoFabricante : null;
 
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar",
+    });
+
+
+
     const sql = `
       INSERT INTO produto (
         CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante,
@@ -105,7 +117,7 @@ export async function criarProduto(produto: Produto) {
     console.log("✅ Produto cadastrado com movimentação correta!");
   } catch (error: any) {
     console.error("❌ Erro ao criar produto:", error);
-    throw new Error(error.sqlMessage || "Erro ao cadastrar produto");
+    throw error
   }
 }
 
@@ -113,6 +125,13 @@ export async function salvarProduto(produto: Produto) {
   try {
     if (!produto.CodigoProduto) return criarProduto(produto);
 
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar",
+    });
     // 🔎 Buscar estoque atual no BD
     const [[antes]]: any = await pool.query(
       "SELECT EstoqueAtual, PrecoVenda FROM produto WHERE CodigoProduto = ?",
@@ -128,7 +147,6 @@ export async function salvarProduto(produto: Produto) {
         PrecoVenda=?
       WHERE CodigoProduto=?
     `;
-
     await pool.execute(sql, [
       produto.CodigoBarra ?? null,
       produto.NomeProduto ?? null,
@@ -176,12 +194,21 @@ export async function salvarProduto(produto: Produto) {
     console.log("✨ Estoque ajustado automaticamente!");
   } catch (error: any) {
     console.error("❌ Erro ao salvar produto:", error);
-    throw new Error(error.sqlMessage || "Erro ao salvar produto");
+    throw error
   }
 }
 
 export async function atualizarGrupo({ id, nome, comissao, ativo }) {
-  const sql = `
+  try {
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar",
+    });
+
+    const sql = `
     UPDATE produto_grupo SET
       NomeGrupo = ?,
       Comissao = ?,
@@ -189,33 +216,79 @@ export async function atualizarGrupo({ id, nome, comissao, ativo }) {
     WHERE CodigoGrupo = ?
   `;
 
-  await pool.execute(sql, [
-    nome ?? null,
-    comissao ?? null,
-    ativo ?? 1,
-    id
-  ]);
+    await pool.execute(sql, [
+      nome ?? null,
+      comissao ?? null,
+      ativo ?? 1,
+      id
+    ]);
+  } catch (error) {
+    throw error
+  }
+
 }
 export async function excluirGrupo(id) {
-  const sql = `DELETE FROM produto_grupo WHERE CodigoGrupo = ?`;
-  await pool.execute(sql, [id]);
+  try {
+
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar",
+    });
+
+    const sql = `DELETE FROM produto_grupo WHERE CodigoGrupo = ?`;
+    await pool.execute(sql, [id]);
+  } catch (error) {
+    throw error
+
+  }
+
 }
 export async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
-  const sql = `
+
+  try {
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar",
+    });
+    const sql = `
     UPDATE produto_sub_grupo SET
       NomeSubGrupo = ?,
       CodigoGrupo = ?
     WHERE CodigoSubGrupo = ?
   `;
 
-  await pool.execute(sql, [
-    nome ?? null,
-    CodigoGrupo ?? null,
-    id
-  ]);
+    await pool.execute(sql, [
+      nome ?? null,
+      CodigoGrupo ?? null,
+      id
+    ]);
+  } catch (error) {
+    throw error
+  }
+
 }
 
 export async function excluirSubGrupo(id) {
-  const sql = `DELETE FROM produto_sub_grupo WHERE CodigoSubGrupo = ?`;
-  await pool.execute(sql, [id]);
+
+  try {
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar",
+    });
+    const sql = `DELETE FROM produto_sub_grupo WHERE CodigoSubGrupo = ?`;
+    await pool.execute(sql, [id]);
+
+  } catch (error) {
+    throw error
+  }
+
 }

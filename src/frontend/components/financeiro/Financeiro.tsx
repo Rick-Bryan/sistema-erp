@@ -2,13 +2,14 @@ import { Card, CardHeader, CardContent } from "../../components/ui/card";
 import { ArrowDownCircle, ArrowUpCircle, BarChart, Wallet } from "lucide-react";
 import FinanceiroResumo from "./FinanceiroResumo";
 import FinanceiroVencimentosMes from "./FinanceiroVencimentoMes";
+import { ElementType } from "react";
 
 interface Props {
-  abrirAba: (page: string, titulo: string, params?: any) => void;
-  voltar: () => void;
+    abrirAba: (page: string, titulo: string, params?: any, Icon: ElementType) => void;
+    voltar: () => void;
 }
 
-export default function Financeiro({ abrirAba ,voltar }: Props) {
+export default function Financeiro({ abrirAba, voltar }: Props) {
     return (
         <div style={{ padding: 24 }}>
             <button
@@ -42,7 +43,8 @@ export default function Financeiro({ abrirAba ,voltar }: Props) {
             >
                 <Card
                     className="cursor-pointer"
-                    onClick={() => abrirAba("financeiro/receber", "Receber")}
+                    onClick={() => abrirAba("financeiro/receber", "Contas a Receber", null, ArrowDownCircle)
+}
                 >
                     <CardHeader>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -58,7 +60,7 @@ export default function Financeiro({ abrirAba ,voltar }: Props) {
                 </Card>
 
 
-                <Card className="cursor-pointer" onClick={() => abrirAba("financeiro/pagar", "Pagar")}>
+                <Card className="cursor-pointer" onClick={() => abrirAba("financeiro/pagar", "Pagar", null, ArrowUpCircle)}>
                     <CardHeader>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <ArrowUpCircle style={{ width: 28, height: 28 }} />
@@ -69,7 +71,9 @@ export default function Financeiro({ abrirAba ,voltar }: Props) {
                 </Card>
                 <Card
                     className="cursor-pointer"
-                    onClick={() => abrirAba("financeiro/movimentacao-financeiro","Movimentacao-financeiro")}
+                    onClick={() =>
+                        abrirAba("financeiro/movimentacao-financeiro", "Movimentação", null, BarChart)
+                    }
                 >
                     <CardHeader>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -84,7 +88,7 @@ export default function Financeiro({ abrirAba ,voltar }: Props) {
 
                 <Card
                     className="cursor-pointer"
-                    onClick={() => abrirAba("financeiro/contas","Contas")}
+                    onClick={() => abrirAba("financeiro/contas", "Contas", null, Wallet)}
                 >
                     <CardHeader>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

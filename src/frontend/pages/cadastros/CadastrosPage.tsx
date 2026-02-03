@@ -6,7 +6,7 @@ import { ElementType } from 'react';
 interface CadastrosPageProps {
 
     abrirAba: (page: string, titulo: string, params?: any, Icon?: ElementType) => void;
-    voltar: () => void
+
 }
 
 export default function CadastrosPage({ abrirAba }: CadastrosPageProps) {

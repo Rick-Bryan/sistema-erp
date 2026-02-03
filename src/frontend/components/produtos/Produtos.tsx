@@ -4,6 +4,7 @@ import ProdutoCadastro from './ProdutoCadastro';
 import SearchBar from "../../components/ui/SearchBar";
 import toast from 'react-hot-toast';
 import { ElementType } from 'react';
+import { toastErro } from '../helpers/toastErro';
 declare global {
   interface Window {
     electronAPI: {
@@ -19,10 +20,10 @@ declare global {
 }
 interface ProdutosProps {
 
-    abrirAba: (page: string, titulo: string, params?: any, Icon?: ElementType) => void;
-    voltar: () => void
+  abrirAba: (page: string, titulo: string, params?: any, Icon?: ElementType) => void;
+  voltar: () => void
 }
-export default function Produtos({ abrirAba,voltar }: ProdutosProps) {
+export default function Produtos({ abrirAba, voltar }: ProdutosProps) {
   const [produtos, setProdutos] = useState<any[]>([]);
   const [produtoSelecionado, setProdutoSelecionado] = useState<any | null>(null);
   const [modoCadastro, setModoCadastro] = useState(false);
@@ -66,7 +67,7 @@ export default function Produtos({ abrirAba,voltar }: ProdutosProps) {
       return result;
     }
     catch (err) {
-      toast.error("erro ao cadastrar grupo")
+      toastErro(err)
     }
 
 
@@ -75,18 +76,23 @@ export default function Produtos({ abrirAba,voltar }: ProdutosProps) {
 
 
   const atualizarGrupo = async () => {
-    await window.electronAPI.atualizarGrupo(
-      grupoEditando.id,
-      novoGrupo,
-      comissaoGrupo
-    );
+    try {
+      await window.electronAPI.atualizarGrupo(
+        grupoEditando.id,
+        novoGrupo,
+        comissaoGrupo
+      );
 
-    toast.success("Grupo atualizado com sucesso!");
-    setGrupoEditando(null);
-    setNovoGrupo("");
-    setComissaoGrupo("");
-    setModalGrupo(false);
-    carregarGrupos();
+      toast.success("Grupo atualizado com sucesso!");
+      setGrupoEditando(null);
+      setNovoGrupo("");
+      setComissaoGrupo("");
+      setModalGrupo(false);
+      carregarGrupos()
+    } catch (error) {
+      toastErro(error)
+    }
+    ;
   };
 
   const excluirGrupo = async (id) => {
@@ -96,7 +102,7 @@ export default function Produtos({ abrirAba,voltar }: ProdutosProps) {
       toast.success("Grupo excluído!");
       carregarGrupos();
     } catch (err) {
-      toast.error("Erro ao excluir grupo");
+      toastErro(err)
     }
   };
 
@@ -119,7 +125,7 @@ export default function Produtos({ abrirAba,voltar }: ProdutosProps) {
 
       toast.success("Subgrupo cadastrado com sucesso!");
     } catch (err) {
-      toast.error("Erro ao cadastrar subgrupo");
+      toastErro(err)
     }
   };
   const atualizarSubGrupo = async () => {
@@ -138,7 +144,7 @@ export default function Produtos({ abrirAba,voltar }: ProdutosProps) {
 
       carregarSubGrupos();
     } catch (err) {
-      toast.error("Erro ao atualizar subgrupo");
+      toastErro(err)
     }
   };
 
@@ -327,20 +333,7 @@ export default function Produtos({ abrirAba,voltar }: ProdutosProps) {
         <Modal>
           <h3>Cadastrar Subgrupo</h3>
 
-          <input
-            style={inputModal}
-            placeholder="Nome do subgrupo"
-            value={novoSubGrupo}
-            onChange={(e) => {
-              const valor = e.target.value
-              setNovoSubGrupo(valor)
-              if (valor.trim() === '') {
-                setGrupoEditando(null)
 
-              }
-            }
-            }
-          />
 
           <select
             style={inputStyle}
@@ -364,7 +357,20 @@ export default function Produtos({ abrirAba,voltar }: ProdutosProps) {
               </option>
             ))}
           </select>
+          <input
+            style={inputModal}
+            placeholder="Nome do subgrupo"
+            value={novoSubGrupo}
+            onChange={(e) => {
+              const valor = e.target.value
+              setNovoSubGrupo(valor)
+              if (valor.trim() === '') {
+                setGrupoEditando(null)
 
+              }
+            }
+            }
+          />
 
 
           {grupoSelecionado && (
@@ -390,10 +396,10 @@ export default function Produtos({ abrirAba,voltar }: ProdutosProps) {
                               setNovoSubGrupo(s.nome);
                             }}
                           >
-                            ✏️
+                            Editar
                           </button>
                           <button onClick={() => excluirSubgrupo(s.id)}>
-                            🗑️
+                            Excluir
                           </button>
                         </td>
                       </tr>
@@ -497,26 +503,7 @@ function Modal({ children }: { children: any }) {
   );
 }
 
-/* ------------ ESTILOS ------------- */
-const btnEditar: React.CSSProperties = {
-  backgroundColor: "#3b82f6",
-  color: "white",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-};
 
-const btnExcluir: React.CSSProperties = {
-  backgroundColor: "#dc2626",
-  color: "white",
-  border: "none",
-  padding: "6px 10px",
-  borderRadius: "6px",
-  cursor: "pointer",
-  fontSize: "14px",
-};
 const btnAzul: React.CSSProperties = {
   backgroundColor: '#1e3a8a',
   color: '#fff',
@@ -527,19 +514,6 @@ const btnAzul: React.CSSProperties = {
   fontWeight: 600,
 };
 
-const boxTabela: React.CSSProperties = {
-  backgroundColor: '#fff',
-  borderRadius: '8px',
-  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-  padding: '20px',
-  marginTop: '20px'
-};
-
-const tabela: React.CSSProperties = {
-  marginTop: '10px',
-  width: '100%',
-  borderCollapse: 'collapse'
-};
 
 const inputModal: React.CSSProperties = {
   width: '100%',
@@ -589,16 +563,7 @@ const modalBox: React.CSSProperties = {
 };
 
 
-const th = { padding: "10px", fontWeight: 600 };
-const td = { padding: "10px" };
-const btnVer = {
-  backgroundColor: "#1e3a8a",
-  color: "#fff",
-  border: "none",
-  padding: "6px 12px",
-  borderRadius: "4px",
-  cursor: "pointer"
-};
+
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '10px 14px',

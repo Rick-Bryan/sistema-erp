@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import { toastErro } from '../helpers/toastErro';
 declare global {
   interface Window {
     electronAPI: {
@@ -49,7 +50,7 @@ export default function ProdutoDetalhes({ produtoSelecionado, voltar }: Props) {
       voltar();
     } catch (err) {
       console.error(err);
-      toast.error('Erro ao salvar o produto.');
+      toastErro(err)
     }
   };
 

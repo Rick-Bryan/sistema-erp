@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import toast from "react-hot-toast";
+import { toastErro } from "../helpers/toastErro";
 
 declare global {
   interface Window {
@@ -37,7 +38,7 @@ export default function ColaboradorDetalhes({ colaboradorSelecionado, voltar }: 
       voltar();
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao salvar o colaborador.");
+      toastErro(err)
     }
   };
 

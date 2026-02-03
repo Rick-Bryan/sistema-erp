@@ -4,6 +4,7 @@ import SearchBar from "../../components/ui/SearchBar";
 import toast from "react-hot-toast";
 
 import FornecedorCadastro from './FornecedorCadastro';
+import { toastErro } from '../helpers/toastErro';
 declare global {
     interface Window {
         electronAPI: {
@@ -60,7 +61,7 @@ export default function Fornecedores({ abrirAba, voltar }: FornecedoresProps) {
             }
         } catch (err) {
             console.error(err);
-            toast.error("Erro ao excluir fornecedor");
+            toastErro(err)
         }
     };
 

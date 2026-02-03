@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import { toastErro } from '../helpers/toastErro';
 
 declare global {
   interface Window {
@@ -45,7 +46,7 @@ export default function FornecedorDetalhes({ fornecedorSelecionado, voltar }: Pr
       voltar();
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao salvar o fornecedor.");
+      toastErro(err)
     }
   };
 
@@ -58,7 +59,7 @@ export default function FornecedorDetalhes({ fornecedorSelecionado, voltar }: Pr
         boxSizing: 'border-box',
       }}
     >
-        <button
+      <button
         onClick={() => voltar()}
         style={{
           backgroundColor: '#e5e7eb',

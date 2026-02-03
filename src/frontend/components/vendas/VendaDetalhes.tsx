@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Typography, Box, Paper, Divider, Table, TableBody, TableCell, TableHead, TableRow } from "@mui/material";
 import toast from "react-hot-toast";
+import { toastErro } from "../helpers/toastErro";
 
 interface VendaDetalhesProps {
   venda: any;
@@ -63,6 +64,7 @@ const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
     } catch (e) {
       console.error(e);
       toast.error("Erro ao finalizar a venda");
+      toastErro(e)
     }
   };
 

@@ -17,10 +17,11 @@ interface Props {
     titulo: string,
     params?: any,
     Icon?: ElementType) =>void
+    voltar: ()=>void
 }
 
 
-export default function ContasPagar({ abrirAba }: Props) {
+export default function ContasPagar({ abrirAba,voltar }: Props) {
   const [contas, setContas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dashboard, setDashboard] = useState<any>({});
@@ -47,7 +48,7 @@ export default function ContasPagar({ abrirAba }: Props) {
   return (
     <div style={{ padding: "20px", background: "#f5f7fa", minHeight: "100vh" }}>
       <button
-        onClick={() => abrirAba("financeiro","Financeiro")}
+        onClick={voltar}
         style={btnVoltar}
       >
         ← Voltar

@@ -20025,21 +20025,27 @@ let CloseStatement$2 = class CloseStatement {
 };
 var close_statement$1 = CloseStatement$2;
 var field_flags = {};
-field_flags.NOT_NULL = 1;
-field_flags.PRI_KEY = 2;
-field_flags.UNIQUE_KEY = 4;
-field_flags.MULTIPLE_KEY = 8;
-field_flags.BLOB = 16;
-field_flags.UNSIGNED = 32;
-field_flags.ZEROFILL = 64;
-field_flags.BINARY = 128;
-field_flags.ENUM = 256;
-field_flags.AUTO_INCREMENT = 512;
-field_flags.TIMESTAMP = 1024;
-field_flags.SET = 2048;
-field_flags.NO_DEFAULT_VALUE = 4096;
-field_flags.ON_UPDATE_NOW = 8192;
-field_flags.NUM = 32768;
+var hasRequiredField_flags;
+function requireField_flags() {
+  if (hasRequiredField_flags) return field_flags;
+  hasRequiredField_flags = 1;
+  field_flags.NOT_NULL = 1;
+  field_flags.PRI_KEY = 2;
+  field_flags.UNIQUE_KEY = 4;
+  field_flags.MULTIPLE_KEY = 8;
+  field_flags.BLOB = 16;
+  field_flags.UNSIGNED = 32;
+  field_flags.ZEROFILL = 64;
+  field_flags.BINARY = 128;
+  field_flags.ENUM = 256;
+  field_flags.AUTO_INCREMENT = 512;
+  field_flags.TIMESTAMP = 1024;
+  field_flags.SET = 2048;
+  field_flags.NO_DEFAULT_VALUE = 4096;
+  field_flags.ON_UPDATE_NOW = 8192;
+  field_flags.NUM = 32768;
+  return field_flags;
+}
 const Packet$b = packet;
 const StringParser$2 = string;
 const CharsetToEncoding$7 = requireCharset_encodings();
@@ -20103,7 +20109,7 @@ class ColumnDefinition {
     for (const t in Types2) {
       typeNames2[Types2[t]] = t;
     }
-    const fiedFlags = field_flags;
+    const fiedFlags = requireField_flags();
     const flagNames2 = [];
     const inspectFlags = this.flags;
     for (const f in fiedFlags) {
@@ -23159,7 +23165,7 @@ let CloseStatement$1 = class CloseStatement2 extends Command$7 {
   }
 };
 var close_statement = CloseStatement$1;
-const FieldFlags$1 = field_flags;
+const FieldFlags$1 = requireField_flags();
 const Charsets$2 = requireCharsets();
 const Types$1 = requireTypes();
 const helpers$1 = helpers$4;
@@ -23348,7 +23354,7 @@ function getBinaryParser$2(fields2, options, config) {
   return parserCache.getParser("binary", fields2, options, config, compile);
 }
 var binary_parser = getBinaryParser$2;
-const FieldFlags = field_flags;
+const FieldFlags = requireField_flags();
 const Charsets$1 = requireCharsets();
 const Types = requireTypes();
 const helpers = helpers$4;
@@ -27772,6 +27778,37 @@ async function atualizarEstoque({ produto_id, deltaQuantidade }) {
   );
   return { estoqueAnterior: estoqueAtual, estoqueAtual: novoEstoque };
 }
+async function checkPermissaoPorSlug$1({
+  usuario_id,
+  slug,
+  acao = "usar"
+}) {
+  const [rows] = await pool.query(
+    `
+    SELECT 
+      pu.pode_consultar,
+      pu.pode_usar
+    FROM permissoes_usuario pu
+    JOIN submodulos s ON s.id = pu.submodulo_id
+    WHERE pu.usuario_id = ?
+      AND s.slug = ?
+      AND s.ativo = 1
+    LIMIT 1
+    `,
+    [usuario_id, slug]
+  );
+  if (!rows.length) {
+    throw new Error("Você não possui permissão para este módulo");
+  }
+  const perm = rows[0];
+  if (acao === "consultar" && !perm.pode_consultar) {
+    throw new Error("Sem permissão para consultar");
+  }
+  if (acao === "usar" && !perm.pode_usar) {
+    throw new Error("Sem permissão para executar esta ação");
+  }
+  return true;
+}
 async function grupoExiste(codigoGrupo) {
   if (!codigoGrupo) return false;
   const [rows] = await pool.query("SELECT CodigoGrupo FROM produto_grupo WHERE CodigoGrupo = ?", [codigoGrupo]);
@@ -27796,6 +27833,12 @@ async function criarProduto(produto) {
     let codigoGrupoValido = await grupoExiste(produto.CodigoGrupo) ? produto.CodigoGrupo : null;
     let codigoSubGrupoValido = await subgrupoExiste(produto.CodigoSubGrupo) ? produto.CodigoSubGrupo : null;
     let codigoFabricanteValido = await fabricanteExiste(produto.CodigoFabricante) ? produto.CodigoFabricante : null;
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar"
+    });
     const sql = `
       INSERT INTO produto (
         CodigoBarra, NomeProduto, CodigoGrupo, CodigoSubGrupo, CodigoFabricante,
@@ -27838,12 +27881,18 @@ async function criarProduto(produto) {
     console.log("✅ Produto cadastrado com movimentação correta!");
   } catch (error) {
     console.error("❌ Erro ao criar produto:", error);
-    throw new Error(error.sqlMessage || "Erro ao cadastrar produto");
+    throw error;
   }
 }
 async function salvarProduto(produto) {
   try {
     if (!produto.CodigoProduto) return criarProduto(produto);
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar"
+    });
     const [[antes]] = await pool.query(
       "SELECT EstoqueAtual, PrecoVenda FROM produto WHERE CodigoProduto = ?",
       [produto.CodigoProduto]
@@ -27899,60 +27948,110 @@ async function salvarProduto(produto) {
     console.log("✨ Estoque ajustado automaticamente!");
   } catch (error) {
     console.error("❌ Erro ao salvar produto:", error);
-    throw new Error(error.sqlMessage || "Erro ao salvar produto");
+    throw error;
   }
 }
 async function atualizarGrupo({ id, nome, comissao, ativo }) {
-  const sql = `
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar"
+    });
+    const sql = `
     UPDATE produto_grupo SET
       NomeGrupo = ?,
       Comissao = ?,
       Ativo = ?
     WHERE CodigoGrupo = ?
   `;
-  await pool.execute(sql, [
-    nome ?? null,
-    comissao ?? null,
-    ativo ?? 1,
-    id
-  ]);
+    await pool.execute(sql, [
+      nome ?? null,
+      comissao ?? null,
+      ativo ?? 1,
+      id
+    ]);
+  } catch (error) {
+    throw error;
+  }
 }
 async function excluirGrupo(id) {
-  const sql = `DELETE FROM produto_grupo WHERE CodigoGrupo = ?`;
-  await pool.execute(sql, [id]);
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar"
+    });
+    const sql = `DELETE FROM produto_grupo WHERE CodigoGrupo = ?`;
+    await pool.execute(sql, [id]);
+  } catch (error) {
+    throw error;
+  }
 }
 async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
-  const sql = `
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar"
+    });
+    const sql = `
     UPDATE produto_sub_grupo SET
       NomeSubGrupo = ?,
       CodigoGrupo = ?
     WHERE CodigoSubGrupo = ?
   `;
-  await pool.execute(sql, [
-    nome ?? null,
-    CodigoGrupo ?? null,
-    id
-  ]);
+    await pool.execute(sql, [
+      nome ?? null,
+      CodigoGrupo ?? null,
+      id
+    ]);
+  } catch (error) {
+    throw error;
+  }
 }
 async function excluirSubGrupo(id) {
-  const sql = `DELETE FROM produto_sub_grupo WHERE CodigoSubGrupo = ?`;
-  await pool.execute(sql, [id]);
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar"
+    });
+    const sql = `DELETE FROM produto_sub_grupo WHERE CodigoSubGrupo = ?`;
+    await pool.execute(sql, [id]);
+  } catch (error) {
+    throw error;
+  }
 }
 async function listarFabricantes() {
   const [rows] = await pool.query("SELECT * FROM produto_fabricante ORDER BY CodigoFabricante");
   return rows;
 }
 async function criarFabricante(fabricante) {
-  const sql = `
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "fabricantes",
+      acao: "usar"
+    });
+    const sql = `
         INSERT INTO produto_fabricante (NomeFabricante, Ativo)
         VALUES (?,?)
     `;
-  await pool.execute(sql, [
-    fabricante.NomeFabricante ?? null,
-    // substitui undefined por null
-    fabricante.Ativo != null ? fabricante.Ativo : 0
-    // ou null, se quiser
-  ]);
+    await pool.execute(sql, [
+      fabricante.NomeFabricante ?? null,
+      // substitui undefined por null
+      fabricante.Ativo != null ? fabricante.Ativo : 0
+      // ou null, se quiser
+    ]);
+  } catch (error) {
+    throw error;
+  }
 }
 async function getFabricanteById(CodigoFabricante) {
   if (CodigoFabricante === null || "") {
@@ -27962,26 +28061,36 @@ async function getFabricanteById(CodigoFabricante) {
   return sql;
 }
 async function salvarFabricante(fabricante) {
-  if (fabricante.CodigoFabricante) {
-    const sql = `
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "fabricantes",
+      acao: "usar"
+    });
+    if (fabricante.CodigoFabricante) {
+      const sql = `
       UPDATE produto_fabricante
       SET NomeFabricante = ?, Ativo = ?
       WHERE CodigoFabricante = ?
     `;
-    await pool.execute(sql, [
-      fabricante.NomeFabricante,
-      fabricante.Ativo ? 1 : 0,
-      fabricante.CodigoFabricante
-    ]);
-  } else {
-    const sql = `
+      await pool.execute(sql, [
+        fabricante.NomeFabricante,
+        fabricante.Ativo ? 1 : 0,
+        fabricante.CodigoFabricante
+      ]);
+    } else {
+      const sql = `
       INSERT INTO produto_fabricante (NomeFabricante, Ativo)
       VALUES (?, ?)
     `;
-    await pool.execute(sql, [
-      fabricante.NomeFabricante,
-      fabricante.Ativo ? 1 : 0
-    ]);
+      await pool.execute(sql, [
+        fabricante.NomeFabricante,
+        fabricante.Ativo ? 1 : 0
+      ]);
+    }
+  } catch (error) {
+    throw error;
   }
 }
 async function criarColaborador({ nome, email, senha, nivel, setor, ativo = 1 }) {
@@ -28011,58 +28120,110 @@ async function atualizarColaborador({ id, nome, email, nivel, setor, ativo }) {
   return true;
 }
 async function deletarColaborador(id) {
-  await pool.query("DELETE FROM usuarios WHERE id = ?", [id]);
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "colaboradores",
+      acao: "usar"
+    });
+    await pool.query("DELETE FROM usuarios WHERE id = ?", [id]);
+    return true;
+  } catch (error) {
+    throw error;
+  }
 }
 async function listarClientes() {
   const [rows] = await pool.query("SELECT * FROM clientes ORDER BY id DESC");
   return rows;
 }
 async function criarCliente({ nome, email, telefone, endereco }) {
-  const [result] = await pool.query(
-    "INSERT INTO clientes (nome, email, telefone, endereco) VALUES (?, ?, ?, ?)",
-    [nome, email, telefone, endereco]
-  );
-  return { id: result.insertId };
+  try {
+    if (!global.usuarioLogado) {
+      throw new Error("Sessão expirada");
+    }
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "clientes",
+      acao: "usar"
+    });
+    const [result] = await pool.query(
+      "INSERT INTO clientes (nome, email, telefone, endereco) VALUES (?, ?, ?, ?)",
+      [nome, email, telefone, endereco]
+    );
+    return { id: result.insertId };
+  } catch (err) {
+    console.error("Erro ao criar cliente:", err);
+    throw err;
+  }
 }
 async function atualizarCliente({ id, nome, email, telefone, endereco }) {
-  await pool.query(
-    "UPDATE clientes SET nome = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?",
-    [nome, email, telefone, endereco, id]
-  );
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "clientes",
+      acao: "usar"
+    });
+    await pool.query(
+      "UPDATE clientes SET nome = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?",
+      [nome, email, telefone, endereco, id]
+    );
+  } catch (err) {
+    throw err;
+  }
 }
 async function deletarCliente(id) {
-  await pool.query("DELETE FROM clientes WHERE id = ?", [id]);
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "clientes",
+      acao: "usar"
+    });
+    await pool.query("DELETE FROM clientes WHERE id = ?", [id]);
+  } catch (err) {
+    throw err;
+  }
 }
 async function criarFornecedor(fornecedor) {
-  const data = {
-    nome: fornecedor.Nome || fornecedor.nome,
-    nomefantasia: fornecedor.NomeFantasia || fornecedor.nomefantasia,
-    cnpj: fornecedor.CNPJ || fornecedor.cnpj,
-    endereco: fornecedor.ENDERECO || fornecedor.endereco,
-    cidade: fornecedor.CIDADE || fornecedor.cidade,
-    bairro: fornecedor.BAIRRO || fornecedor.bairro,
-    ativo: fornecedor.ATIVO ? 1 : 0,
-    pessoa: fornecedor.PESSOA || fornecedor.pessoa
-  };
-  const [result] = await pool.query(
-    `INSERT INTO fornecedores 
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "fornecedor",
+      acao: "usar"
+    });
+    const data = {
+      nome: fornecedor.Nome || fornecedor.nome,
+      nomefantasia: fornecedor.NomeFantasia || fornecedor.nomefantasia,
+      cnpj: fornecedor.CNPJ || fornecedor.cnpj,
+      endereco: fornecedor.ENDERECO || fornecedor.endereco,
+      cidade: fornecedor.CIDADE || fornecedor.cidade,
+      bairro: fornecedor.BAIRRO || fornecedor.bairro,
+      ativo: fornecedor.ATIVO ? 1 : 0,
+      pessoa: fornecedor.PESSOA || fornecedor.pessoa
+    };
+    const [result] = await pool.query(
+      `INSERT INTO fornecedores 
      (Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, Ativo, Pessoa)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      data.nome,
-      data.nomefantasia,
-      data.cnpj,
-      data.endereco,
-      data.cidade,
-      data.bairro,
-      data.ativo,
-      data.pessoa
-    ]
-  );
-  return { codigoFornecedor: result.insertId };
+      [
+        data.nome,
+        data.nomefantasia,
+        data.cnpj,
+        data.endereco,
+        data.cidade,
+        data.bairro,
+        data.ativo,
+        data.pessoa
+      ]
+    );
+    return { codigoFornecedor: result.insertId };
+  } catch (error) {
+    throw error;
+  }
 }
 async function atualizarFornecedor({ CodigoFornecedor, Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, Ativo, Pessoa }) {
   const ativoValue = Ativo ? 1 : 0;
@@ -28581,6 +28742,11 @@ async function abrirCaixa({
   if (!empresa_id) {
     throw new Error("Empresa não identificada");
   }
+  await checkPermissaoPorSlug$1({
+    usuario_id,
+    slug: "caixa-fluxo",
+    acao: "usar"
+  });
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -28802,6 +28968,12 @@ async function fecharCaixa({
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "caixa-fluxo",
+      acao: "usar"
+    });
     const resumo = await resumoCaixa(caixa_id);
     if (!resumo) throw new Error("Caixa não encontrado!");
     const valorEsperado = Number(resumo.saldo_esperado);
@@ -29393,9 +29565,13 @@ ipcMain.handle("add-produto", async (_, produto) => {
   return produtos;
 });
 ipcMain.handle("salvar-produto", async (_, produto) => {
-  await salvarProduto(produto);
-  const produtos = await listarProdutos();
-  return produtos;
+  try {
+    await salvarProduto(produto);
+    const produtos = await listarProdutos();
+    return produtos;
+  } catch (err) {
+    throw err;
+  }
 });
 ipcMain.handle("get-fabricantes", async () => {
   return await listarFabricantes();
@@ -29443,12 +29619,32 @@ ipcMain.handle("logout", async () => {
   return { sucesso: true };
 });
 ipcMain.handle("salvar-fabricante", async (_event, fabricante) => {
-  await salvarFabricante(fabricante);
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "fabricantes",
+      acao: "usar"
+    });
+    await salvarFabricante(fabricante);
+    return true;
+  } catch (error) {
+    throw error;
+  }
 });
 ipcMain.handle("criar-fabricante", async (_event, fabricante) => {
-  await criarFabricante(fabricante);
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "fabricantes",
+      acao: "usar"
+    });
+    await criarFabricante(fabricante);
+    return true;
+  } catch (error) {
+    throw error;
+  }
 });
 ipcMain.handle("get-clientes", async () => {
   const clientes = await listarClientes();
@@ -29460,7 +29656,7 @@ ipcMain.handle("add-cliente", async (_event, cliente) => {
     return { sucesso: true, data: novo };
   } catch (err) {
     console.error(err);
-    return { sucesso: false, mensagem: "Erro ao criar cliente." };
+    throw err;
   }
 });
 ipcMain.handle("update-cliente", async (_event, cliente) => {
@@ -29469,7 +29665,7 @@ ipcMain.handle("update-cliente", async (_event, cliente) => {
     return { sucesso: true };
   } catch (err) {
     console.error(err);
-    return { sucesso: false, mensagem: "Erro ao atualizar cliente." };
+    throw err;
   }
 });
 ipcMain.handle("delete-cliente", async (_event, dados) => {
@@ -29480,7 +29676,7 @@ ipcMain.handle("delete-cliente", async (_event, dados) => {
       return { sucesso: true };
     } catch (err) {
       console.error(err);
-      return { sucesso: false, mensagem: "Erro ao excluir cliente." };
+      throw err;
     }
   } else {
     return { sucesso: false, mensagem: "Usuario nao tem permissão" };
@@ -29513,6 +29709,12 @@ ipcMain.handle("buscar-fabricante-id", async (event, CodigoFabricante) => {
 });
 ipcMain.handle("add-colaborador", async (_event, colaborador) => {
   try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario,
+      slug: "colaboradores",
+      acao: "usar"
+    });
     const resultado = await criarColaborador(colaborador);
     return { sucesso: true, data: resultado };
   } catch (error) {
@@ -29520,16 +29722,22 @@ ipcMain.handle("add-colaborador", async (_event, colaborador) => {
     if (error.message.includes("Duplicate entry")) {
       return { sucesso: false, mensagem: "Este e-mail já está em uso." };
     }
-    return { sucesso: false, mensagem: "Erro ao cadastrar colaborador." };
+    throw error;
   }
 });
 ipcMain.handle("update-colaborador", async (_event, colaborador) => {
   try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario,
+      slug: "colaboradores",
+      acao: "usar"
+    });
     const resultado = await atualizarColaborador(colaborador);
     return { sucesso: true, data: resultado };
   } catch (error) {
     console.error("❌ Erro ao atualizar colaborador:", error);
-    return { sucesso: false, mensagem: "Erro ao atualizar colaborador." };
+    throw error;
   }
 });
 ipcMain.handle("get-colaboradores", async (event, termo) => {
@@ -29567,7 +29775,7 @@ ipcMain.handle("delete-colaborador", async (_event, { id, usuario }) => {
     return { sucesso: true };
   } catch (error) {
     console.error("❌ Erro ao deletar colaborador:", error);
-    return { sucesso: false, mensagem: "Erro ao deletar colaborador." };
+    throw error;
   }
 });
 ipcMain.handle("add-fornecedor", async (_event, fornecedor) => {
@@ -29580,7 +29788,7 @@ ipcMain.handle("add-fornecedor", async (_event, fornecedor) => {
     if (error.message.includes("Duplicate entry")) {
       return { sucesso: false, mensagem: "Este CNPJ já está cadastrado." };
     }
-    return { sucesso: false, mensagem: "Erro ao cadastrar fornecedor." };
+    throw error;
   }
 });
 ipcMain.handle("update-fornecedor", async (_event, fornecedor) => {
@@ -29769,6 +29977,12 @@ ipcMain.handle("getSubGrupos", async () => {
 });
 ipcMain.handle("addGrupo", async (_, nome, comissao) => {
   try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug$1({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "usar"
+    });
     await pool.query(`
             INSERT INTO produto_grupo (NomeGrupo,Comissao, Ativo)
             VALUES (?,?, 1)
@@ -29776,7 +29990,7 @@ ipcMain.handle("addGrupo", async (_, nome, comissao) => {
     return { success: true };
   } catch (error) {
     console.error("Erro addGrupo:", error);
-    return { success: false, error };
+    throw error;
   }
 });
 ipcMain.handle("addSubGrupo", async (_, nome, codigoGrupo) => {
@@ -29788,7 +30002,7 @@ ipcMain.handle("addSubGrupo", async (_, nome, codigoGrupo) => {
     return { success: true };
   } catch (error) {
     console.error("Erro addSubGrupo:", error);
-    return { success: false, error };
+    throw error;
   }
 });
 ipcMain.handle("getSubGruposByGrupo", async (event, codigoGrupo) => {
@@ -29799,16 +30013,32 @@ ipcMain.handle("getSubGruposByGrupo", async (event, codigoGrupo) => {
   return rows;
 });
 ipcMain.handle("atualizarGrupo", async (event, dados) => {
-  return await atualizarGrupo(dados);
+  try {
+    return await atualizarGrupo(dados);
+  } catch (error) {
+    throw error;
+  }
 });
 ipcMain.handle("atualizarSubGrupo", async (event, dados) => {
-  return await atualizarSubGrupo(dados);
+  try {
+    return await atualizarSubGrupo(dados);
+  } catch (error) {
+    throw error;
+  }
 });
 ipcMain.handle("excluirGrupo", async (event, id) => {
-  return await excluirGrupo(id);
+  try {
+    return await excluirGrupo(id);
+  } catch (error) {
+    throw error;
+  }
 });
 ipcMain.handle("excluirSubGrupo", async (event, id) => {
-  return await excluirSubGrupo(id);
+  try {
+    return await excluirSubGrupo(id);
+  } catch (error) {
+    throw error;
+  }
 });
 ipcMain.handle("financeiro:listar-contas-receber", async (_e, filtros) => {
   return listarContasReceber(filtros);

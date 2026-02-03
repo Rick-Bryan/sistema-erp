@@ -3,6 +3,7 @@
 // Requisitos: pool exportado de ./connection (mysql2/promise)
 import { registrarMovimentoFinanceiro } from './financeiro';
 import pool from './connection';
+import { checkPermissaoPorSlug } from './perms';
 
 /**
  * Valida se um valor é inteiro positivo
@@ -115,6 +116,12 @@ export async function abrirCaixa({
   if (!empresa_id) {
     throw new Error("Empresa não identificada");
   }
+
+  await checkPermissaoPorSlug({
+    usuario_id,
+    slug: "caixa-fluxo",
+    acao: "usar"
+  });
 
   const conn = await pool.getConnection();
 
@@ -504,7 +511,13 @@ export async function fecharCaixa({
 
   try {
     await conn.beginTransaction();
+    const usuario = global.usuarioLogado.id;
 
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "caixa-fluxo",
+      acao: "usar",
+    });
     const resumo = await resumoCaixa(caixa_id);
     if (!resumo) throw new Error("Caixa não encontrado!");
 

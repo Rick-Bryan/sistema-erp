@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
+import { toastErro } from "../helpers/toastErro";
 
 declare global {
     interface Window {
@@ -133,7 +134,7 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
             return result;
         }
         catch (err) {
-            toast.error("erro ao cadastrar grupo")
+            toastErro(err)
         }
 
 
@@ -163,7 +164,7 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
             toast.success("Grupo excluído!");
             carregarGrupos();
         } catch (err) {
-            toast.error("Erro ao excluir grupo");
+            toastErro(err)
         }
     };
 
@@ -186,7 +187,7 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
 
             toast.success("Subgrupo cadastrado com sucesso!");
         } catch (err) {
-            toast.error("Erro ao cadastrar subgrupo");
+            toastErro(err)
         }
     };
     const atualizarSubGrupo = async () => {
@@ -205,7 +206,7 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
 
             carregarSubGrupos();
         } catch (err) {
-            toast.error("Erro ao atualizar subgrupo");
+            toastErro(err)
         }
     };
 
@@ -216,7 +217,7 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
             toast.success("Subgrupo excluído!");
             carregarSubGrupos();
         } catch (err) {
-            toast.error("Erro ao excluir subgrupo");
+            toastErro(err)
         }
     };
 
@@ -305,7 +306,7 @@ export default function ProdutoCadastro({ voltar }: { voltar: () => void }) {
             voltar();
         } catch (err) {
             console.error(err);
-            toast.error("❌ Erro ao cadastrar produto.");
+            toastErro(err)
         }
     };
 
@@ -693,7 +694,7 @@ const inputStyle: React.CSSProperties = {
     transition: '0.2s border-color',
     fontSize: '15px',
     boxSizing: 'border-box',
-  
+
 };
 
 const botoesContainer: React.CSSProperties = {

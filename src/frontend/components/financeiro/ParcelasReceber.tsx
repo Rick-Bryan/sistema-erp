@@ -2,13 +2,14 @@ import { useEffect, useState } from "react";
 import { Button } from "@mui/material";
 import { Card, CardHeader, CardContent } from "../../components/ui/card";
 import { Modal } from "../ui/Modal";
-import {boxTabela} from '../styles/styles'
+import { boxTabela } from '../styles/styles'
 interface Props {
   contaId: number;
-  setPage: (page: string) => void;
+
+  voltar: () => void
 }
 
-export default function ParcelasReceber({ contaId, setPage }: Props) {
+export default function ParcelasReceber({ contaId, voltar }: Props) {
   const [parcelas, setParcelas] = useState<any[]>([]);
   const [parcelaSelecionada, setParcelaSelecionada] = useState<any>(null);
   const [valorPago, setValorPago] = useState("");
@@ -17,15 +18,12 @@ export default function ParcelasReceber({ contaId, setPage }: Props) {
   const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
 
-  const caixaId = Number(localStorage.getItem("caixa_id"));
+
   function formatarData(data: any) {
     if (!data) return "-";
     return new Date(data).toLocaleDateString("pt-BR");
   }
-  if (!caixaId) {
-    alert("Nenhum caixa aberto");
-    return;
-  }
+
   if (!usuario?.id) {
     alert("Usuário não identificado");
     return;
@@ -41,7 +39,7 @@ export default function ParcelasReceber({ contaId, setPage }: Props) {
     <div style={{ padding: 24 }}>
       <button
 
-        onClick={() => setPage("financeiro/receber")}
+        onClick={voltar}
         style={{
           backgroundColor: '#e5e7eb',
           color: '#1e3a8a',
@@ -52,7 +50,7 @@ export default function ParcelasReceber({ contaId, setPage }: Props) {
           fontWeight: 600,
           marginBottom: '20px',
         }}>
-        
+
 
 
         ← Voltar

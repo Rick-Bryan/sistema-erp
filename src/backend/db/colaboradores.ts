@@ -1,5 +1,6 @@
 import pool from './connection.js';
 import bcrypt from 'bcryptjs';
+import { checkPermissaoPorSlug } from './perms.js';
 
 /**
  * Lista todos os colaboradores (exceto a senha)
@@ -58,6 +59,19 @@ export async function atualizarColaborador({ id, nome, email, nivel, setor, ativ
  * Exclui um colaborador
  */
 export async function deletarColaborador(id) {
-  await pool.query('DELETE FROM usuarios WHERE id = ?', [id]);
-  return true;
+  try {
+
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "colaboradores",
+      acao: "usar",
+    });
+    await pool.query('DELETE FROM usuarios WHERE id = ?', [id]);
+    return true;
+  } catch (error) {
+    throw error
+  }
+
 }
