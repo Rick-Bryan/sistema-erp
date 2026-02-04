@@ -4,6 +4,7 @@ import { registrarMovimentoEstoque } from './estoque_movimento';
 import { fixMoney } from './financeiro';
 import { atualizarSaldoConta } from './financeiro';
 import { pagarCompraComCaixa } from './caixa';
+import { checkPermissaoPorSlug } from './perms';
 // ------------------------
 // LISTAR COMPRAS
 // ------------------------
@@ -45,14 +46,27 @@ export async function criarCompra({
   status,
   observacoes
 }) {
-  const [result] = await pool.query(
-    `INSERT INTO compras 
+
+  try {
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "compras",
+      acao: "criar"
+    });
+    const [result] = await pool.query(
+      `INSERT INTO compras 
       (fornecedor_id, usuario_id, valor_total, tipo_pagamento, status, observacoes) 
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [fornecedor_id, usuario_id, valor_total, tipo_pagamento, status, observacoes]
-  );
+      [fornecedor_id, usuario_id, valor_total, tipo_pagamento, status, observacoes]
+    );
 
-  return result.insertId;
+    return result.insertId;
+  } catch (error) {
+    throw error
+  }
+
 }
 
 // ------------------------
@@ -200,7 +214,13 @@ export async function salvarCompraCompleta(dados: {
       throw new Error("Tipo de pagamento inválido");
     }
 
+    const usuario = global.usuarioLogado.id;
 
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "compras",
+      acao: "criar"
+    });
     // 1️⃣ Criar compra
     const [compra]: any = await conn.query(`
   INSERT INTO compras
@@ -414,6 +434,18 @@ export async function salvarCompraCompleta(dados: {
 }
 
 export async function finalizarCompra(compraId: number) {
+
+  try {
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "compras",
+      acao: "criar"
+    });
+  } catch (error) {
+    throw error
+  }
   // 1️⃣ Buscar itens da compra
   const [itens]: any = await pool.query(
     "SELECT produto_id, quantidade, custo_unitario FROM itens_compra WHERE compra_id = ?",

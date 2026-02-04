@@ -157,10 +157,6 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
             <option value="parcelado">A prazo</option>
           </select>
         </div>
-
-
-
-
         {compra.tipo_pagamento === "parcelado" && (
           <>
             <div style={{ marginBottom: 15 }}>
@@ -240,12 +236,7 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
                 <option value="boleto">Boleto</option>
               </select>)
             }
-
-
           </div>
-
-
-
         )}
         {compra.origem_pagamento === "conta" && (
           <div style={{ marginBottom: 15 }}>
@@ -273,8 +264,14 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
             style={{ ...input, minHeight: 60 }}
           />
         </div>
-
         <h3 style={{ color: "#1e3a8a", marginBottom: 10 }}>Itens</h3>
+        <div style={itemHeader}>
+          <span style={{ flex: 2 }}>Produto</span>
+          <span style={{ flex: 1 }}>Qtd</span>
+          <span style={{ flex: 1 }}>Custo unit.</span>
+          <span style={{ width: 30 }}></span>
+        </div>
+
         {compra.itens.map((item, index) => (
           <div key={index} style={itemRow}>
             <select
@@ -289,8 +286,6 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
                 </option>
               ))}
             </select>
-
-
             <input
               type="number"
               min={1}
@@ -310,13 +305,10 @@ export default function NovaCompraModal({ onClose, refresh }: NovaCompraModalPro
             <button style={btnRemover} onClick={() => removerItem(index)}>X</button>
           </div>
         ))}
-
         <button style={btnNovo} onClick={adicionarItem}>Adicionar Item</button>
-
         <div style={{ marginTop: 20, fontWeight: 600 }}>
           Valor Total: R$ {compra.valor_total.toFixed(2)}
         </div>
-
         <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
           <Button variant="contained" color="primary" style={{ flex: 1 }} onClick={salvarCompra}>Salvar</Button>
           <Button variant="outlined" color="inherit" style={{ flex: 1 }} onClick={onClose}>Cancelar</Button>
@@ -330,6 +322,14 @@ const overlay: React.CSSProperties = {
   position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
   background: 'rgba(0,0,0,0.3)', display: 'flex', justifyContent: 'center', alignItems: 'center',
   zIndex: 999
+};
+const itemHeader: React.CSSProperties = {
+  display: "flex",
+  gap: 10,
+  fontSize: 13,
+  fontWeight: 600,
+  color: "#1e3a8a",
+  marginBottom: 6,
 };
 
 const modal: React.CSSProperties = {

@@ -1,4 +1,5 @@
 import pool from './connection.js';
+import { checkPermissaoPorSlug } from './perms.js';
 
 /**
  * Lista todos os fornecedores
@@ -20,7 +21,7 @@ export async function criarFornecedor(fornecedor) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "fornecedor",
-      acao: "usar",
+      acao: "criar",
     });
 
 
@@ -65,22 +66,50 @@ export async function criarFornecedor(fornecedor) {
  * Atualiza um fornecedor existente
  */
 export async function atualizarFornecedor({ CodigoFornecedor, Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, Ativo, Pessoa }) {
-  const ativoValue = Ativo ? 1 : 0;
 
-  await pool.query(
-    `UPDATE fornecedores 
+  try {
+
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "fornecedores",
+      acao: "editar"
+    });
+    const ativoValue = Ativo ? 1 : 0;
+
+    await pool.query(
+      `UPDATE fornecedores 
      SET Nome = ?, NomeFantasia = ?, CNPJ = ?, Endereco = ?, Cidade = ?, Bairro = ?, Ativo = ?, Pessoa = ?
      WHERE CodigoFornecedor = ?`,
-    [Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, ativoValue, Pessoa, CodigoFornecedor]
-  );
+      [Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, ativoValue, Pessoa, CodigoFornecedor]
+    );
 
-  return true;
+    return true;
+  } catch (error) {
+    throw error
+  }
+
 }
 
 /**
  * Exclui um fornecedor
  */
 export async function deletarFornecedor(CodigoFornecedor) {
-  await pool.query('DELETE FROM fornecedores WHERE CodigoFornecedor = ?', [CodigoFornecedor]);
-  return true;
+  try {
+
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "fornecedores",
+      acao: "excluir"
+    });
+
+    await pool.query('DELETE FROM fornecedores WHERE CodigoFornecedor = ?', [CodigoFornecedor]);
+    return true;
+  } catch (error) {
+    throw error
+  }
+
 }

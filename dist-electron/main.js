@@ -27778,16 +27778,24 @@ async function atualizarEstoque({ produto_id, deltaQuantidade }) {
   );
   return { estoqueAnterior: estoqueAtual, estoqueAtual: novoEstoque };
 }
-async function checkPermissaoPorSlug$1({
+async function checkPermissaoPorSlug({
   usuario_id,
   slug,
-  acao = "usar"
+  acao = "consultar"
 }) {
+  if (!usuario_id) {
+    throw new Error("Usuário não identificado");
+  }
+  if (!slug) {
+    throw new Error("Módulo não identificado");
+  }
   const [rows] = await pool.query(
     `
     SELECT 
       pu.pode_consultar,
-      pu.pode_usar
+      pu.pode_criar,
+      pu.pode_editar,
+      pu.pode_excluir
     FROM permissoes_usuario pu
     JOIN submodulos s ON s.id = pu.submodulo_id
     WHERE pu.usuario_id = ?
@@ -27801,11 +27809,18 @@ async function checkPermissaoPorSlug$1({
     throw new Error("Você não possui permissão para este módulo");
   }
   const perm = rows[0];
-  if (acao === "consultar" && !perm.pode_consultar) {
-    throw new Error("Sem permissão para consultar");
+  const map = {
+    consultar: "pode_consultar",
+    criar: "pode_criar",
+    editar: "pode_editar",
+    excluir: "pode_excluir"
+  };
+  const coluna = map[acao];
+  if (!coluna) {
+    throw new Error(`Ação inválida: ${acao}`);
   }
-  if (acao === "usar" && !perm.pode_usar) {
-    throw new Error("Sem permissão para executar esta ação");
+  if (!perm[coluna]) {
+    throw new Error(`Sem permissão para ${acao} | Finalizar ação`);
   }
   return true;
 }
@@ -27834,10 +27849,10 @@ async function criarProduto(produto) {
     let codigoSubGrupoValido = await subgrupoExiste(produto.CodigoSubGrupo) ? produto.CodigoSubGrupo : null;
     let codigoFabricanteValido = await fabricanteExiste(produto.CodigoFabricante) ? produto.CodigoFabricante : null;
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar"
+      acao: "criar"
     });
     const sql = `
       INSERT INTO produto (
@@ -27888,10 +27903,10 @@ async function salvarProduto(produto) {
   try {
     if (!produto.CodigoProduto) return criarProduto(produto);
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar"
+      acao: "editar"
     });
     const [[antes]] = await pool.query(
       "SELECT EstoqueAtual, PrecoVenda FROM produto WHERE CodigoProduto = ?",
@@ -27954,10 +27969,10 @@ async function salvarProduto(produto) {
 async function atualizarGrupo({ id, nome, comissao, ativo }) {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar"
+      acao: "editar"
     });
     const sql = `
     UPDATE produto_grupo SET
@@ -27979,10 +27994,10 @@ async function atualizarGrupo({ id, nome, comissao, ativo }) {
 async function excluirGrupo(id) {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar"
+      acao: "excluir"
     });
     const sql = `DELETE FROM produto_grupo WHERE CodigoGrupo = ?`;
     await pool.execute(sql, [id]);
@@ -27993,10 +28008,10 @@ async function excluirGrupo(id) {
 async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar"
+      acao: "editar"
     });
     const sql = `
     UPDATE produto_sub_grupo SET
@@ -28016,10 +28031,10 @@ async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
 async function excluirSubGrupo(id) {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar"
+      acao: "excluir"
     });
     const sql = `DELETE FROM produto_sub_grupo WHERE CodigoSubGrupo = ?`;
     await pool.execute(sql, [id]);
@@ -28034,10 +28049,10 @@ async function listarFabricantes() {
 async function criarFabricante(fabricante) {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "fabricantes",
-      acao: "usar"
+      acao: "criar"
     });
     const sql = `
         INSERT INTO produto_fabricante (NomeFabricante, Ativo)
@@ -28063,10 +28078,10 @@ async function getFabricanteById(CodigoFabricante) {
 async function salvarFabricante(fabricante) {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "fabricantes",
-      acao: "usar"
+      acao: "editar"
     });
     if (fabricante.CodigoFabricante) {
       const sql = `
@@ -28094,13 +28109,23 @@ async function salvarFabricante(fabricante) {
   }
 }
 async function criarColaborador({ nome, email, senha, nivel, setor, ativo = 1 }) {
-  const senhaHash = await bcrypt.hash(senha, 10);
-  const [result] = await pool.query(
-    `INSERT INTO usuarios (nome, email, senha, nivel, setor, ativo, criado_em)
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "colaboradores",
+      acao: "criar"
+    });
+    const senhaHash = await bcrypt.hash(senha, 10);
+    const [result] = await pool.query(
+      `INSERT INTO usuarios (nome, email, senha, nivel, setor, ativo, criado_em)
      VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-    [nome, email, senhaHash, nivel || "comum", setor, ativo]
-  );
-  return { id: result.insertId };
+      [nome, email, senhaHash, nivel || "comum", setor, ativo]
+    );
+    return { id: result.insertId };
+  } catch (error) {
+    throw error;
+  }
 }
 async function getColaboradorById(id) {
   const [rows] = await pool.query(
@@ -28113,19 +28138,29 @@ async function getColaboradorById(id) {
   return rows.length > 0 ? rows[0] : null;
 }
 async function atualizarColaborador({ id, nome, email, nivel, setor, ativo }) {
-  await pool.query(
-    "UPDATE usuarios SET nome = ?, email = ?, nivel = ?, setor = ?, ativo = ? WHERE id = ?",
-    [nome, email, nivel, setor, ativo, id]
-  );
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "colaboradores",
+      acao: "editar"
+    });
+    await pool.query(
+      "UPDATE usuarios SET nome = ?, email = ?, nivel = ?, setor = ?, ativo = ? WHERE id = ?",
+      [nome, email, nivel, setor, ativo, id]
+    );
+    return true;
+  } catch (error) {
+    throw error;
+  }
 }
 async function deletarColaborador(id) {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "colaboradores",
-      acao: "usar"
+      acao: "excluir"
     });
     await pool.query("DELETE FROM usuarios WHERE id = ?", [id]);
     return true;
@@ -28143,10 +28178,10 @@ async function criarCliente({ nome, email, telefone, endereco }) {
       throw new Error("Sessão expirada");
     }
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "clientes",
-      acao: "usar"
+      acao: "criar"
     });
     const [result] = await pool.query(
       "INSERT INTO clientes (nome, email, telefone, endereco) VALUES (?, ?, ?, ?)",
@@ -28161,10 +28196,10 @@ async function criarCliente({ nome, email, telefone, endereco }) {
 async function atualizarCliente({ id, nome, email, telefone, endereco }) {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "clientes",
-      acao: "usar"
+      acao: "editar"
     });
     await pool.query(
       "UPDATE clientes SET nome = ?, email = ?, telefone = ?, endereco = ? WHERE id = ?",
@@ -28177,10 +28212,10 @@ async function atualizarCliente({ id, nome, email, telefone, endereco }) {
 async function deletarCliente(id) {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "clientes",
-      acao: "usar"
+      acao: "excluir"
     });
     await pool.query("DELETE FROM clientes WHERE id = ?", [id]);
   } catch (err) {
@@ -28193,7 +28228,7 @@ async function criarFornecedor(fornecedor) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "fornecedor",
-      acao: "usar"
+      acao: "criar"
     });
     const data = {
       nome: fornecedor.Nome || fornecedor.nome,
@@ -28226,18 +28261,38 @@ async function criarFornecedor(fornecedor) {
   }
 }
 async function atualizarFornecedor({ CodigoFornecedor, Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, Ativo, Pessoa }) {
-  const ativoValue = Ativo ? 1 : 0;
-  await pool.query(
-    `UPDATE fornecedores 
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "fornecedores",
+      acao: "editar"
+    });
+    const ativoValue = Ativo ? 1 : 0;
+    await pool.query(
+      `UPDATE fornecedores 
      SET Nome = ?, NomeFantasia = ?, CNPJ = ?, Endereco = ?, Cidade = ?, Bairro = ?, Ativo = ?, Pessoa = ?
      WHERE CodigoFornecedor = ?`,
-    [Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, ativoValue, Pessoa, CodigoFornecedor]
-  );
-  return true;
+      [Nome, NomeFantasia, CNPJ, Endereco, Cidade, Bairro, ativoValue, Pessoa, CodigoFornecedor]
+    );
+    return true;
+  } catch (error) {
+    throw error;
+  }
 }
 async function deletarFornecedor(CodigoFornecedor) {
-  await pool.query("DELETE FROM fornecedores WHERE CodigoFornecedor = ?", [CodigoFornecedor]);
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "fornecedores",
+      acao: "excluir"
+    });
+    await pool.query("DELETE FROM fornecedores WHERE CodigoFornecedor = ?", [CodigoFornecedor]);
+    return true;
+  } catch (error) {
+    throw error;
+  }
 }
 function fixMoney(v) {
   return Number(Number(v).toFixed(2));
@@ -28280,6 +28335,12 @@ async function baixarParcelaReceber({
   const conn = await pool.getConnection();
   await conn.beginTransaction();
   try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "financeiro",
+      acao: "ediitar"
+    });
     const [[parcela]] = await conn.query(`
   SELECT p.*, c.venda_id
   FROM parcelas_receber p
@@ -28468,6 +28529,12 @@ async function baixarParcelaPagar({
   const conn = await pool.getConnection();
   await conn.beginTransaction();
   try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "financeiro",
+      acao: "editar"
+    });
     const [[parcela]] = await conn.query(`
   SELECT 
     pp.*,
@@ -28742,10 +28809,10 @@ async function abrirCaixa({
   if (!empresa_id) {
     throw new Error("Empresa não identificada");
   }
-  await checkPermissaoPorSlug$1({
+  await checkPermissaoPorSlug({
     usuario_id,
     slug: "caixa-fluxo",
-    acao: "usar"
+    acao: "criar"
   });
   const conn = await pool.getConnection();
   try {
@@ -28969,10 +29036,10 @@ async function fecharCaixa({
   try {
     await conn.beginTransaction();
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "caixa-fluxo",
-      acao: "usar"
+      acao: "criar"
     });
     const resumo = await resumoCaixa(caixa_id);
     if (!resumo) throw new Error("Caixa não encontrado!");
@@ -29066,9 +29133,16 @@ async function listarVendas() {
 }
 async function salvarVendaCompleta(dados) {
   try {
+    const usuarioLogado = global.usuarioLogado;
+    const usuario = usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "vendas",
+      acao: "criar"
+    });
     const venda = await criarVenda({
       cliente_id: dados.cliente_id,
-      usuario_id: dados.usuario_id,
+      usuario_id: usuario,
       valor_total: dados.valor_total,
       forma_pagamento: dados.forma_pagamento,
       status: dados.status,
@@ -29120,59 +29194,96 @@ async function listarItensVenda(venda_id) {
   return rows;
 }
 async function criarVenda({ cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes }) {
-  const [result] = await pool.query(
-    `INSERT INTO vendas (cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "vendas",
+      acao: "criar"
+    });
+    const [result] = await pool.query(
+      `INSERT INTO vendas (cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
-  );
-  return { id: result.insertId };
+      [cliente_id, usuario_id, valor_total, forma_pagamento, status, observacoes]
+    );
+    return { id: result.insertId };
+  } catch (error) {
+    throw error;
+  }
 }
 async function atualizarVenda({ id, cliente_id, valor_total, forma_pagamento, status, observacoes }) {
-  await pool.query(
-    `UPDATE vendas SET cliente_id=?, valor_total=?, forma_pagamento=?, status=?, observacoes=? WHERE id=?`,
-    [cliente_id, valor_total, forma_pagamento, status, observacoes, id]
-  );
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "vendas",
+      acao: "editar"
+    });
+    await pool.query(
+      `UPDATE vendas SET cliente_id=?, valor_total=?, forma_pagamento=?, status=?, observacoes=? WHERE id=?`,
+      [cliente_id, valor_total, forma_pagamento, status, observacoes, id]
+    );
+    return true;
+  } catch (error) {
+    throw error;
+  }
 }
 async function deletarVenda(id) {
-  await pool.query(`DELETE FROM vendas WHERE id=?`, [id]);
-  return true;
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "vendas",
+      acao: "excluir"
+    });
+    await pool.query(`DELETE FROM vendas WHERE id=?`, [id]);
+    return true;
+  } catch (error) {
+    throw error;
+  }
 }
 async function pagarVenda(id, forma_pagamento, usuarioId) {
-  if (forma_pagamento === "prazo" || forma_pagamento === "boleto") {
-    return {
-      sucesso: false,
-      mensagem: "Venda a prazo deve ser quitada pelo contas a receber"
-    };
-  }
-  const [result] = await pool.query(`
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "vendas",
+      acao: "criar"
+    });
+    if (forma_pagamento === "prazo" || forma_pagamento === "boleto") {
+      return {
+        sucesso: false,
+        mensagem: "Venda a prazo deve ser quitada pelo contas a receber"
+      };
+    }
+    const [result] = await pool.query(`
     UPDATE vendas
     SET status = 'pago',
         forma_pagamento = ?,
         atualizado_em = NOW()
     WHERE id = ?
   `, [forma_pagamento, id]);
-  if (result.affectedRows === 0) {
-    return { sucesso: false, mensagem: "Venda não encontrada" };
-  }
-  const [cx] = await pool.query(`
+    if (result.affectedRows === 0) {
+      return { sucesso: false, mensagem: "Venda não encontrada" };
+    }
+    const [cx] = await pool.query(`
     SELECT id FROM caixa_sessoes
     WHERE usuario_id = ? AND status = 'Aberto'
     ORDER BY id DESC
     LIMIT 1
   `, [usuarioId]);
-  let caixaId;
-  if (cx.length === 0) {
-    const novo = await abrirCaixa({
-      usuario_id: usuarioId,
-      valor_abertura: 0,
-      observacoes: "Abertura automática por pagamento de venda"
-    });
-    caixaId = novo.id;
-  } else {
-    caixaId = cx[0].id;
-  }
-  await pool.query(`
+    let caixaId;
+    if (cx.length === 0) {
+      const novo = await abrirCaixa({
+        usuario_id: usuarioId,
+        valor_abertura: 0,
+        observacoes: "Abertura automática por pagamento de venda"
+      });
+      caixaId = novo.id;
+    } else {
+      caixaId = cx[0].id;
+    }
+    await pool.query(`
     INSERT INTO caixa_movimentos
       (caixa_id, venda_id, tipo, descricao, valor, origem, criado_em, usuario_id)
     SELECT 
@@ -29187,7 +29298,10 @@ async function pagarVenda(id, forma_pagamento, usuarioId) {
     FROM vendas
     WHERE id = ?
   `, [caixaId, usuarioId, id]);
-  return { sucesso: true, caixaId };
+    return { sucesso: true, caixaId };
+  } catch (error) {
+    throw error;
+  }
 }
 async function listarCompras({ fornecedor_id, status, dataInicio, dataFim } = {}) {
   let sql = "SELECT * FROM compras WHERE 1=1";
@@ -29220,13 +29334,23 @@ async function criarCompra({
   status,
   observacoes
 }) {
-  const [result] = await pool.query(
-    `INSERT INTO compras 
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "compras",
+      acao: "criar"
+    });
+    const [result] = await pool.query(
+      `INSERT INTO compras 
       (fornecedor_id, usuario_id, valor_total, tipo_pagamento, status, observacoes) 
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [fornecedor_id, usuario_id, valor_total, tipo_pagamento, status, observacoes]
-  );
-  return result.insertId;
+      [fornecedor_id, usuario_id, valor_total, tipo_pagamento, status, observacoes]
+    );
+    return result.insertId;
+  } catch (error) {
+    throw error;
+  }
 }
 async function criarItensCompra({ compra_id, produto_id, quantidade, custo_unitario }) {
   const [result] = await pool.query(
@@ -29316,6 +29440,12 @@ async function salvarCompraCompleta(dados) {
     if (!["avista", "parcelado"].includes(dados.tipo_pagamento)) {
       throw new Error("Tipo de pagamento inválido");
     }
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "compras",
+      acao: "criar"
+    });
     const [compra] = await conn.query(`
   INSERT INTO compras
     (fornecedor_id, usuario_id, valor_total, tipo_pagamento, forma_pagamento, origem_pagamento, caixa_id, conta_id, status, observacoes)
@@ -29475,6 +29605,16 @@ async function salvarCompraCompleta(dados) {
   }
 }
 async function finalizarCompra(compraId) {
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "compras",
+      acao: "criar"
+    });
+  } catch (error) {
+    throw error;
+  }
   const [itens] = await pool.query(
     "SELECT produto_id, quantidade, custo_unitario FROM itens_compra WHERE compra_id = ?",
     [compraId]
@@ -29621,10 +29761,10 @@ ipcMain.handle("logout", async () => {
 ipcMain.handle("salvar-fabricante", async (_event, fabricante) => {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "fabricantes",
-      acao: "usar"
+      acao: "editar"
     });
     await salvarFabricante(fabricante);
     return true;
@@ -29635,10 +29775,10 @@ ipcMain.handle("salvar-fabricante", async (_event, fabricante) => {
 ipcMain.handle("criar-fabricante", async (_event, fabricante) => {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "fabricantes",
-      acao: "usar"
+      acao: "editar"
     });
     await criarFabricante(fabricante);
     return true;
@@ -29710,10 +29850,10 @@ ipcMain.handle("buscar-fabricante-id", async (event, CodigoFabricante) => {
 ipcMain.handle("add-colaborador", async (_event, colaborador) => {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario,
       slug: "colaboradores",
-      acao: "usar"
+      acao: "editar"
     });
     const resultado = await criarColaborador(colaborador);
     return { sucesso: true, data: resultado };
@@ -29728,10 +29868,10 @@ ipcMain.handle("add-colaborador", async (_event, colaborador) => {
 ipcMain.handle("update-colaborador", async (_event, colaborador) => {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario,
       slug: "colaboradores",
-      acao: "usar"
+      acao: "editar"
     });
     const resultado = await atualizarColaborador(colaborador);
     return { sucesso: true, data: resultado };
@@ -29857,8 +29997,8 @@ ipcMain.handle("delete-venda", async (_event, { id, usuario }) => {
     await deletarVenda(id);
     return { sucesso: true };
   } catch (error) {
-    console.error("❌ Erro ao deletar fornecedor:", error);
-    return { sucesso: false, mensagem: "Erro ao deletar fornecedor." };
+    console.error("❌ Erro ao deletar venda", error);
+    throw error;
   }
 });
 ipcMain.handle("get-sessoes-caixa", async () => {
@@ -29978,10 +30118,10 @@ ipcMain.handle("getSubGrupos", async () => {
 ipcMain.handle("addGrupo", async (_, nome, comissao) => {
   try {
     const usuario = global.usuarioLogado.id;
-    await checkPermissaoPorSlug$1({
+    await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar"
+      acao: "criar"
     });
     await pool.query(`
             INSERT INTO produto_grupo (NomeGrupo,Comissao, Ativo)
@@ -29995,6 +30135,12 @@ ipcMain.handle("addGrupo", async (_, nome, comissao) => {
 });
 ipcMain.handle("addSubGrupo", async (_, nome, codigoGrupo) => {
   try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "criar"
+    });
     await pool.query(`
             INSERT INTO produto_sub_grupo (NomeSubGrupo,CodigoGrupo, Ativo)
             VALUES (?,?, 1)
@@ -30171,30 +30317,40 @@ ipcMain.handle("financeiro:listar-contas", async () => {
   `);
   return rows;
 });
-ipcMain.handle("financeiro:cadastrar-conta", async (_event, dados) => {
-  const {
-    empresa_id,
-    nome,
-    tipo,
-    saldo,
-    banco_nome,
-    banco_codigo,
-    agencia,
-    conta,
-    tipo_conta
-  } = dados;
-  if (!nome) {
-    throw new Error("Nome da conta obrigatório");
-  }
-  await pool.query(
-    `
+ipcMain.handle("carteira-digital:cadastrar-conta", async (_event, dados) => {
+  try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "carteira-digital",
+      acao: "criar"
+    });
+    const {
+      empresa_id,
+      nome,
+      tipo,
+      saldo,
+      banco_nome,
+      banco_codigo,
+      agencia,
+      conta,
+      tipo_conta
+    } = dados;
+    if (!nome) {
+      throw new Error("Nome da conta obrigatório");
+    }
+    await pool.query(
+      `
     INSERT INTO financeiro_contas
       (empresa_id,nome,tipo,saldo,banco_nome,banco_codigo,agencia,conta,tipo_conta)
     VALUES (?, ?, ?, ?, ? ,? , ?, ?,?)
     `,
-    [empresa_id, nome, tipo, saldo, banco_nome, banco_codigo, agencia, conta, tipo_conta]
-  );
-  return { success: true };
+      [empresa_id, nome, tipo, saldo, banco_nome, banco_codigo, agencia, conta, tipo_conta]
+    );
+    return { success: true };
+  } catch (error) {
+    throw error;
+  }
 });
 ipcMain.handle("carteira-digital", async () => {
   const [caixa] = await pool.query(`
@@ -30232,6 +30388,12 @@ ipcMain.handle("carteira-transferir", async (e, dados) => {
   const conn = await pool.getConnection();
   await conn.beginTransaction();
   try {
+    const usuario = global.usuarioLogado.id;
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "carteira-digital",
+      acao: "criar"
+    });
     if (!dados.origem || !dados.destino) {
       throw new Error("Informe origem e destino");
     }
@@ -30368,7 +30530,9 @@ ipcMain.handle("permissoes:listar", async (_, usuario_id) => {
   p.submodulo_id,
   s.slug,
   p.pode_consultar,
-  p.pode_usar
+  p.pode_criar,
+  p.pode_editar,
+  p.pode_excluir
 FROM permissoes_usuario p
 JOIN submodulos s ON s.id = p.submodulo_id
 WHERE p.usuario_id = ?
@@ -30376,6 +30540,59 @@ WHERE p.usuario_id = ?
     [usuario_id]
   );
   return rows;
+});
+ipcMain.handle("permissoes:salvar", async (e, dados) => {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+  try {
+    const { empresa_id, loja_id, usuario_id, permissoes } = dados;
+    const usuarioLogado = global.usuarioLogado;
+    const verificaBloquearProprioAcesso = permissoes.some(
+      (p) => Number(usuario_id) === Number(usuarioLogado.id) && p.slug === "definicoes-acesso" && p.pode_consultar === 0
+    );
+    if (verificaBloquearProprioAcesso) {
+      throw new Error("Definições de Acesso é obrigatório para administradores.");
+    }
+    await conn.query(
+      `DELETE FROM permissoes_usuario WHERE usuario_id = ? AND loja_id = ?`,
+      [usuario_id, loja_id]
+    );
+    for (const p of permissoes) {
+      await conn.query(`
+    INSERT INTO permissoes_usuario
+      (
+        empresa_id,
+        loja_id,
+        usuario_id,
+        modulo_id,
+        submodulo_id,
+        pode_consultar,
+        pode_criar,
+        pode_editar,
+        pode_excluir,
+        criado_em
+      )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+  `, [
+        empresa_id,
+        loja_id,
+        usuario_id,
+        p.modulo_id,
+        p.submodulo_id,
+        p.pode_consultar,
+        p.pode_criar,
+        p.pode_editar,
+        p.pode_excluir
+      ]);
+    }
+    await conn.commit();
+    return { ok: true };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 });
 ipcMain.handle("lojas:listarLojas", async () => {
   const empresa_id = global.usuarioLogado.empresa_id;
@@ -30427,47 +30644,6 @@ ipcMain.handle("modulos:listarComSub", async () => {
     }
   });
   return Object.values(map);
-});
-const SUBMODULO_DEFINICOES_ACESSO_ID = 20;
-ipcMain.handle("permissoes:salvar", async (e, dados) => {
-  const conn = await pool.getConnection();
-  await conn.beginTransaction();
-  try {
-    const { empresa_id, loja_id, usuario_id, permissoes } = dados;
-    const usuarioLogado = global.usuarioLogado;
-    const verificaBloquearProprioAcesso = permissoes.some(
-      (p) => Number(usuario_id) === Number(usuarioLogado.id) && p.submodulo_id === SUBMODULO_DEFINICOES_ACESSO_ID && p.pode_consultar === 0
-    );
-    if (verificaBloquearProprioAcesso) {
-      throw new Error("Definições de Acesso é obrigatorio para administrador.");
-    }
-    await conn.query(`
-      DELETE FROM permissoes_usuario
-      WHERE usuario_id = ? AND loja_id = ?
-    `, [usuario_id, loja_id]);
-    for (const p of permissoes) {
-      await conn.query(`
-        INSERT INTO permissoes_usuario
-          (empresa_id, loja_id, usuario_id, modulo_id, submodulo_id, pode_consultar, pode_usar, criado_em)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-      `, [
-        empresa_id,
-        loja_id,
-        usuario_id,
-        p.modulo_id,
-        p.submodulo_id,
-        p.pode_consultar,
-        p.pode_usar
-      ]);
-    }
-    await conn.commit();
-    return { ok: true };
-  } catch (err) {
-    await conn.rollback();
-    throw err;
-  } finally {
-    conn.release();
-  }
 });
 ipcMain.handle("orcamentos:listar", async () => {
   const usuarioLogado = global.usuarioLogado;
@@ -30521,25 +30697,34 @@ JOIN usuarios u ON u.id = o.usuario_id
   return payload;
 });
 ipcMain.handle("orcamentos:criar", async (e, dados) => {
-  const usuarioLogado = global.usuarioLogado;
-  const [result] = await pool.query(`INSERT INTO orcamentos (loja_id,cliente_id,usuario_id,valor_total,descontos,valor_final,status) VALUES(?,?,?,?,?,?,?)`, [usuarioLogado.loja_id, dados.cliente_id, usuarioLogado.id, dados.valor_total, dados.descontos, dados.valor_final, dados.status]);
-  for (const item of dados.itens) {
-    const quantidade = Number(item.quantidade);
-    const preco = Number(item.preco_unitario);
-    const subtotal = quantidade * preco;
-    await pool.query(
-      `INSERT INTO orcamento_itens
+  try {
+    const usuarioLogado = global.usuarioLogado;
+    await checkPermissaoPorSlug({
+      usuario_id: usuarioLogado.id,
+      slug: "orcamentos",
+      acao: "criar"
+    });
+    const [result] = await pool.query(`INSERT INTO orcamentos (loja_id,cliente_id,usuario_id,valor_total,descontos,valor_final,status) VALUES(?,?,?,?,?,?,?)`, [usuarioLogado.loja_id, dados.cliente_id, usuarioLogado.id, dados.valor_total, dados.descontos, dados.valor_final, dados.status]);
+    for (const item of dados.itens) {
+      const quantidade = Number(item.quantidade);
+      const preco = Number(item.preco_unitario);
+      const subtotal = quantidade * preco;
+      await pool.query(
+        `INSERT INTO orcamento_itens
      (orcamentos_id, produto_id, quantidade, preco_unitario, subtotal)
      VALUES (?, ?, ?, ?, ?)`,
-      [
-        result.insertId,
-        item.produto_id,
-        quantidade,
-        preco,
-        subtotal
-      ]
-    );
+        [
+          result.insertId,
+          item.produto_id,
+          quantidade,
+          preco,
+          subtotal
+        ]
+      );
+    }
+    return result;
+  } catch (error) {
+    throw error;
   }
-  return result;
 });
 app.whenReady().then(createWindow);

@@ -33,15 +33,11 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
         observacoes: "",
         itens: [] as any[],
     });
-
-
     const statusOrcamento = Object.freeze([
         { id: 1, value: 'aprovado', nome: "Aprovado" },
         { id: 3, value: 'pendente', nome: "Pendente" }
     ]);
-
     console.log("ORCAMENTO MODAL", orcamento)
-
     // Carrega fornecedores e produtos
     useEffect(() => {
         async function carregarDados() {
@@ -58,10 +54,8 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
         const total = orcamento.itens.reduce((acc, item) => {
             return acc + (Number(item.subtotal) || 0);
         }, 0);
-
         setOrcamento(prev => ({ ...prev, valor_total: total }));
     }, [orcamento.itens]);
-
     const adicionarItem = () => {
         setOrcamento(prev => ({
             ...prev,
@@ -78,8 +72,6 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
             ]
         }));
     };
-
-
     const removerItem = (index: number) => {
         setOrcamento((prev) => ({
             ...prev,
@@ -89,23 +81,14 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
     const atualizarItem = (index: number, campo: string, valor: any) => {
         setOrcamento(prev => {
             const itensAtualizados = [...prev.itens];
-
             let item = { ...itensAtualizados[index], [campo]: valor };
-
             const qtd = Number(item.quantidade) || 0;
             const preco = Number(item.preco_unitario) || 0;
-
             item.subtotal = qtd * preco;
-
             itensAtualizados[index] = item;
-
             return { ...prev, itens: itensAtualizados };
         });
     };
-
-
-    console.log("Produtos ", produtos)
-
     const salvarCompra = async () => {
 
         if (orcamento.itens.length === 0) {
@@ -116,7 +99,6 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
             toast.error("Todos os itens precisam ter um produto selecionado!");
             return;
         }
-
         if (orcamento.valor_total < orcamento.descontos || 0) {
             toast.error("Desconto nao pode ser maior que o valor Total")
             return;
@@ -133,18 +115,15 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
             toast.success("Compra registrada com sucesso!");
             refresh();
             onClose();
-
         } catch (e) {
             console.error(e);
             toastErro(e);
         }
     };
-
     return (
         <div style={overlay}>
             <div style={modal}>
                 <h2 style={{ color: "#1e3a8a", marginBottom: 20 }}>Novo Orçamento</h2>
-
                 <div style={{ marginBottom: 15 }}>
                     <label style={label}>Cliente</label>
                     <select
@@ -173,16 +152,11 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
                             </option>
                         ))}
                     </select>
-
-
-
                 </div>
-
                 <h3 style={{ color: "#1e3a8a", marginBottom: 10 }}>Itens</h3>
                 <button style={btnNovo} onClick={adicionarItem}>Adicionar Item</button>
                 {orcamento.itens.map((item, index) => (
                     <div key={index} style={itemRow}>
-
                         {/* PRODUTO */}
                         <div style={col}>
                             <span style={smallLabel}>Produto</span>
@@ -191,19 +165,14 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
                                 onChange={(e) => {
                                     const produtoId = Number(e.target.value);
                                     const produto = produtos.find(p => p.CodigoProduto === produtoId);
-
                                     atualizarItem(index, "produto_id", produtoId);
-
                                     if (produto) {
                                         atualizarItem(index, "preco_sugerido", Number(produto.PrecoVenda));
-
                                         atualizarItem(index, "custo_unitario", Number(produto.CustoMedio));
                                         atualizarItem(index, "preco_unitario", Number(produto.PrecoVenda));
-
                                     }
                                 }}
-                                style={input}
-                            >
+                                style={input}>
                                 <option value={0}>Produto...</option>
                                 {produtos.map((p) => (
                                     <option key={p.CodigoProduto} value={p.CodigoProduto}>
@@ -212,7 +181,6 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
                                 ))}
                             </select>
                         </div>
-
                         {/* QUANTIDADE */}
                         <div style={col}>
                             <span style={smallLabel}>Qtd</span>
@@ -225,14 +193,11 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
                                 style={input}
                             />
                         </div>
-
                         {/* PREÇO */}
                         <div style={col}>
                             <span style={smallLabel}>
                                 Sugerido: R$ {Number(item.preco_sugerido || 0).toFixed(2)}
                             </span>
-
-
                             {usuario.nivel == "administrador" ? (
                                 <input
                                     type="number"
@@ -258,20 +223,12 @@ export default function OrcamentoModal({ onClose, refresh }: OrcamentoModalProps
                                     style={input}
                                 />
                             )}
-
                         </div>
-
                         <button style={btnRemover} onClick={() => removerItem(index)}>
                             ✕
                         </button>
-
-
                     </div>
                 ))}
-
-
-
-
                 <div style={{ marginTop: 20, fontWeight: 600 }}>
                     <div style={{ width: "100%" }}>Valor Bruto: R$ {orcamento.valor_total.toFixed(2)}</div>
                     <label >Desconto: R$</label>

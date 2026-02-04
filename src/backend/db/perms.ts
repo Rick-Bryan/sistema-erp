@@ -1,15 +1,25 @@
-import pool from './connection.js';
+import pool from "./connection.js";
 
 export async function checkPermissaoPorSlug({
   usuario_id,
   slug,
-  acao = "usar"
+  acao = "consultar",
 }) {
+  if (!usuario_id) {
+    throw new Error("Usuário não identificado");
+  }
+
+  if (!slug) {
+    throw new Error("Módulo não identificado");
+  }
+
   const [rows] = await pool.query(
     `
     SELECT 
       pu.pode_consultar,
-      pu.pode_usar
+      pu.pode_criar,
+      pu.pode_editar,
+      pu.pode_excluir
     FROM permissoes_usuario pu
     JOIN submodulos s ON s.id = pu.submodulo_id
     WHERE pu.usuario_id = ?
@@ -26,12 +36,21 @@ export async function checkPermissaoPorSlug({
 
   const perm = rows[0];
 
-  if (acao === "consultar" && !perm.pode_consultar) {
-    throw new Error("Sem permissão para consultar");
+  const map = {
+    consultar: "pode_consultar",
+    criar: "pode_criar",
+    editar: "pode_editar",
+    excluir: "pode_excluir",
+  };
+
+  const coluna = map[acao];
+
+  if (!coluna) {
+    throw new Error(`Ação inválida: ${acao}`);
   }
 
-  if (acao === "usar" && !perm.pode_usar) {
-    throw new Error("Sem permissão para executar esta ação");
+  if (!perm[coluna]) {
+    throw new Error(`Sem permissão para ${acao} | Finalizar ação`);
   }
 
   return true;

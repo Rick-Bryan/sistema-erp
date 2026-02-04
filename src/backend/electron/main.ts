@@ -58,7 +58,7 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) createWindow()
-})
+});
 //Produtos
 ipcMain.handle('get-produtos', async () => {
   try {
@@ -72,7 +72,6 @@ ipcMain.handle('get-produtos', async () => {
     return [];
   }
 });
-
 ipcMain.handle('add-produto', async (_, produto) => {
 
   await criarProduto(produto);
@@ -165,12 +164,10 @@ ipcMain.handle("login", async (event, { email, senha }) => {
     };
   }
 });
-
 ipcMain.handle("logout", async () => {
   global.usuarioLogado = null;
   return { sucesso: true };
 });
-
 // Handler para salvar um fabricante
 ipcMain.handle('salvar-fabricante', async (_event, fabricante: Fabricante) => {
   try {
@@ -179,7 +176,7 @@ ipcMain.handle('salvar-fabricante', async (_event, fabricante: Fabricante) => {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "fabricantes",
-      acao: "usar",
+      acao: "editar",
     });
 
     await salvarFabricante(fabricante);
@@ -196,7 +193,7 @@ ipcMain.handle('criar-fabricante', async (_event, fabricante: Fabricante) => {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "fabricantes",
-      acao: "usar",
+      acao: "editar",
     });
     await criarFabricante(fabricante);
     return true;
@@ -205,15 +202,12 @@ ipcMain.handle('criar-fabricante', async (_event, fabricante: Fabricante) => {
     throw error
   }
 });
-
 //Clientes
 // Listar clientes
 ipcMain.handle("get-clientes", async () => {
   const clientes = await listarClientes();
   return clientes; // retorna o array direto
 });
-
-// Criar cliente
 ipcMain.handle('add-cliente', async (_event, cliente) => {
   try {
     const novo = await criarCliente(cliente);
@@ -224,8 +218,6 @@ ipcMain.handle('add-cliente', async (_event, cliente) => {
 
   }
 });
-
-// Atualizar cliente
 ipcMain.handle('update-cliente', async (_event, cliente) => {
   try {
     await atualizarCliente(cliente);
@@ -235,8 +227,6 @@ ipcMain.handle('update-cliente', async (_event, cliente) => {
     throw err
   }
 });
-
-// Deletar cliente
 ipcMain.handle('delete-cliente', async (_event, dados) => {
 
   const { id, usuario } = dados;
@@ -254,8 +244,8 @@ ipcMain.handle('delete-cliente', async (_event, dados) => {
 
   }
 });
-
 //Pesquisa
+
 ipcMain.handle("buscar-produtos", async (event, termo) => {
 
   let sql = "SELECT * FROM produto";
@@ -290,8 +280,6 @@ ipcMain.handle("buscar-fabricantes", async (event, termo) => {
 ipcMain.handle("buscar-fabricante-id", async (event, CodigoFabricante) => {
   await getFabricanteById(CodigoFabricante);
 });
-
-
 ipcMain.handle('add-colaborador', async (_event, colaborador) => {
   try {
 
@@ -299,7 +287,7 @@ ipcMain.handle('add-colaborador', async (_event, colaborador) => {
     await checkPermissaoPorSlug({
       usuario,
       slug: "colaboradores",
-      acao: "usar"
+      acao: "editar"
     });
 
     const resultado = await criarColaborador(colaborador);
@@ -313,7 +301,6 @@ ipcMain.handle('add-colaborador', async (_event, colaborador) => {
     throw error
   }
 });
-
 ipcMain.handle('update-colaborador', async (_event, colaborador) => {
   try {
     const usuario = global.usuarioLogado.id;
@@ -321,7 +308,7 @@ ipcMain.handle('update-colaborador', async (_event, colaborador) => {
     await checkPermissaoPorSlug({
       usuario,
       slug: "colaboradores",
-      acao: "usar"
+      acao: "editar"
     });
 
     const resultado = await atualizarColaborador(colaborador);
@@ -331,7 +318,6 @@ ipcMain.handle('update-colaborador', async (_event, colaborador) => {
     throw error
   }
 });
-
 ipcMain.handle("get-colaboradores", async (event, termo) => {
   let sql = `
     SELECT 
@@ -363,8 +349,6 @@ ipcMain.handle("get-colaboradores", async (event, termo) => {
     return [];
   }
 });
-
-
 ipcMain.handle('delete-colaborador', async (_event, { id, usuario }) => {
 
   if (usuario.nivel !== "administrador") {
@@ -379,8 +363,6 @@ ipcMain.handle('delete-colaborador', async (_event, { id, usuario }) => {
     throw error
   }
 });
-
-
 ipcMain.handle('add-fornecedor', async (_event, fornecedor) => {
   try {
     console.log("📦 Dados recebidos no backend:", fornecedor);
@@ -405,8 +387,6 @@ ipcMain.handle('update-fornecedor', async (_event, fornecedor) => {
     return { sucesso: false, mensagem: "Erro ao atualizar Fornecedor." };
   }
 });
-
-
 ipcMain.handle("get-fornecedores", async (_event, termo) => {
   let sql = `
     SELECT 
@@ -440,9 +420,6 @@ ipcMain.handle("get-fornecedores", async (_event, termo) => {
     return [];
   }
 });
-
-
-
 ipcMain.handle('delete-fornecedor', async (_event, { CodigoFornecedor, usuario }) => {
   if (usuario.nivel !== "administrador") {
     return { sucesso: false, mensagem: "Acesso negado." };
@@ -459,23 +436,15 @@ ipcMain.handle('delete-fornecedor', async (_event, { CodigoFornecedor, usuario }
 
 //VENDAS
 
-// Listar
 ipcMain.handle('get-vendas', async () => {
   return await listarVendas();
 });
-
-// Criar
 ipcMain.handle('add-venda', async (_event, dados) => {
   return await criarVenda(dados);
 });
-
-// Atualizar
 ipcMain.handle('update-venda', async (_event, dados) => {
   return await atualizarVenda(dados);
 });
-
-// Deletar
-
 ipcMain.handle('delete-venda', async (_event, { id, usuario }) => {
   if (usuario.nivel !== "administrador") {
     return { sucesso: false, mensagem: "Acesso negado." };
@@ -485,8 +454,8 @@ ipcMain.handle('delete-venda', async (_event, { id, usuario }) => {
     await deletarVenda(id);
     return { sucesso: true };
   } catch (error) {
-    console.error("❌ Erro ao deletar fornecedor:", error);
-    return { sucesso: false, mensagem: "Erro ao deletar fornecedor." };
+    console.error("❌ Erro ao deletar venda", error);
+    throw error
   }
 });
 
@@ -499,7 +468,6 @@ ipcMain.handle('get-sessoes-caixa', async () => {
 ipcMain.handle('add-sessoes-caixa', async (_event, dados) => {
   return await abrirCaixa(dados);
 });
-
 ipcMain.handle('get-movimentos-caixa', async () => {
   return await listarMovimentosCaixa();
 });
@@ -512,8 +480,6 @@ ipcMain.handle('add-movimentos-caixa', async (_event, dados) => {
 ipcMain.handle('caixa:registrar-venda', async (_, payload) => {
   return await registrarVendaNoCaixa(payload);
 });
-
-
 ipcMain.handle("getColaboradorById", async (event, usuarioId) => {
   try {
     const colaborador = await getColaboradorById(usuarioId);
@@ -526,7 +492,6 @@ ipcMain.handle("getColaboradorById", async (event, usuarioId) => {
 ipcMain.handle('caixa:cancelar-venda', async (_, payload) => {
   return await registrarCancelamentoVenda(payload);
 });
-
 ipcMain.handle('caixa:resumo', async (_, caixa_id) => {
   return await resumoCaixa(caixa_id);
 });
@@ -544,6 +509,7 @@ ipcMain.handle('caixa:fechar', async (_, payload) => {
 
 
 //ESTOQUE
+
 ipcMain.handle('estoque:entrada', async (event, payload) => {
   return await entradaEstoque(payload);
 });
@@ -568,19 +534,16 @@ ipcMain.handle('estoque:listar-movimentos', async (event, payload) => {
 
 ipcMain.handle('compras:listar', async (event, payload) => {
   return await listarCompras();
-})
-
+});
 ipcMain.handle('compras:criar', async (event, payload) => {
   return await criarCompra(payload);
-})
+});
 ipcMain.handle('compras:criar-itens', async (event, payload) => {
   return await criarItensCompra(payload);
-})
+});
 ipcMain.handle('compras:criar-contas-pagar', async (event, payload) => {
   return await criarContasPagar(payload);
-})
-
-
+});
 ipcMain.handle("compras:salvar-compra-completa", async (event, dados) => {
   try {
     return await salvarCompraCompleta(dados);
@@ -617,7 +580,6 @@ ipcMain.handle("getGrupos", async () => {
   );
   return rows;
 });
-
 ipcMain.handle("getSubGrupos", async () => {
   const [rows] = await pool.query(
     "SELECT CodigoSubGrupo AS id, NomeSubGrupo AS nome FROM produto_sub_grupo WHERE Ativo = 1"
@@ -631,7 +593,7 @@ ipcMain.handle("addGrupo", async (_, nome, comissao) => {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar",
+      acao: "criar",
     });
 
     await pool.query(`
@@ -648,6 +610,14 @@ ipcMain.handle("addGrupo", async (_, nome, comissao) => {
 ipcMain.handle("addSubGrupo", async (_, nome, codigoGrupo) => {
 
   try {
+
+        const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "produtos",
+      acao: "criar"
+    });
     await pool.query(`
             INSERT INTO produto_sub_grupo (NomeSubGrupo,CodigoGrupo, Ativo)
             VALUES (?,?, 1)
@@ -668,13 +638,13 @@ ipcMain.handle("getSubGruposByGrupo", async (event, codigoGrupo) => {
 });
 ipcMain.handle("atualizarGrupo", async (event, dados) => {
   try {
+    
     return await atualizarGrupo(dados);
   } catch (error) {
     throw error
   }
 
 });
-
 ipcMain.handle("atualizarSubGrupo", async (event, dados) => {
 
   try {
@@ -684,7 +654,6 @@ ipcMain.handle("atualizarSubGrupo", async (event, dados) => {
     throw error
   }
 });
-
 ipcMain.handle("excluirGrupo", async (event, id) => {
   try {
     return await excluirGrupo(id);
@@ -693,7 +662,6 @@ ipcMain.handle("excluirGrupo", async (event, id) => {
   }
 
 });
-
 ipcMain.handle("excluirSubGrupo", async (event, id) => {
   try {
     return await excluirSubGrupo(id);
@@ -705,8 +673,6 @@ ipcMain.handle("excluirSubGrupo", async (event, id) => {
 
 
 //Financeiro
-
-
 ipcMain.handle("financeiro:listar-contas-receber", async (_e, filtros) => {
   return listarContasReceber(filtros);
 });
@@ -840,31 +806,46 @@ ipcMain.handle("financeiro:listar-contas", async () => {
 
   return rows;
 });
-ipcMain.handle("financeiro:cadastrar-conta", async (_event, dados) => {
-  const {
-    empresa_id,
-    nome,
-    tipo,
-    saldo,
-    banco_nome,
-    banco_codigo,
-    agencia,
-    conta,
-    tipo_conta
-  } = dados;
-  if (!nome) {
-    throw new Error("Nome da conta obrigatório");
-  }
-  await pool.query(
-    `
+ipcMain.handle("carteira-digital:cadastrar-conta", async (_event, dados) => {
+  try {
+
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "carteira-digital",
+      acao: "criar"
+    });
+
+
+    const {
+      empresa_id,
+      nome,
+      tipo,
+      saldo,
+      banco_nome,
+      banco_codigo,
+      agencia,
+      conta,
+      tipo_conta
+    } = dados;
+    if (!nome) {
+      throw new Error("Nome da conta obrigatório");
+    }
+    await pool.query(
+      `
     INSERT INTO financeiro_contas
       (empresa_id,nome,tipo,saldo,banco_nome,banco_codigo,agencia,conta,tipo_conta)
     VALUES (?, ?, ?, ?, ? ,? , ?, ?,?)
     `,
-    [empresa_id, nome, tipo, saldo, banco_nome, banco_codigo, agencia, conta, tipo_conta]
-  );
+      [empresa_id, nome, tipo, saldo, banco_nome, banco_codigo, agencia, conta, tipo_conta]
+    );
 
-  return { success: true };
+    return { success: true };
+  } catch (error) {
+    throw error
+  }
+
 });
 ipcMain.handle("carteira-digital", async () => {
   const [caixa] = await pool.query(`
@@ -911,6 +892,15 @@ ipcMain.handle("carteira-transferir", async (e, dados) => {
   await conn.beginTransaction();
 
   try {
+
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "carteira-digital",
+      acao: "criar"
+    });
+
     if (!dados.origem || !dados.destino) {
       throw new Error("Informe origem e destino");
     }
@@ -980,8 +970,6 @@ ipcMain.handle("carteira-transferir", async (e, dados) => {
     conn.release();
   }
 });
-
-
 ipcMain.handle("carteira-extrato", async (e, { conta_id, inicio, fim }) => {
   // 1️⃣ Buscar saldo atual da conta
   const [[conta]] = await pool.query(
@@ -1052,7 +1040,6 @@ ipcMain.handle("financeiro:dashboard-movimentacao", async () => {
 
   return rows[0];
 });
-
 ipcMain.handle("financeiro:listar-movimentacao", async () => {
   const [rows] = await pool.query(`
     SELECT 
@@ -1070,14 +1057,15 @@ ipcMain.handle("financeiro:listar-movimentacao", async () => {
 
   return rows;
 });
-
 ipcMain.handle("permissoes:listar", async (_, usuario_id) => {
   const [rows] = await pool.query(
     `SELECT 
   p.submodulo_id,
   s.slug,
   p.pode_consultar,
-  p.pode_usar
+  p.pode_criar,
+  p.pode_editar,
+  p.pode_excluir
 FROM permissoes_usuario p
 JOIN submodulos s ON s.id = p.submodulo_id
 WHERE p.usuario_id = ?
@@ -1086,6 +1074,73 @@ WHERE p.usuario_id = ?
   );
 
   return rows;
+});
+const SUBMODULO_DEFINICOES_ACESSO_ID = 20; // ajuste com o ID real do submódulo
+ipcMain.handle("permissoes:salvar", async (e, dados) => {
+  const conn = await pool.getConnection();
+  await conn.beginTransaction();
+
+  try {
+    const { empresa_id, loja_id, usuario_id, permissoes } = dados;
+    const usuarioLogado = global.usuarioLogado;
+
+    // 🔒 Proteção contra auto-bloqueio
+    const verificaBloquearProprioAcesso = permissoes.some(p =>
+      Number(usuario_id) === Number(usuarioLogado.id) &&
+      p.slug === "definicoes-acesso" &&
+      p.pode_consultar === 0
+    );
+
+    if (verificaBloquearProprioAcesso) {
+      throw new Error("Definições de Acesso é obrigatório para administradores.");
+    }
+
+    // 🧹 Limpa permissões antigas
+    await conn.query(
+      `DELETE FROM permissoes_usuario WHERE usuario_id = ? AND loja_id = ?`,
+      [usuario_id, loja_id]
+    );
+
+    // 💾 Insere novas permissões
+    for (const p of permissoes) {
+      await conn.query(`
+    INSERT INTO permissoes_usuario
+      (
+        empresa_id,
+        loja_id,
+        usuario_id,
+        modulo_id,
+        submodulo_id,
+        pode_consultar,
+        pode_criar,
+        pode_editar,
+        pode_excluir,
+        criado_em
+      )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+  `, [
+        empresa_id,
+        loja_id,
+        usuario_id,
+        p.modulo_id,
+        p.submodulo_id,
+        p.pode_consultar,
+        p.pode_criar,
+        p.pode_editar,
+        p.pode_excluir
+      ]);
+    }
+
+
+    await conn.commit();
+    return { ok: true };
+
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 });
 ipcMain.handle("lojas:listarLojas", async () => {
 
@@ -1142,61 +1197,6 @@ ipcMain.handle("modulos:listarComSub", async () => {
   });
 
   return Object.values(map);
-});
-const SUBMODULO_DEFINICOES_ACESSO_ID = 20; // ajuste com o ID real do submódulo
-
-
-ipcMain.handle("permissoes:salvar", async (e, dados) => {
-  const conn = await pool.getConnection();
-  await conn.beginTransaction();
-
-  try {
-    const { empresa_id, loja_id, usuario_id, permissoes } = dados;
-
-    const usuarioLogado = global.usuarioLogado; // ou outro jeito de pegar o user logado
-
-    // 🔒 Proteção contra auto-bloqueio
-    const verificaBloquearProprioAcesso = permissoes.some(p =>
-      Number(usuario_id) === Number(usuarioLogado.id) &&
-      p.submodulo_id === SUBMODULO_DEFINICOES_ACESSO_ID &&
-      p.pode_consultar === 0
-    );
-
-    if (verificaBloquearProprioAcesso) {
-      throw new Error("Definições de Acesso é obrigatorio para administrador.");
-    }
-
-    // DELETE + INSERT
-    await conn.query(`
-      DELETE FROM permissoes_usuario
-      WHERE usuario_id = ? AND loja_id = ?
-    `, [usuario_id, loja_id]);
-
-    for (const p of permissoes) {
-      await conn.query(`
-        INSERT INTO permissoes_usuario
-          (empresa_id, loja_id, usuario_id, modulo_id, submodulo_id, pode_consultar, pode_usar, criado_em)
-        VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
-      `, [
-        empresa_id,
-        loja_id,
-        usuario_id,
-        p.modulo_id,
-        p.submodulo_id,
-        p.pode_consultar,
-        p.pode_usar
-      ]);
-    }
-
-    await conn.commit();
-    return { ok: true };
-
-  } catch (err) {
-    await conn.rollback();
-    throw err; // 🔥 Aqui o frontend recebe o erro
-  } finally {
-    conn.release();
-  }
 });
 ipcMain.handle("orcamentos:listar", async () => {
   const usuarioLogado = global.usuarioLogado;
@@ -1276,32 +1276,42 @@ ipcMain.handle("orcamentos:criar", async (e, dados: {
   }[];
 
 }) => {
-  const usuarioLogado = global.usuarioLogado
-  const [result] = await pool.query(`INSERT INTO orcamentos (loja_id,cliente_id,usuario_id,valor_total,descontos,valor_final,status) VALUES(?,?,?,?,?,?,?)`, [usuarioLogado.loja_id, dados.cliente_id, usuarioLogado.id, dados.valor_total, dados.descontos, dados.valor_final, dados.status])
+  try {
+    const usuarioLogado = global.usuarioLogado
+    await checkPermissaoPorSlug({
+      usuario_id: usuarioLogado.id,
+      slug: "orcamentos",
+      acao: "criar"
+    });
+    const [result] = await pool.query(`INSERT INTO orcamentos (loja_id,cliente_id,usuario_id,valor_total,descontos,valor_final,status) VALUES(?,?,?,?,?,?,?)`, [usuarioLogado.loja_id, dados.cliente_id, usuarioLogado.id, dados.valor_total, dados.descontos, dados.valor_final, dados.status])
 
 
-  for (const item of dados.itens) {
-    const quantidade = Number(item.quantidade);
-    const preco = Number(item.preco_unitario); // ✅ usa preço
-    const subtotal = quantidade * preco;
+    for (const item of dados.itens) {
+      const quantidade = Number(item.quantidade);
+      const preco = Number(item.preco_unitario); // ✅ usa preço
+      const subtotal = quantidade * preco;
 
-    await pool.query(
-      `INSERT INTO orcamento_itens
+      await pool.query(
+        `INSERT INTO orcamento_itens
      (orcamentos_id, produto_id, quantidade, preco_unitario, subtotal)
      VALUES (?, ?, ?, ?, ?)`,
-      [
-        result.insertId,
-        item.produto_id,
-        quantidade,
-        preco,
-        subtotal
-      ]
-    );
+        [
+          result.insertId,
+          item.produto_id,
+          quantidade,
+          preco,
+          subtotal
+        ]
+      );
+    }
+
+
+
+    return result
+  } catch (error) {
+    throw error
   }
 
-
-
-  return result
 })
 
 app.whenReady().then(createWindow)

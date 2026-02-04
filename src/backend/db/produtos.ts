@@ -65,7 +65,7 @@ export async function criarProduto(produto: Produto) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar",
+      acao: "criar",
     });
 
 
@@ -130,7 +130,7 @@ export async function salvarProduto(produto: Produto) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar",
+      acao: "editar",
     });
     // 🔎 Buscar estoque atual no BD
     const [[antes]]: any = await pool.query(
@@ -205,7 +205,7 @@ export async function atualizarGrupo({ id, nome, comissao, ativo }) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar",
+      acao: "editar",
     });
 
     const sql = `
@@ -235,7 +235,7 @@ export async function excluirGrupo(id) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar",
+      acao: "excluir",
     });
 
     const sql = `DELETE FROM produto_grupo WHERE CodigoGrupo = ?`;
@@ -254,7 +254,7 @@ export async function atualizarSubGrupo({ id, nome, CodigoGrupo }) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar",
+      acao: "editar",
     });
     const sql = `
     UPDATE produto_sub_grupo SET
@@ -282,7 +282,7 @@ export async function excluirSubGrupo(id) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "produtos",
-      acao: "usar",
+      acao: "excluir",
     });
     const sql = `DELETE FROM produto_sub_grupo WHERE CodigoSubGrupo = ?`;
     await pool.execute(sql, [id]);

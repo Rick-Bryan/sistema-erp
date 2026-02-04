@@ -120,7 +120,7 @@ export async function abrirCaixa({
   await checkPermissaoPorSlug({
     usuario_id,
     slug: "caixa-fluxo",
-    acao: "usar"
+    acao: "criar"
   });
 
   const conn = await pool.getConnection();
@@ -516,7 +516,7 @@ export async function fecharCaixa({
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "caixa-fluxo",
-      acao: "usar",
+      acao: "criar",
     });
     const resumo = await resumoCaixa(caixa_id);
     if (!resumo) throw new Error("Caixa não encontrado!");

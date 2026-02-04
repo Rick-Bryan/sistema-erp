@@ -297,7 +297,7 @@ export default function FinanceiroContas({ abrirAba,voltar }: Props) {
                                 onClick={async () => {
                                     try {
                                         await window.ipcRenderer.invoke(
-                                            "financeiro:cadastrar-conta",
+                                            "carteira-digital:cadastrar-conta",
                                             novaConta
                                         );
 

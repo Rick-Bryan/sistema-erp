@@ -1,4 +1,5 @@
 import pool from "./connection"
+import { checkPermissaoPorSlug } from "./perms";
 import { pagarVenda } from "./vendas";
 export function fixMoney(v: number) {
   return Number(Number(v).toFixed(2));
@@ -49,6 +50,16 @@ export async function baixarParcelaReceber({
   await conn.beginTransaction();
 
   try {
+
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "financeiro",
+      acao: "ediitar"
+    });
+
+
     const [[parcela]] = await conn.query(`
   SELECT p.*, c.venda_id
   FROM parcelas_receber p
@@ -287,6 +298,13 @@ export async function baixarParcelaPagar({
   await conn.beginTransaction();
 
   try {
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "financeiro",
+      acao: "editar"
+    });
     // 1️⃣ Busca parcela + conta
     const [[parcela]] = await conn.query(`
   SELECT 
@@ -443,7 +461,7 @@ async function atualizarStatusContaPagar(contaId, conn = pool) {
   `, [contaId]);
 
   const total = fixMoney(res.total || 0);
-  const pago  = fixMoney(res.pago || 0);
+  const pago = fixMoney(res.pago || 0);
 
   let status = "aberto";
   if (pago >= total) status = "pago";

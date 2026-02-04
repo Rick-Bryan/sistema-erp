@@ -10,9 +10,9 @@ interface VendaDetalhesProps {
 
 const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
   if (!venda) return null;
-  
+
   const [itens, setItens] = useState<any[]>([]);
-  
+
   const listarItensVenda = async () => {
 
     try {
@@ -23,7 +23,7 @@ const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
         console.warn("Resposta inesperada:", result);
         setItens([]);
       }
-      
+
     } catch (error) {
       console.log(error)
     }
@@ -35,7 +35,7 @@ const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
   }, []);
 
 
-  
+
   const finalizarVenda = async () => {
     const usuario = JSON.parse(localStorage.getItem("usuarioLogado"));
     const usuarioId = usuario?.id;
@@ -63,7 +63,7 @@ const VendaDetalhes: React.FC<VendaDetalhesProps> = ({ venda, voltar }) => {
       }
     } catch (e) {
       console.error(e);
-      toast.error("Erro ao finalizar a venda");
+
       toastErro(e)
     }
   };

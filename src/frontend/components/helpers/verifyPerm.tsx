@@ -9,14 +9,19 @@ export function setPermissoes(novas: any[]) {
   novas.forEach(p => {
     cache[p.slug] = {
       consultar: !!p.pode_consultar,
-      usar: !!p.pode_usar,
+      criar: !!p.pode_criar,
+      editar: !!p.pode_editar,
+      excluir: !!p.pode_excluir,
     };
   });
 
   listeners.forEach(l => l(cache));
 }
 
-export function verifyPerm(slug: string, tipo: "consultar" | "usar") {
+export function verifyPerm(
+  slug: string,
+  tipo: "consultar" | "criar" | "editar" | "excluir"
+) {
   return !!cache?.[slug]?.[tipo];
 }
 
@@ -35,7 +40,10 @@ export function usePerm() {
   return perms;
 }
 
-export function useVerify(slug: string, tipo: "consultar" | "usar") {
+export function useVerify(
+  slug: string,
+  tipo: "consultar" | "criar" | "editar" | "excluir"
+) {
   const perms = usePerm();
   return !!perms?.[slug]?.[tipo];
 }

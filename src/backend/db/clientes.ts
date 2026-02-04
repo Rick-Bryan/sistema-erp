@@ -22,7 +22,7 @@ export async function criarCliente({ nome, email, telefone, endereco }) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "clientes",
-      acao: "usar",
+      acao: "criar",
     });
 
     const [result] = await pool.query(
@@ -51,7 +51,7 @@ export async function atualizarCliente({ id, nome, email, telefone, endereco }) 
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "clientes",
-      acao: "usar",
+      acao: "editar",
     });
 
     await pool.query(
@@ -78,7 +78,7 @@ export async function deletarCliente(id) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "clientes",
-      acao: "usar",
+      acao: "excluir",
     });
 
     await pool.query('DELETE FROM clientes WHERE id = ?', [id]);

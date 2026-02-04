@@ -21,7 +21,7 @@ export async function criarFabricante(fabricante: Fabricante) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "fabricantes",
-      acao: "usar",
+      acao: "criar",
     });
     const sql = `
         INSERT INTO produto_fabricante (NomeFabricante, Ativo)
@@ -58,7 +58,7 @@ export async function salvarFabricante(fabricante: Fabricante) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "fabricantes",
-      acao: "usar",
+      acao: "editar",
     });
 
     if (fabricante.CodigoFabricante) {

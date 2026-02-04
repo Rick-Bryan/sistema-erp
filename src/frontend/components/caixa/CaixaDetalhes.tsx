@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { Button, Card, CardContent, Dialog, DialogTitle, DialogContent, TextField, DialogActions } from "@mui/material";
 import toast from "react-hot-toast";
+import { toastErro } from "../helpers/toastErro";
 
 interface CaixaDetalhesProps {
   caixa: number;
@@ -36,17 +37,22 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
   async function salvarSangria() {
     if (!valorSangria) return toast.error("Informe o valor!");
 
-    await window.electronAPI.addMovimentosCaixa({
-      usuario_id: dados.usuario_id,
-      caixa_id: dados.id,
-      tipo: "saida",
-      valor: Number(valorSangria),
-      descricao: motivoSangria || "Sangria"
-    });
+    try {
+      await window.electronAPI.addMovimentosCaixa({
+        usuario_id: dados.usuario_id,
+        caixa_id: dados.id,
+        tipo: "saida",
+        valor: Number(valorSangria),
+        descricao: motivoSangria || "Sangria"
 
-    toast.success("Sangria registrada!");
-    carregarMovimentos();
-    carregarResumo();
+      });
+      toast.success("Sangria registrada!");
+      carregarMovimentos();
+      carregarResumo();
+    } catch (error) {
+      toastErro(error)
+    }
+
   }
 
   console.log("DADOS ", dados)
@@ -57,6 +63,37 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
     setColaborador(c);
   }
 
+
+  async function fecharCaixa() {
+    if (!valorContado) {
+      toast.error("Informe o valor contado!");
+      return;
+    }
+
+    const temDiferenca =
+      Number(valorContado) !== Number(resumo.saldo_esperado);
+
+    if (temDiferenca && !motivoDiferenca) {
+      toast.error("Explique o motivo da diferença!");
+      return;
+    }
+    try {
+      await window.electronAPI.fecharCaixa({
+        caixa_id: dados.id,
+        valor_fechamento_informado: Number(valorContado),
+        motivo_diferenca: motivoDiferenca || null,
+        empresa_id: usuarioLogado.empresa_id
+      });
+
+      toast.success("Caixa fechado com sucesso!");
+      voltar();
+
+    } catch (error) {
+      toastErro(error)
+    }
+  }
+
+  
   useEffect(() => {
     carregarColaborador();
   }, [dados]);
@@ -248,30 +285,7 @@ export default function CaixaDetalhes({ caixa, voltar }: CaixaDetalhesProps) {
                 variant="contained"
                 color="error"
                 style={{ marginTop: 20, width: "100%" }}
-                onClick={async () => {
-                  if (!valorContado) {
-                    toast.error("Informe o valor contado!");
-                    return;
-                  }
-
-                  const temDiferenca =
-                    Number(valorContado) !== Number(resumo.saldo_esperado);
-
-                  if (temDiferenca && !motivoDiferenca) {
-                    toast.error("Explique o motivo da diferença!");
-                    return;
-                  }
-
-                  await window.electronAPI.fecharCaixa({
-                    caixa_id: dados.id,
-                    valor_fechamento_informado: Number(valorContado),
-                    motivo_diferenca: motivoDiferenca || null,
-                    empresa_id: usuarioLogado.empresa_id
-                  });
-
-                  toast.success("Caixa fechado com sucesso!");
-                  voltar();
-                }}
+                onClick={fecharCaixa}
               >
                 Fechar Caixa
               </Button>

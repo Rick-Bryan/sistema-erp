@@ -51,7 +51,9 @@ export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps
             res.forEach(p => {
                 map[p.submodulo_id] = {
                     consultar: !!p.pode_consultar,
-                    usar: !!p.pode_usar
+                    criar: !!p.pode_criar,
+                    editar: !!p.pode_editar,
+                    excluir: !!p.pode_excluir,
                 };
             });
             setPermissoes(map);
@@ -89,7 +91,9 @@ export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps
                         modulo_id: m.id,
                         submodulo_id: s.id,
                         pode_consultar: p.consultar ? 1 : 0,
-                        pode_usar: p.usar ? 1 : 0,
+                        pode_criar: p.criar ? 1 : 0,
+                        pode_editar: p.editar ? 1 : 0,
+                        pode_excluir: p.excluir ? 1 : 0
                     });
                 });
             });
@@ -100,6 +104,7 @@ export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps
                 usuario_id: Number(usuarioId),
                 permissoes: payload
             });
+            console.log("PAYLOAD", payload)
             // 🔄 recarrega permissões do usuário logado
             const novas = await window.ipcRenderer.invoke("permissoes:listar", Number(usuarioId));
 
@@ -108,12 +113,14 @@ export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps
             novas.forEach(p => {
                 map[p.submodulo_id] = {
                     consultar: !!p.pode_consultar,
-                    usar: !!p.pode_usar,
+                    criar: !!p.pode_criar,
+                    editar: !!p.pode_editar,
+                    excluir: !!p.pode_excluir,
                 };
             });
 
             console.log("NOVAS PERMS:", novas);
-            console.log("verify:", verifyPerm("compras", "consultar"));
+
 
             // ✅ atualiza cache global usado pelo sistema
             // ✅ mantém os checkboxes
@@ -131,20 +138,32 @@ export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps
 
     };
 
-    const marcarTodosModulo = (modulo: any, tipo: "consultar" | "usar" | "ambos", valor: boolean) => {
+    const marcarTodosModulo = (
+        modulo: any,
+        tipo: "consultar" | "criar" | "editar" | "excluir" | "todos",
+        valor: boolean
+    ) => {
         setPermissoes(prev => {
             const copia = { ...prev };
 
             modulo.submodulos.forEach((s: any) => {
+                const atual = copia[s.id] || {};
+
                 copia[s.id] = {
-                    consultar: tipo === "usar" ? copia[s.id]?.consultar : valor,
-                    usar: tipo === "consultar" ? copia[s.id]?.usar : valor,
+                    consultar: tipo === "todos" || tipo === "consultar" ? valor : !!atual.consultar,
+                    criar: tipo === "todos" || tipo === "criar" ? valor : !!atual.criar,
+                    editar: tipo === "todos" || tipo === "editar" ? valor : !!atual.editar,
+                    excluir: tipo === "todos" || tipo === "excluir" ? valor : !!atual.excluir,
                 };
             });
 
             return copia;
         });
     };
+
+
+
+
 
     return (
         <div style={pageContainer}>
@@ -164,7 +183,7 @@ export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps
                 ← Voltar
             </button>
             <h2 style={titulo}>Definições de Acesso</h2>
-            
+
             <div style={card}>
                 {/* filtros */}
                 <div style={gridFiltros}>
@@ -201,7 +220,7 @@ export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps
                                     <button
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            marcarTodosModulo(m, "ambos", true);
+                                            marcarTodosModulo(m, "todos", true);
                                         }}
                                         style={btnMini}
                                     >
@@ -211,7 +230,7 @@ export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps
                                     <button
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            marcarTodosModulo(m, "ambos", false);
+                                            marcarTodosModulo(m, "todos", false);
                                         }}
                                         style={btnMini}
                                     >
@@ -231,14 +250,37 @@ export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps
                                     <button
                                         onClick={(e) => {
                                             e.preventDefault();
-                                            marcarTodosModulo(m, "usar", true);
+                                            marcarTodosModulo(m, "criar", true);
                                         }}
                                         style={btnMini}
                                     >
-                                        Usar
+                                        Criar
                                     </button>
+
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            marcarTodosModulo(m, "editar", true);
+                                        }}
+                                        style={btnMini}
+                                    >
+                                        Editar
+                                    </button>
+
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            marcarTodosModulo(m, "excluir", true);
+                                        }}
+                                        style={btnMini}
+                                    >
+                                        Excluir
+                                    </button>
+
+
                                 </div>
                             </summary>
+
 
 
                             <div style={accordionBody}>
@@ -249,36 +291,31 @@ export default function DefinicoesDeAcesso({ abrirAba, voltar }: DefinicoesProps
                                     return (
                                         <div key={s.id} style={linhaPermissao}>
                                             <span style={nomeSub}>{s.nome}</span>
+                                            <div style={acoesGrid}>
+                                                {["consultar", "criar", "editar", "excluir"].map(acao => (
+                                                    <label key={acao} style={checkItem}>
+                                                        <input
+                                                            type="checkbox"
+                                                            disabled={bloqueado}
+                                                            checked={bloqueado ? true : !!permissoes[s.id]?.[acao]}
+                                                            onChange={() =>
+                                                                setPermissoes(p => ({
+                                                                    ...p,
+                                                                    [s.id]: {
+                                                                        consultar: p[s.id]?.consultar ?? false,
+                                                                        criar: p[s.id]?.criar ?? false,
+                                                                        editar: p[s.id]?.editar ?? false,
+                                                                        excluir: p[s.id]?.excluir ?? false,
+                                                                        [acao]: !(p[s.id]?.[acao] ?? false),
+                                                                    },
+                                                                }))
+                                                            }
 
-                                            <label style={checkItem}>
-                                                <input
-                                                    type="checkbox"
-                                                    disabled={bloqueado} // 🔒 não permite alterar
-                                                    checked={bloqueado ? true : !!permissoes[s.id]?.consultar} // ✅ sempre marcado
-                                                    onChange={() =>
-                                                        setPermissoes(p => ({
-                                                            ...p,
-                                                            [s.id]: { ...p[s.id], consultar: !p[s.id]?.consultar }
-                                                        }))
-                                                    }
-                                                />
-                                                Consultar
-                                            </label>
-
-                                            <label style={checkItem}>
-                                                <input
-                                                    type="checkbox"
-                                                    disabled={bloqueado} // 🔒 não permite alterar
-                                                    checked={bloqueado ? true : !!permissoes[s.id]?.usar} // ✅ sempre marcado
-                                                    onChange={() =>
-                                                        setPermissoes(p => ({
-                                                            ...p,
-                                                            [s.id]: { ...p[s.id], usar: !p[s.id]?.usar }
-                                                        }))
-                                                    }
-                                                />
-                                                Usar
-                                            </label>
+                                                        />
+                                                        {acao.charAt(0).toUpperCase() + acao.slice(1)}
+                                                    </label>
+                                                ))}
+                                            </div>
 
 
                                             {bloqueado && (
@@ -317,6 +354,12 @@ const titulo: React.CSSProperties = {
     fontWeight: 700,
     marginBottom: 16,
     color: "#1e3a8a"
+};
+const acoesGrid: React.CSSProperties = {
+    display: "grid",
+    gridTemplateColumns: "repeat(2, auto)",
+    gap: "6px 16px",
+    justifyContent: "start"
 };
 const acoesHeader: React.CSSProperties = {
     display: "flex",
@@ -370,11 +413,13 @@ const accordionBody: React.CSSProperties = {
 
 const linhaPermissao: React.CSSProperties = {
     display: "grid",
-    gridTemplateColumns: "1fr 120px 120px",
+    gridTemplateColumns: "1fr auto",
     alignItems: "center",
     padding: "8px 0",
-    borderBottom: "1px solid #e5e7eb"
+    borderBottom: "1px solid #e5e7eb",
+    columnGap: 20
 };
+
 
 const nomeSub: React.CSSProperties = {
     fontWeight: 500

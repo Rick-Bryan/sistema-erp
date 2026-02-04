@@ -33,7 +33,7 @@ export default function CarteiraDigital({ abrirAba, voltar }: Props) {
     async function criarConta() {
         try {
             await window.ipcRenderer.invoke(
-                "financeiro:cadastrar-conta",
+                "carteira-digital:cadastrar-conta",
                 novaConta
             );
             if (!novaConta.empresa_id) {

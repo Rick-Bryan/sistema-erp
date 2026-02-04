@@ -18,15 +18,29 @@ export async function listarColaboradores() {
  * Cria um novo colaborador
  */
 export async function criarColaborador({ nome, email, senha, nivel, setor, ativo = 1 }) {
-  const senhaHash = await bcrypt.hash(senha, 10);
+  try {
 
-  const [result] = await pool.query(
-    `INSERT INTO usuarios (nome, email, senha, nivel, setor, ativo, criado_em)
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "colaboradores",
+      acao: "criar"
+    });
+
+    const senhaHash = await bcrypt.hash(senha, 10);
+
+    const [result] = await pool.query(
+      `INSERT INTO usuarios (nome, email, senha, nivel, setor, ativo, criado_em)
      VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-    [nome, email, senhaHash, nivel || 'comum', setor, ativo]
-  );
+      [nome, email, senhaHash, nivel || 'comum', setor, ativo]
+    );
 
-  return { id: result.insertId };
+    return { id: result.insertId };
+  } catch (error) {
+    throw error
+  }
+
 }
 /**
  * Retorna um colaborador específico pelo ID
@@ -47,11 +61,25 @@ export async function getColaboradorById(id) {
  * Atualiza um colaborador existente
  */
 export async function atualizarColaborador({ id, nome, email, nivel, setor, ativo }) {
-  await pool.query(
-    'UPDATE usuarios SET nome = ?, email = ?, nivel = ?, setor = ?, ativo = ? WHERE id = ?',
-    [nome, email, nivel, setor, ativo, id]
-  );
-  return true;
+  try {
+
+    const usuario = global.usuarioLogado.id;
+
+    await checkPermissaoPorSlug({
+      usuario_id: usuario,
+      slug: "colaboradores",
+      acao: "editar"
+    });
+
+    await pool.query(
+      'UPDATE usuarios SET nome = ?, email = ?, nivel = ?, setor = ?, ativo = ? WHERE id = ?',
+      [nome, email, nivel, setor, ativo, id]
+    );
+    return true;
+  } catch (error) {
+    throw error
+  }
+
 }
 
 
@@ -66,7 +94,7 @@ export async function deletarColaborador(id) {
     await checkPermissaoPorSlug({
       usuario_id: usuario,
       slug: "colaboradores",
-      acao: "usar",
+      acao: "excluir",
     });
     await pool.query('DELETE FROM usuarios WHERE id = ?', [id]);
     return true;

@@ -131,8 +131,6 @@ export default function OrcamentoDetalhes({ onClose, refresh, orcamento }: Orcam
                     </>
                 )}
 
-
-
                 <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
                     <Button variant="contained" color="primary" style={{ flex: 1 }} >Salvar</Button>
                     <Button variant="outlined" color="inherit" style={{ flex: 1 }} onClick={onClose}>Cancelar</Button>
