@@ -506,8 +506,6 @@ ipcMain.handle('caixa:fechar', async (_, payload) => {
   return await fecharCaixa(payload);
 });
 
-
-
 //ESTOQUE
 
 ipcMain.handle('estoque:entrada', async (event, payload) => {
